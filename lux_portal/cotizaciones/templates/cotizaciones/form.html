@@ -1,0 +1,781 @@
+{% extends 'cotizaciones/base_freightwise.html' %}
+
+{% block title %}{{ 'Editar' if cotizacion else 'Nueva' }} Cotizacion - FreightWise{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">
+                <i class="bi bi-file-earmark-plus text-primary"></i>
+                {{ 'Editar Cotizacion #' ~ cotizacion.id if cotizacion else 'Nueva Cotizacion' }}
+            </h2>
+            <a href="{{ url_for('cotizaciones.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Volver
+            </a>
+        </div>
+    </div>
+</div>
+
+<form id="cotizacionForm">
+    {% if cotizacion %}
+    <input type="hidden" id="cotizacionId" value="{{ cotizacion.id }}">
+    {% endif %}
+
+    <!-- Informacion General -->
+    <div class="card mb-4 fade-in">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Informacion General</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Contacto FreightWise</label>
+                    <input type="text" class="form-control" id="contactoNombre"
+                           value="{{ cotizacion.contacto_nombre if cotizacion else 'Daniela Echeverria' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="contactoEmail"
+                           value="{{ cotizacion.contacto_email if cotizacion else 'daniela.echeverria@freight-wise.com' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Valido Desde (mm/dd/yyyy)</label>
+                    <input type="text" class="form-control" id="validFrom"
+                           value="{{ cotizacion.valid_from if cotizacion else '' }}"
+                           placeholder="01/15/2025">
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Mercancia / Commodity</label>
+                    <input type="text" class="form-control" id="mercancia"
+                           value="{{ cotizacion.mercancia if cotizacion else 'FRESH CUT FLOWERS' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Customer</label>
+                    <input type="text" class="form-control" id="customer"
+                           value="{{ cotizacion.customer if cotizacion else '' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">ATTN</label>
+                    <input type="text" class="form-control" id="attn"
+                           value="{{ cotizacion.attn if cotizacion else '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Origen (IATA)</label>
+                    <input type="text" class="form-control" id="origen" maxlength="3"
+                           value="{{ cotizacion.origen if cotizacion else '' }}"
+                           placeholder="UIO" style="text-transform: uppercase;">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Destino (IATA)</label>
+                    <input type="text" class="form-control" id="destino" maxlength="3"
+                           value="{{ cotizacion.destino if cotizacion else '' }}"
+                           placeholder="AMS" style="text-transform: uppercase;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aerolineas Section -->
+    <div class="card mb-4 fade-in">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-airplane me-2"></i>Aerolineas</h5>
+            <button type="button" class="btn btn-light btn-sm" onclick="agregarAerolinea()">
+                <i class="bi bi-plus-circle me-1"></i>Agregar Aerolinea
+            </button>
+        </div>
+        <div class="card-body" id="aerolineasContainer">
+            <!-- Aerolineas se agregan dinamicamente aqui -->
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="card fade-in">
+        <div class="card-body">
+            <div class="d-flex justify-content-between">
+                <button type="button" class="btn btn-outline-secondary" onclick="location.href='{{ url_for('cotizaciones.dashboard') }}'">
+                    <i class="bi bi-x-circle me-2"></i>Cancelar
+                </button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-primary" onclick="guardarCotizacion()">
+                        <i class="bi bi-save me-2"></i>Guardar
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="guardarYDescargar('excel')">
+                        <i class="bi bi-file-earmark-excel me-2"></i>Descargar Excel
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="guardarYDescargar('pdf')">
+                        <i class="bi bi-file-earmark-pdf me-2"></i>Descargar PDF
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="guardarYDescargar('ambos')">
+                        <i class="bi bi-files me-2"></i>Ambos
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Template para Aerolinea -->
+<template id="aerolineaTemplate">
+    <div class="aerolinea-card" data-aerolinea-index="">
+        <div class="card-header d-flex justify-content-between align-items-center"
+             onclick="toggleAerolinea(this)">
+            <span class="aerolinea-title">
+                <i class="bi bi-airplane-fill me-2"></i>
+                <span class="aerolinea-nombre">Nueva Aerolinea</span>
+            </span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-light text-dark rutas-badge">0 rutas</span>
+                <button type="button" class="btn btn-sm btn-outline-light"
+                        onclick="event.stopPropagation(); eliminarAerolinea(this)">
+                    <i class="bi bi-trash"></i>
+                </button>
+                <i class="bi bi-chevron-down collapse-icon"></i>
+            </div>
+        </div>
+        <div class="card-body aerolinea-body">
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Seleccionar Aerolinea</label>
+                    <select class="form-select aerolinea-select" onchange="actualizarNombreAerolinea(this)">
+                        <option value="">Seleccionar...</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Nombre Final</label>
+                    <input type="text" class="form-control aerolinea-custom"
+                           placeholder="Escribir o modificar nombre"
+                           oninput="actualizarNombreDesdeInput(this)">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tipo de Vuelo</label>
+                    <select class="form-select vuelo-tipo">
+                        <option value="FREIGHTER">FREIGHTER</option>
+                        <option value="PAX">PAX</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Horario Fincas Entrega</label>
+                    <input type="text" class="form-control farms-horario" value="16:00-22:30">
+                </div>
+            </div>
+
+            <!-- Itinerarios Container -->
+            <div class="itinerarios-container">
+                <!-- Itinerarios se agregan aqui -->
+            </div>
+
+            <button type="button" class="btn btn-outline-primary btn-sm mt-2"
+                    onclick="agregarItinerario(this)">
+                <i class="bi bi-plus-circle me-1"></i>Agregar Ruta/Itinerario
+            </button>
+        </div>
+    </div>
+</template>
+
+<!-- Template para Itinerario -->
+<template id="itinerarioTemplate">
+    <div class="itinerario-card" data-itinerario-index="">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>
+                <i class="bi bi-signpost-split me-2"></i>
+                Ruta #<span class="itinerario-num">1</span>
+            </span>
+            <button type="button" class="btn btn-sm btn-outline-light"
+                    onclick="eliminarItinerario(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <!-- Itinerario -->
+                <div class="col-md-6">
+                    <label class="form-label">Itinerario</label>
+                    <input type="text" class="form-control itinerario-ruta"
+                           placeholder="UIO-PTY-AMS" style="text-transform: uppercase;">
+                </div>
+                <!-- Transit Time -->
+                <div class="col-md-3">
+                    <label class="form-label">Tiempo Transito</label>
+                    <select class="form-select transit-time">
+                        <option value="1-2D">1-2D</option>
+                        <option value="2-3D" selected>2-3D</option>
+                        <option value="3-4D">3-4D</option>
+                        <option value="4-5D">4-5D</option>
+                        <option value="5-6D">5-6D</option>
+                        <option value="6-7D">6-7D</option>
+                        <option value="7-8D">7-8D</option>
+                        <option value="8-9D">8-9D</option>
+                        <option value="9-10D">9-10D</option>
+                        <option value="10+D">10+D</option>
+                    </select>
+                </div>
+
+                <!-- Departure Days -->
+                <div class="col-12">
+                    <label class="form-label">Dias de Salida (DEPARTURE)</label>
+                    <div class="d-flex flex-wrap gap-2 departure-days">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="LUN" id="">
+                            <label class="form-check-label">LUN</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="MAR" id="">
+                            <label class="form-check-label">MAR</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="MIE" id="">
+                            <label class="form-check-label">MIE</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="JUE" id="">
+                            <label class="form-check-label">JUE</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="VIE" id="">
+                            <label class="form-check-label">VIE</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="SAB" id="">
+                            <label class="form-check-label">SAB</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="DOM" id="">
+                            <label class="form-check-label">DOM</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Horarios -->
+                <div class="col-md-4">
+                    <label class="form-label">Horario Salida</label>
+                    <input type="text" class="form-control departure-time" placeholder="12:00">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Horario Llegada</label>
+                    <input type="text" class="form-control arrival-time" placeholder="19:25">
+                </div>
+
+                <!-- KG y Rates -->
+                <div class="col-12">
+                    <label class="form-label">KG y Tarifas</label>
+                    <div class="kg-rates-container">
+                        <!-- KG/Rate rows go here -->
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2"
+                            onclick="agregarKgRate(this)">
+                        <i class="bi bi-plus me-1"></i>Agregar Rango KG
+                    </button>
+                </div>
+
+                <!-- Cargos Adicionales -->
+                <div class="col-12">
+                    <label class="form-label">Cargos Adicionales</label>
+                    <div class="cargos-container">
+                        <!-- Cargos go here -->
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2"
+                            onclick="agregarCargoPersonalizado(this)">
+                        <i class="bi bi-plus me-1"></i>Agregar Cargo Personalizado
+                    </button>
+                </div>
+
+                <!-- Notas -->
+                <div class="col-12">
+                    <label class="form-label">Notas</label>
+                    <textarea class="form-control notas-text" rows="2"
+                              placeholder="DGR fee: $135 + $80 per UN..."></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Template para KG/Rate Row -->
+<template id="kgRateTemplate">
+    <div class="kg-rate-row d-flex align-items-center gap-2">
+        <div class="flex-grow-1">
+            <label class="form-label small mb-1">KG</label>
+            <input type="text" class="form-control form-control-sm kg-input" value="+100">
+        </div>
+        <div class="flex-grow-1">
+            <label class="form-label small mb-1">Tarifa Base</label>
+            <input type="number" step="0.01" class="form-control form-control-sm rate-input" value="0.00">
+        </div>
+        <div class="flex-grow-1">
+            <label class="form-label small mb-1">Ganancia</label>
+            <input type="number" step="0.01" class="form-control form-control-sm margin-input" value="0.00">
+        </div>
+        <div class="flex-grow-1">
+            <label class="form-label small mb-1">Costo Op.</label>
+            <input type="number" step="0.01" class="form-control form-control-sm costo-op-input" value="0.00">
+        </div>
+        <div class="flex-grow-1">
+            <label class="form-label small mb-1">Precio Final</label>
+            <span class="precio-final badge bg-primary">$ 0.00</span>
+        </div>
+        <button type="button" class="btn btn-outline-danger btn-sm align-self-end"
+                onclick="eliminarKgRate(this)">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>
+</template>
+
+<!-- Template para Cargo -->
+<template id="cargoTemplate">
+    <div class="cargo-row">
+        <input class="form-check-input cargo-check" type="checkbox">
+        <input type="text" class="form-control form-control-sm cargo-concepto" style="flex: 2;">
+        <span>$</span>
+        <input type="number" step="0.01" class="form-control form-control-sm cargo-monto" style="width: 100px;">
+        <button type="button" class="btn btn-outline-danger btn-sm cargo-delete d-none"
+                onclick="eliminarCargo(this)">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Datos globales
+let aerolineasLista = [];
+let cargosComunes = [];
+let aerolineasData = {{ aerolineas | tojson | safe if aerolineas else '[]' }};
+
+// Cargar datos al iniciar
+document.addEventListener('DOMContentLoaded', async function() {
+    // Cargar lista de aerolineas
+    const respAero = await fetch('/cotizaciones/api/aerolineas');
+    aerolineasLista = await respAero.json();
+
+    // Cargar cargos comunes
+    const respCargos = await fetch('/cotizaciones/api/cargos');
+    cargosComunes = await respCargos.json();
+
+    // Si hay datos existentes, cargarlos
+    if (aerolineasData && aerolineasData.length > 0) {
+        cargarAerolineasExistentes();
+    }
+});
+
+function cargarAerolineasExistentes() {
+    const agrupadas = {};
+    aerolineasData.forEach(aero => {
+        const nombre = aero.aerolinea;
+        if (!agrupadas[nombre]) {
+            agrupadas[nombre] = {
+                aerolinea: nombre,
+                vuelo: aero.vuelo,
+                granjas_horario: aero.granjas_entrega ? aero.granjas_entrega.split('\n').pop() : '16:00-22:30',
+                itinerarios: []
+            };
+        }
+        agrupadas[nombre].itinerarios.push({
+            itinerario: aero.itinerario,
+            tiempo_transito: aero.tiempo_transito,
+            salida: aero.salida,
+            llegada: aero.llegada,
+            kg_rates: aero.kg_rates || [],
+            cargos_adicionales: aero.cargos_adicionales || [],
+            notas: aero.notas
+        });
+    });
+    Object.values(agrupadas).forEach(aeroData => {
+        agregarAerolinea(aeroData);
+    });
+}
+
+function agregarAerolinea(datosExistentes = null) {
+    const container = document.getElementById('aerolineasContainer');
+    const template = document.getElementById('aerolineaTemplate');
+    const clone = template.content.cloneNode(true);
+
+    const card = clone.querySelector('.aerolinea-card');
+    const index = container.querySelectorAll('.aerolinea-card').length;
+    card.dataset.aerolineaIndex = index;
+
+    const select = clone.querySelector('.aerolinea-select');
+    const nuevaOption = document.createElement('option');
+    nuevaOption.value = '__NUEVA__';
+    nuevaOption.textContent = '+ Agregar nueva...';
+    select.appendChild(nuevaOption);
+    aerolineasLista.forEach(aero => {
+        const option = document.createElement('option');
+        option.value = aero;
+        option.textContent = aero;
+        select.appendChild(option);
+    });
+
+    container.appendChild(clone);
+
+    if (datosExistentes) {
+        const cardElement = container.lastElementChild;
+        const selectEl = cardElement.querySelector('.aerolinea-select');
+        const customInput = cardElement.querySelector('.aerolinea-custom');
+        const nombreSpan = cardElement.querySelector('.aerolinea-nombre');
+
+        if (aerolineasLista.includes(datosExistentes.aerolinea)) {
+            selectEl.value = datosExistentes.aerolinea;
+        }
+        customInput.value = datosExistentes.aerolinea;
+        nombreSpan.textContent = datosExistentes.aerolinea;
+        cardElement.querySelector('.vuelo-tipo').value = datosExistentes.vuelo || 'FREIGHTER';
+        cardElement.querySelector('.farms-horario').value = datosExistentes.granjas_horario || '16:00-22:30';
+
+        datosExistentes.itinerarios.forEach((itin, idx) => {
+            if (idx === 0) {
+                agregarItinerario(cardElement.querySelector('.itinerarios-container').closest('.card-body').querySelector('button'));
+                cargarDatosItinerario(cardElement.querySelector('.itinerario-card'), itin);
+            } else {
+                agregarItinerario(cardElement.querySelector('.itinerarios-container').closest('.card-body').querySelector('button'));
+                const itinCards = cardElement.querySelectorAll('.itinerario-card');
+                cargarDatosItinerario(itinCards[itinCards.length - 1], itin);
+            }
+        });
+    } else {
+        const addedCard = container.lastElementChild;
+        agregarItinerario(addedCard.querySelector('.itinerarios-container').closest('.card-body').querySelector('button'));
+    }
+
+    actualizarContadorRutas(container.lastElementChild);
+}
+
+function cargarDatosItinerario(itinCard, datos) {
+    itinCard.querySelector('.itinerario-ruta').value = datos.itinerario || '';
+    itinCard.querySelector('.transit-time').value = datos.tiempo_transito || '2-3D';
+
+    if (datos.salida) {
+        const lineas = datos.salida.split('\n');
+        const diasTexto = lineas[0] || '';
+        const dias = diasTexto.split(/[,\s]+/).filter(d => d);
+        dias.forEach(dia => {
+            const checkbox = itinCard.querySelector(`.departure-days input[value="${dia.toUpperCase()}"]`);
+            if (checkbox) checkbox.checked = true;
+        });
+        if (lineas.length > 1) {
+            itinCard.querySelector('.departure-time').value = lineas[1];
+        }
+    }
+
+    if (datos.llegada) {
+        const lineas = datos.llegada.split('\n');
+        if (lineas.length > 1) {
+            itinCard.querySelector('.arrival-time').value = lineas[1];
+        }
+    }
+
+    const kgRatesContainer = itinCard.querySelector('.kg-rates-container');
+    kgRatesContainer.innerHTML = '';
+    if (datos.kg_rates && datos.kg_rates.length > 0) {
+        datos.kg_rates.forEach(kr => {
+            agregarKgRate(kgRatesContainer.closest('.col-12').querySelector('button'), kr);
+        });
+    } else {
+        agregarKgRate(kgRatesContainer.closest('.col-12').querySelector('button'));
+    }
+
+    const cargosContainer = itinCard.querySelector('.cargos-container');
+    cargosContainer.innerHTML = '';
+    cargarCargosEnItinerario(itinCard, datos.cargos_adicionales || []);
+
+    itinCard.querySelector('.notas-text').value = datos.notas || '';
+}
+
+function agregarItinerario(btn) {
+    const aeroCard = btn.closest('.aerolinea-card');
+    const container = aeroCard.querySelector('.itinerarios-container');
+    const template = document.getElementById('itinerarioTemplate');
+    const clone = template.content.cloneNode(true);
+
+    const card = clone.querySelector('.itinerario-card');
+    const index = container.querySelectorAll('.itinerario-card').length;
+    card.dataset.itinerarioIndex = index;
+    card.querySelector('.itinerario-num').textContent = index + 1;
+
+    container.appendChild(clone);
+
+    const addedCard = container.lastElementChild;
+    agregarKgRate(addedCard.querySelector('.kg-rates-container').closest('.col-12').querySelector('button'));
+    cargarCargosEnItinerario(addedCard, []);
+    actualizarContadorRutas(aeroCard);
+}
+
+function cargarCargosEnItinerario(itinCard, cargosExistentes) {
+    const container = itinCard.querySelector('.cargos-container');
+    container.innerHTML = '';
+
+    const cargosExistentesMap = {};
+    cargosExistentes.forEach(c => {
+        cargosExistentesMap[c.concepto.toLowerCase()] = c;
+    });
+
+    cargosComunes.forEach(cargo => {
+        const existente = cargosExistentesMap[cargo.concepto.toLowerCase()];
+        agregarCargo(container, cargo.concepto, existente ? existente.monto : cargo.monto, !!existente, false);
+        if (existente) delete cargosExistentesMap[cargo.concepto.toLowerCase()];
+    });
+
+    Object.values(cargosExistentesMap).forEach(cargo => {
+        agregarCargo(container, cargo.concepto, cargo.monto, true, true);
+    });
+}
+
+function agregarCargo(container, concepto, monto, checked, esPersonalizado) {
+    const template = document.getElementById('cargoTemplate');
+    const clone = template.content.cloneNode(true);
+
+    const row = clone.querySelector('.cargo-row');
+    row.querySelector('.cargo-concepto').value = concepto;
+    row.querySelector('.cargo-monto').value = monto;
+    row.querySelector('.cargo-check').checked = checked;
+
+    if (esPersonalizado) {
+        row.querySelector('.cargo-delete').classList.remove('d-none');
+    }
+
+    container.appendChild(clone);
+}
+
+function agregarCargoPersonalizado(btn) {
+    const container = btn.closest('.col-12').querySelector('.cargos-container');
+    agregarCargo(container, '', '0.00', true, true);
+}
+
+function eliminarCargo(btn) {
+    btn.closest('.cargo-row').remove();
+}
+
+function agregarKgRate(btn, datos = null) {
+    const container = btn.closest('.col-12').querySelector('.kg-rates-container');
+    const template = document.getElementById('kgRateTemplate');
+    const clone = template.content.cloneNode(true);
+
+    const row = clone.querySelector('.kg-rate-row');
+
+    if (datos) {
+        row.querySelector('.kg-input').value = datos.kg || '+100';
+        row.querySelector('.rate-input').value = datos.tarifa || '0.00';
+        row.querySelector('.margin-input').value = datos.margen || '0.00';
+        row.querySelector('.costo-op-input').value = datos.costo_operativo || '0.00';
+    }
+
+    const inputs = clone.querySelectorAll('.rate-input, .margin-input, .costo-op-input');
+    inputs.forEach(input => {
+        input.addEventListener('input', () => calcularPrecioFinal(row));
+    });
+
+    container.appendChild(clone);
+    calcularPrecioFinal(container.lastElementChild);
+}
+
+function eliminarKgRate(btn) {
+    const container = btn.closest('.kg-rates-container');
+    if (container.querySelectorAll('.kg-rate-row').length > 1) {
+        btn.closest('.kg-rate-row').remove();
+    } else {
+        alert('Debe haber al menos un rango de KG');
+    }
+}
+
+function calcularPrecioFinal(row) {
+    const rate = parseFloat(row.querySelector('.rate-input').value) || 0;
+    const margin = parseFloat(row.querySelector('.margin-input').value) || 0;
+    const costoOp = parseFloat(row.querySelector('.costo-op-input').value) || 0;
+    const total = rate + margin + costoOp;
+    row.querySelector('.precio-final').textContent = `$ ${total.toFixed(2)}`;
+}
+
+function actualizarNombreAerolinea(select) {
+    const card = select.closest('.aerolinea-card');
+    const customInput = card.querySelector('.aerolinea-custom');
+    const nombreSpan = card.querySelector('.aerolinea-nombre');
+
+    if (select.value === '__NUEVA__') {
+        customInput.value = '';
+        customInput.placeholder = 'Escribir nombre de aerolinea...';
+        customInput.focus();
+        nombreSpan.textContent = 'Nueva Aerolinea';
+        select.value = '';
+    } else if (select.value && select.value !== '') {
+        customInput.value = select.value;
+        nombreSpan.textContent = select.value;
+    }
+}
+
+function actualizarNombreDesdeInput(input) {
+    const card = input.closest('.aerolinea-card');
+    const nombreSpan = card.querySelector('.aerolinea-nombre');
+    nombreSpan.textContent = input.value || 'Nueva Aerolinea';
+}
+
+function actualizarContadorRutas(aeroCard) {
+    const count = aeroCard.querySelectorAll('.itinerario-card').length;
+    aeroCard.querySelector('.rutas-badge').textContent = `${count} ruta${count !== 1 ? 's' : ''}`;
+}
+
+function toggleAerolinea(header) {
+    const body = header.nextElementSibling;
+    const icon = header.querySelector('.collapse-icon');
+    body.classList.toggle('d-none');
+    icon.classList.toggle('bi-chevron-down');
+    icon.classList.toggle('bi-chevron-up');
+}
+
+function eliminarAerolinea(btn) {
+    if (!confirm('Eliminar esta aerolinea?')) return;
+    btn.closest('.aerolinea-card').remove();
+}
+
+function eliminarItinerario(btn) {
+    const aeroCard = btn.closest('.aerolinea-card');
+    const container = aeroCard.querySelector('.itinerarios-container');
+    if (container.querySelectorAll('.itinerario-card').length > 1) {
+        btn.closest('.itinerario-card').remove();
+        container.querySelectorAll('.itinerario-card').forEach((card, idx) => {
+            card.querySelector('.itinerario-num').textContent = idx + 1;
+            card.dataset.itinerarioIndex = idx;
+        });
+        actualizarContadorRutas(aeroCard);
+    } else {
+        alert('Debe haber al menos una ruta por aerolinea');
+    }
+}
+
+function recopilarDatos() {
+    const datos = {
+        id: document.getElementById('cotizacionId')?.value || null,
+        contacto_nombre: document.getElementById('contactoNombre').value,
+        contacto_email: document.getElementById('contactoEmail').value,
+        valid_from: document.getElementById('validFrom').value,
+        mercancia: document.getElementById('mercancia').value.toUpperCase(),
+        customer: document.getElementById('customer').value,
+        attn: document.getElementById('attn').value,
+        origen: document.getElementById('origen').value.toUpperCase(),
+        destino: document.getElementById('destino').value.toUpperCase(),
+        aerolineas: []
+    };
+
+    document.querySelectorAll('.aerolinea-card').forEach(aeroCard => {
+        const customInput = aeroCard.querySelector('.aerolinea-custom');
+        const aerolineaNombre = customInput.value.trim();
+        const vuelo = aeroCard.querySelector('.vuelo-tipo').value;
+        const farmsHorario = aeroCard.querySelector('.farms-horario').value;
+
+        aeroCard.querySelectorAll('.itinerario-card').forEach((itinCard, idx) => {
+            const diasSalida = [];
+            itinCard.querySelectorAll('.departure-days input:checked').forEach(cb => {
+                diasSalida.push(cb.value);
+            });
+
+            const kgRates = [];
+            itinCard.querySelectorAll('.kg-rate-row').forEach(row => {
+                const rate = parseFloat(row.querySelector('.rate-input').value) || 0;
+                const margin = parseFloat(row.querySelector('.margin-input').value) || 0;
+                const costoOp = parseFloat(row.querySelector('.costo-op-input').value) || 0;
+                kgRates.push({
+                    kg: row.querySelector('.kg-input').value,
+                    tarifa: row.querySelector('.rate-input').value,
+                    margen: row.querySelector('.margin-input').value,
+                    costo_operativo: row.querySelector('.costo-op-input').value,
+                    tarifa_cliente: (rate + margin + costoOp).toFixed(2)
+                });
+            });
+
+            const cargos = [];
+            itinCard.querySelectorAll('.cargo-row').forEach(row => {
+                if (row.querySelector('.cargo-check').checked) {
+                    const concepto = row.querySelector('.cargo-concepto').value;
+                    const monto = row.querySelector('.cargo-monto').value;
+                    if (concepto && monto) {
+                        cargos.push({ concepto, monto });
+                    }
+                }
+            });
+
+            const diasMapping = { 'LUN': 0, 'MAR': 1, 'MIE': 2, 'JUE': 3, 'VIE': 4, 'SAB': 5, 'DOM': 6 };
+            const diasSemana = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
+            const diasFarms = diasSalida.map(dia => {
+                const idx = diasMapping[dia];
+                return diasSemana[(idx + 6) % 7];
+            });
+
+            const transitTime = itinCard.querySelector('.transit-time').value;
+            const transitMatch = transitTime.match(/(\d+)-?(\d+)?D/);
+            const transitDias = transitMatch ? parseInt(transitMatch[2] || transitMatch[1]) : 2;
+            const diasLlegada = diasSalida.map(dia => {
+                const idx = diasMapping[dia];
+                return diasSemana[(idx + transitDias) % 7];
+            });
+
+            datos.aerolineas.push({
+                aerolinea: aerolineaNombre,
+                vuelo: vuelo,
+                itinerario: itinCard.querySelector('.itinerario-ruta').value.toUpperCase(),
+                tiempo_transito: transitTime,
+                granjas_entrega: diasFarms.join('\n') + '\n' + farmsHorario,
+                salida: diasSalida.join('\n') + '\n' + itinCard.querySelector('.departure-time').value,
+                llegada: diasLlegada.join('\n') + '\n' + itinCard.querySelector('.arrival-time').value,
+                kg_rates: kgRates,
+                cargos_adicionales: cargos,
+                notas: itinCard.querySelector('.notas-text').value,
+                es_continuacion: idx > 0
+            });
+        });
+    });
+
+    return datos;
+}
+
+async function guardarCotizacion() {
+    const datos = recopilarDatos();
+
+    if (!datos.origen || !datos.destino) {
+        alert('Debe ingresar origen y destino');
+        return null;
+    }
+
+    if (datos.aerolineas.length === 0) {
+        alert('Debe agregar al menos una aerolinea');
+        return null;
+    }
+
+    try {
+        const response = await fetch('/cotizaciones/api/cotizacion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(datos)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert('Cotizacion guardada exitosamente');
+            return result.id;
+        } else {
+            alert('Error: ' + result.error);
+            return null;
+        }
+    } catch (error) {
+        alert('Error al guardar: ' + error);
+        return null;
+    }
+}
+
+async function guardarYDescargar(formato) {
+    const id = await guardarCotizacion();
+    if (id) {
+        if (formato === 'excel') {
+            window.location.href = `/cotizaciones/descargar/${id}?formato=excel`;
+        } else if (formato === 'pdf') {
+            window.location.href = `/cotizaciones/descargar/${id}?formato=pdf`;
+        } else if (formato === 'ambos') {
+            window.location.href = `/cotizaciones/descargar/${id}?formato=excel`;
+            setTimeout(() => {
+                window.location.href = `/cotizaciones/descargar/${id}?formato=pdf`;
+            }, 1000);
+        }
+    }
+}
+</script>
+{% endblock %}

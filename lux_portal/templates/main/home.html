@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block title %}Lux Portal - Centro de Operaciones{% endblock %}
+
+{% block content %}
+<!-- Floating Orbs Background -->
+<div class="floating-orb orb-1"></div>
+<div class="floating-orb orb-2"></div>
+<div class="floating-orb orb-3"></div>
+
+<!-- Hero Section -->
+<div class="lux-hero fade-in">
+    <div class="hero-lines">
+        <div class="hero-line-1"></div>
+        <div class="hero-line-2"></div>
+    </div>
+    <div class="hero-content">
+        <div class="hero-greeting">
+            <span class="greeting-time">{{ greeting }}</span>
+        </div>
+        <h1 class="hero-title">{{ session.get('username', 'Usuario') }}</h1>
+        <p class="hero-subtitle">Bienvenido al centro de operaciones y herramientas empresariales</p>
+    </div>
+    <div class="hero-decoration"></div>
+</div>
+
+<!-- Quick Stats -->
+<div class="stats-row slide-up" style="animation-delay: 0.1s;">
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="bi bi-collection"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-value">{{ modules|length }}</span>
+            <span class="stat-label">Modulos Activos</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon accent">
+            <i class="bi bi-lightning-charge-fill"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-value">100%</span>
+            <span class="stat-label">Sistema Operativo</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon">
+            <i class="bi bi-shield-check"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-value">Seguro</span>
+            <span class="stat-label">Estado de Conexion</span>
+        </div>
+    </div>
+</div>
+
+<!-- Applications Section -->
+<section class="apps-section slide-up" style="animation-delay: 0.2s;">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="bi bi-grid-3x3-gap-fill me-2" style="font-size: 0.9em;"></i>
+            Aplicaciones
+        </h2>
+        <span class="section-badge">{{ modules|length }} disponibles</span>
+    </div>
+
+    <div class="apps-grid">
+        {% for module in modules %}
+        <a href="{{ url_for(module.url) }}" class="app-card" style="--accent-color: {{ module.color }}; animation-delay: {{ loop.index * 0.1 }}s;">
+            <div class="app-icon-wrapper">
+                <div class="app-icon" style="background: {{ module.color }};">
+                    <i class="bi {{ module.icon }}"></i>
+                </div>
+            </div>
+            <div class="app-content">
+                <h3 class="app-title">{{ module.name }}</h3>
+                <p class="app-description">{{ module.description }}</p>
+            </div>
+            <div class="app-arrow">
+                <i class="bi bi-arrow-right"></i>
+            </div>
+        </a>
+        {% endfor %}
+
+        <!-- Coming Soon Card -->
+        <div class="app-card coming-soon">
+            <div class="app-icon-wrapper">
+                <div class="app-icon placeholder">
+                    <i class="bi bi-plus-lg"></i>
+                </div>
+            </div>
+            <div class="app-content">
+                <h3 class="app-title">Proximamente</h3>
+                <p class="app-description">Nuevos modulos en desarrollo</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Footer Info -->
+<footer class="lux-footer fade-in" style="animation-delay: 0.4s;">
+    <div class="footer-content">
+        <span class="footer-brand">Lux Portal</span>
+        <span class="footer-divider"></span>
+        <span class="footer-version">v1.0</span>
+    </div>
+</footer>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Additional page-specific animations */
+    .apps-grid .app-card {
+        animation: slideUp 0.5s ease-out backwards;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}

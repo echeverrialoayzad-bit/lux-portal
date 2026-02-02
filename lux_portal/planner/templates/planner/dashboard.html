@@ -1,0 +1,796 @@
+{% extends 'planner/base_planner.html' %}
+
+{% block title %}Dashboard - Planner{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Quote Card */
+.quote-card {
+    background: var(--gradient-primary);
+    color: white;
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.quote-card::before {
+    content: '"';
+    position: absolute;
+    top: -20px;
+    left: 20px;
+    font-size: 8rem;
+    font-family: 'Playfair Display', serif;
+    opacity: 0.15;
+}
+
+.quote-text {
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.quote-author {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+/* Goal Card */
+.goal-card {
+    border: 2px solid rgba(139, 92, 246, 0.2);
+}
+
+.goal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.goal-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.goal-badge {
+    background: var(--gradient-lavender);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.progress-bar-container {
+    background: rgba(139, 92, 246, 0.1);
+    border-radius: 10px;
+    height: 20px;
+    overflow: hidden;
+    margin: 1rem 0;
+}
+
+.progress-bar-fill {
+    background: var(--gradient-primary);
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 10px;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.subgoals-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0 0;
+}
+
+.subgoal-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.subgoal-item:last-child {
+    border-bottom: none;
+}
+
+.subgoal-checkbox {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--planner-lavender);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.subgoal-checkbox.completed {
+    background: var(--planner-lavender);
+    color: white;
+}
+
+.subgoal-text {
+    flex: 1;
+}
+
+.subgoal-text.completed {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+/* Tasks Section */
+.task-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    border-left: 4px solid;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.task-item:hover {
+    transform: translateX(5px);
+    box-shadow: var(--shadow-sm);
+}
+
+.task-item.priority-high { border-color: var(--priority-high); }
+.task-item.priority-medium { border-color: var(--priority-medium); }
+.task-item.priority-low { border-color: var(--priority-low); }
+
+.task-checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #d1d5db;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.task-checkbox:hover {
+    border-color: var(--planner-lavender);
+}
+
+.task-title {
+    flex: 1;
+    font-weight: 500;
+}
+
+.task-due {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+}
+
+.task-due.overdue {
+    color: var(--priority-high);
+}
+
+/* Week Agenda */
+.week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 12px;
+}
+
+.day-column {
+    background: white;
+    border-radius: 16px;
+    padding: 12px;
+    min-height: 200px;
+}
+
+.day-column.today {
+    border: 2px solid var(--planner-lavender);
+    box-shadow: var(--shadow-md);
+}
+
+.day-header {
+    text-align: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
+}
+
+.day-name {
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+}
+
+.day-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.day-column.today .day-number {
+    color: var(--planner-lavender);
+}
+
+.event-item {
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: white;
+}
+
+.event-item.type-work { background: #F59E0B; }
+.event-item.type-meeting { background: #8B5CF6; }
+.event-item.type-personal { background: #10B981; }
+.event-item.type-reminder { background: #3B82F6; }
+.event-item.type-urgent { background: #EF4444; }
+
+/* Habits Section */
+.habit-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.habit-row:last-child {
+    border-bottom: none;
+}
+
+.habit-info {
+    width: 150px;
+}
+
+.habit-name {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.habit-streak {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+.habit-streak .fire {
+    color: #F59E0B;
+}
+
+.habit-days {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+}
+
+.habit-day {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+}
+
+.habit-day:hover {
+    border-color: var(--planner-lavender);
+}
+
+.habit-day.completed {
+    background: var(--gradient-primary);
+    border-color: transparent;
+    color: white;
+}
+
+.habit-day.today {
+    border-width: 3px;
+    border-color: var(--planner-lavender);
+}
+
+.habit-percent {
+    width: 60px;
+    text-align: right;
+    font-weight: 700;
+    color: var(--planner-lavender);
+}
+
+/* Sticky Notes */
+.sticky-notes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.sticky-note {
+    padding: 16px;
+    border-radius: 4px 4px 20px 4px;
+    min-height: 120px;
+    position: relative;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.sticky-note.color-pink { background: #FDF2F8; }
+.sticky-note.color-lavender { background: #F3E8FF; }
+.sticky-note.color-yellow { background: #FEF9C3; }
+.sticky-note.color-mint { background: #D1FAE5; }
+.sticky-note.color-blue { background: #DBEAFE; }
+
+.sticky-note .pin {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16px;
+    height: 16px;
+    background: var(--planner-rose);
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.sticky-note .delete-note {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    cursor: pointer;
+    color: var(--text-tertiary);
+}
+
+.sticky-note:hover .delete-note {
+    opacity: 1;
+}
+
+/* Empty States */
+.empty-mini {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-tertiary);
+}
+
+.empty-mini i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.5;
+}
+
+/* Add Button */
+.add-btn {
+    width: 100%;
+    padding: 12px;
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.add-btn:hover {
+    border-color: var(--planner-lavender);
+    color: var(--planner-lavender);
+    background: rgba(139, 92, 246, 0.05);
+}
+
+/* Section Headers */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.section-title i {
+    color: var(--planner-lavender);
+}
+
+@media (max-width: 992px) {
+    .week-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+    .sticky-notes-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .week-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .habit-days {
+        flex-wrap: wrap;
+    }
+    .sticky-notes-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Quote of the Day -->
+    <div class="quote-card fade-in">
+        <p class="quote-text">"{{ quote.quote }}"</p>
+        <p class="quote-author">- {{ quote.author }}</p>
+    </div>
+
+    <div class="row g-4">
+        <!-- Left Column -->
+        <div class="col-lg-4">
+            <!-- Monthly Goal -->
+            <div class="card goal-card mb-4 fade-in" style="animation-delay: 0.1s">
+                <div class="card-body">
+                    <div class="goal-header">
+                        <h5 class="section-title">
+                            <i class="bi bi-bullseye"></i>Meta de {{ month_name }}
+                        </h5>
+                        <span class="goal-badge">{{ year }}</span>
+                    </div>
+
+                    {% if monthly_goal %}
+                        <h4 class="goal-title">{{ monthly_goal.title }}</h4>
+                        {% if monthly_goal.description %}
+                            <p class="text-muted small">{{ monthly_goal.description }}</p>
+                        {% endif %}
+
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: {{ monthly_goal.progress_percent }}%">
+                                {{ monthly_goal.progress_percent }}%
+                            </div>
+                        </div>
+                        <p class="text-center small text-muted mb-3">
+                            {{ monthly_goal.current_value }} / {{ monthly_goal.target_value }}
+                        </p>
+
+                        {% if monthly_goal.subgoals.all() %}
+                            <ul class="subgoals-list">
+                                {% for subgoal in monthly_goal.subgoals.all() %}
+                                    <li class="subgoal-item">
+                                        <div class="subgoal-checkbox {% if subgoal.completed %}completed{% endif %}"
+                                             onclick="toggleSubgoal({{ subgoal.id }})">
+                                            {% if subgoal.completed %}<i class="bi bi-check"></i>{% endif %}
+                                        </div>
+                                        <span class="subgoal-text {% if subgoal.completed %}completed{% endif %}">
+                                            {{ subgoal.title }}
+                                        </span>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+
+                        <a href="{{ url_for('planner.goal', id=monthly_goal.id) }}" class="add-btn mt-3">
+                            <i class="bi bi-pencil"></i>Editar Meta
+                        </a>
+                    {% else %}
+                        <div class="empty-mini">
+                            <i class="bi bi-flag"></i>
+                            <p>Sin meta definida</p>
+                        </div>
+                        <a href="{{ url_for('planner.goal') }}" class="add-btn">
+                            <i class="bi bi-plus-circle"></i>Crear Meta del Mes
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Sticky Notes -->
+            <div class="card fade-in" style="animation-delay: 0.2s">
+                <div class="card-body">
+                    <div class="section-header">
+                        <h5 class="section-title">
+                            <i class="bi bi-sticky"></i>Notas Rapidas
+                        </h5>
+                    </div>
+
+                    {% if sticky_notes %}
+                        <div class="sticky-notes-grid" style="grid-template-columns: repeat(2, 1fr);">
+                            {% for note in sticky_notes %}
+                                <div class="sticky-note color-{{ note.color }}" id="note-{{ note.id }}">
+                                    <div class="pin"></div>
+                                    <i class="bi bi-x delete-note" onclick="deleteNote({{ note.id }})"></i>
+                                    {{ note.content }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <button class="add-btn mt-3" onclick="showAddNoteModal()">
+                        <i class="bi bi-plus-circle"></i>Nueva Nota
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Column -->
+        <div class="col-lg-5">
+            <!-- Tasks -->
+            <div class="card mb-4 fade-in" style="animation-delay: 0.15s">
+                <div class="card-body">
+                    <div class="section-header">
+                        <h5 class="section-title">
+                            <i class="bi bi-check2-square"></i>Mis Tareas
+                        </h5>
+                        <a href="{{ url_for('planner.tasks') }}" class="btn btn-sm btn-outline-primary">Ver todas</a>
+                    </div>
+
+                    {% if all_pending_tasks %}
+                        <div class="tasks-list">
+                            {% for task in all_pending_tasks[:8] %}
+                                <div class="task-item priority-{{ task.priority }}" id="task-{{ task.id }}">
+                                    <div class="task-checkbox" onclick="completeTask({{ task.id }})"></div>
+                                    <span class="task-title">{{ task.title }}</span>
+                                    {% if task.due_date %}
+                                        <span class="task-due {% if task.is_overdue %}overdue{% endif %}">
+                                            {{ task.due_date.strftime('%d/%m') }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-mini">
+                            <i class="bi bi-check-circle"></i>
+                            <p>Sin tareas pendientes</p>
+                        </div>
+                    {% endif %}
+
+                    <a href="{{ url_for('planner.task_form') }}" class="add-btn mt-3">
+                        <i class="bi bi-plus-circle"></i>Nueva Tarea
+                    </a>
+                </div>
+            </div>
+
+            <!-- Week Agenda -->
+            <div class="card fade-in" style="animation-delay: 0.25s">
+                <div class="card-body">
+                    <div class="section-header">
+                        <h5 class="section-title">
+                            <i class="bi bi-calendar3"></i>Esta Semana
+                        </h5>
+                        <a href="{{ url_for('planner.agenda') }}" class="btn btn-sm btn-outline-primary">Agenda</a>
+                    </div>
+
+                    <div class="week-grid">
+                        {% for day in week_days %}
+                            <div class="day-column {% if day.is_today %}today{% endif %}">
+                                <div class="day-header">
+                                    <div class="day-name">{{ day.name }}</div>
+                                    <div class="day-number">{{ day.date.day }}</div>
+                                </div>
+                                <div class="day-events">
+                                    {% for event in events_by_day[loop.index0] %}
+                                        <div class="event-item type-{{ event.event_type }}">
+                                            {% if event.start_time %}
+                                                {{ event.start_time.strftime('%H:%M') }}
+                                            {% endif %}
+                                            {{ event.title[:15] }}{% if event.title|length > 15 %}...{% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <a href="{{ url_for('planner.event_form') }}" class="add-btn mt-3">
+                        <i class="bi bi-plus-circle"></i>Nuevo Evento
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Habits -->
+        <div class="col-lg-3">
+            <div class="card fade-in" style="animation-delay: 0.2s">
+                <div class="card-body">
+                    <div class="section-header">
+                        <h5 class="section-title">
+                            <i class="bi bi-fire"></i>Habitos
+                        </h5>
+                        <a href="{{ url_for('planner.habits') }}" class="btn btn-sm btn-outline-primary">Ver</a>
+                    </div>
+
+                    {% if habits %}
+                        {% for habit in habits %}
+                            <div class="habit-row">
+                                <div class="habit-info">
+                                    <div class="habit-name">
+                                        <i class="bi bi-{{ habit.icon }}"></i>
+                                        {{ habit.name[:12] }}{% if habit.name|length > 12 %}...{% endif %}
+                                    </div>
+                                    <div class="habit-streak">
+                                        {% set streak = habit.get_streak() %}
+                                        {% if streak > 0 %}
+                                            <span class="fire">{{ streak }} dias</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="habit-days">
+                                    {% for day in week_days %}
+                                        {% set is_completed = habit.logs.filter_by(log_date=day.date, completed=True).first() %}
+                                        <div class="habit-day {% if is_completed %}completed{% endif %} {% if day.is_today %}today{% endif %}"
+                                             onclick="toggleHabit({{ habit.id }}, '{{ day.date.strftime('%Y-%m-%d') }}')"
+                                             title="{{ day.date.strftime('%d/%m') }}">
+                                            {% if is_completed %}
+                                                <i class="bi bi-check"></i>
+                                            {% else %}
+                                                {{ day.name[0] }}
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-mini">
+                            <i class="bi bi-fire"></i>
+                            <p>Sin habitos</p>
+                        </div>
+                    {% endif %}
+
+                    <a href="{{ url_for('planner.habit_form') }}" class="add-btn mt-3">
+                        <i class="bi bi-plus-circle"></i>Nuevo Habito
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Note Modal -->
+<div class="modal fade" id="addNoteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 20px;">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">Nueva Nota</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <textarea class="form-control" id="noteContent" rows="4" placeholder="Escribe tu nota..."></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">Color</label>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn note-color-btn active" data-color="pink" style="background: #FDF2F8; width: 40px; height: 40px; border-radius: 10px; border: 2px solid transparent;"></button>
+                        <button type="button" class="btn note-color-btn" data-color="lavender" style="background: #F3E8FF; width: 40px; height: 40px; border-radius: 10px; border: 2px solid transparent;"></button>
+                        <button type="button" class="btn note-color-btn" data-color="yellow" style="background: #FEF9C3; width: 40px; height: 40px; border-radius: 10px; border: 2px solid transparent;"></button>
+                        <button type="button" class="btn note-color-btn" data-color="mint" style="background: #D1FAE5; width: 40px; height: 40px; border-radius: 10px; border: 2px solid transparent;"></button>
+                        <button type="button" class="btn note-color-btn" data-color="blue" style="background: #DBEAFE; width: 40px; height: 40px; border-radius: 10px; border: 2px solid transparent;"></button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveNote()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedNoteColor = 'pink';
+
+// Color selection for notes
+document.querySelectorAll('.note-color-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.note-color-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        this.style.borderColor = '#8B5CF6';
+        selectedNoteColor = this.dataset.color;
+    });
+});
+
+function showAddNoteModal() {
+    new bootstrap.Modal(document.getElementById('addNoteModal')).show();
+}
+
+function saveNote() {
+    const content = document.getElementById('noteContent').value.trim();
+    if (!content) return;
+
+    fetch('{{ url_for("planner.create_note") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, color: selectedNoteColor })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function deleteNote(id) {
+    if (!confirm('Eliminar esta nota?')) return;
+
+    fetch(`/planner/api/note/${id}`, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById(`note-${id}`).remove();
+        }
+    });
+}
+
+function completeTask(id) {
+    fetch(`/planner/api/task/${id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const taskEl = document.getElementById(`task-${id}`);
+            taskEl.style.opacity = '0.5';
+            taskEl.style.textDecoration = 'line-through';
+            setTimeout(() => taskEl.remove(), 500);
+        }
+    });
+}
+
+function toggleSubgoal(id) {
+    fetch(`/planner/api/subgoal/${id}/toggle`, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function toggleHabit(habitId, dateStr) {
+    fetch(`/planner/api/habit/${habitId}/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: dateStr })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+</script>
+{% endblock %}

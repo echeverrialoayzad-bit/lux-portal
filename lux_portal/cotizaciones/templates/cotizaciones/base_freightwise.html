@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FreightWise Cotizaciones{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* FreightWise Brand - Girly Coral/Rose Gold Theme */
+            --fw-primary: #f43f5e;
+            --fw-primary-light: #fb7185;
+            --fw-rose-gold: #e879a9;
+            --fw-coral: #fb923c;
+            --fw-blush: #fff1f2;
+
+            /* Backgrounds - Light & Soft */
+            --bg-main: #fffbfc;
+            --bg-card: rgba(255, 255, 255, 0.9);
+            --bg-glass: rgba(255, 241, 242, 0.6);
+            --bg-elevated: rgba(255, 255, 255, 0.95);
+
+            /* Text */
+            --text-primary: #4a1942;
+            --text-secondary: #7c5270;
+            --text-tertiary: #a78bba;
+
+            /* Borders */
+            --border-color: rgba(244, 63, 94, 0.12);
+            --border-glow: rgba(244, 63, 94, 0.25);
+
+            /* Gradients */
+            --gradient-fw: linear-gradient(135deg, #f43f5e 0%, #fb923c 100%);
+            --gradient-fw-soft: linear-gradient(135deg, #fb7185 0%, #fda4af 100%);
+            --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,241,242,0.9) 100%);
+            --gradient-mesh: radial-gradient(at 40% 20%, rgba(244, 63, 94, 0.12) 0px, transparent 50%),
+                             radial-gradient(at 80% 0%, rgba(251, 146, 60, 0.1) 0px, transparent 50%),
+                             radial-gradient(at 0% 50%, rgba(244, 114, 182, 0.08) 0px, transparent 50%);
+
+            /* Shadows */
+            --shadow-sm: 0 2px 8px rgba(244, 63, 94, 0.08);
+            --shadow-md: 0 8px 24px rgba(244, 63, 94, 0.1);
+            --shadow-lg: 0 16px 48px rgba(244, 63, 94, 0.12);
+            --shadow-glow: 0 0 40px rgba(244, 63, 94, 0.15);
+
+            /* Transitions */
+            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--gradient-mesh);
+            z-index: -2;
+            animation: meshMove 25s ease infinite;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23fb7185' fill-opacity='0.03'%3E%3Cpath d='M20 20c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10zm-20 0c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10z'/%3E%3C/g%3E%3C/svg%3E");
+            z-index: -1;
+            opacity: 0.5;
+        }
+
+        @keyframes meshMove {
+            0%, 100% { background-position: 0% 0%; }
+            50% { background-position: 100% 100%; }
+        }
+
+        /* ================================================
+           NAVBAR
+           ================================================ */
+        .navbar {
+            background: var(--bg-elevated);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 24px;
+            height: 72px;
+            box-shadow: 0 4px 30px rgba(244, 63, 94, 0.06);
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.35rem;
+            background: var(--gradient-fw);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .navbar-brand i {
+            font-size: 1.6rem;
+            background: var(--gradient-fw);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-link {
+            color: var(--text-secondary) !important;
+            padding: 10px 16px !important;
+            border-radius: 12px;
+            margin: 0 4px;
+            transition: all var(--transition-normal);
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+
+        .nav-link::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--gradient-fw);
+            border-radius: 12px;
+            opacity: 0;
+            transition: opacity var(--transition-normal);
+        }
+
+        .nav-link:hover {
+            color: var(--fw-primary) !important;
+        }
+
+        .nav-link:hover::before {
+            opacity: 0.08;
+        }
+
+        .nav-link i {
+            position: relative;
+            z-index: 1;
+        }
+
+        .nav-link.active {
+            color: var(--fw-primary) !important;
+        }
+
+        .nav-link.active::before {
+            opacity: 0.1;
+        }
+
+        .navbar-toggler {
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+        }
+
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23f43f5e' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+
+        /* Back to Portal Button */
+        .btn-back-portal {
+            background: var(--gradient-fw);
+            border: none;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all var(--transition-normal);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            box-shadow: 0 4px 15px rgba(244, 63, 94, 0.25);
+        }
+
+        .btn-back-portal:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(244, 63, 94, 0.35);
+            color: #fff;
+        }
+
+        /* ================================================
+           MAIN CONTENT
+           ================================================ */
+        .container-fluid.py-4 {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 24px !important;
+        }
+
+        /* Page Header */
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        h2 .text-primary {
+            background: var(--gradient-fw);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ================================================
+           BUTTONS
+           ================================================ */
+        .btn {
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 12px 22px;
+            border-radius: 12px;
+            transition: all var(--transition-normal);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--gradient-fw);
+            border: none;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(244, 63, 94, 0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(244, 63, 94, 0.35);
+        }
+
+        .btn-outline-primary {
+            border: 1px solid var(--fw-primary);
+            color: var(--fw-primary);
+            background: transparent;
+        }
+
+        .btn-outline-primary:hover {
+            background: rgba(244, 63, 94, 0.08);
+            border-color: var(--fw-primary-light);
+            color: var(--fw-primary);
+        }
+
+        .btn-outline-secondary {
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            background: transparent;
+        }
+
+        .btn-outline-secondary:hover {
+            background: rgba(255, 255, 255, 0.8);
+            color: var(--text-primary);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            border: none;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.35);
+        }
+
+        .btn-danger {
+            background: var(--gradient-fw);
+            border: none;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(244, 63, 94, 0.35);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-light {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-outline-light {
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #fff;
+            background: transparent;
+        }
+
+        .btn-outline-light:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .btn-outline-danger {
+            border: 1px solid var(--fw-primary);
+            color: var(--fw-primary);
+            background: transparent;
+        }
+
+        .btn-outline-danger:hover {
+            background: rgba(244, 63, 94, 0.08);
+            color: var(--fw-primary);
+        }
+
+        .btn-outline-success {
+            border: 1px solid #10B981;
+            color: #059669;
+            background: transparent;
+        }
+
+        .btn-outline-success:hover {
+            background: rgba(16, 185, 129, 0.08);
+            color: #059669;
+        }
+
+        /* ================================================
+           CARDS
+           ================================================ */
+        .card {
+            background: var(--gradient-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+
+        .card-header {
+            background: var(--gradient-fw);
+            color: #fff;
+            border-radius: 0 !important;
+            font-weight: 700;
+            padding: 20px 28px;
+            border-bottom: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-header h5, .card-header h4 {
+            margin: 0;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .card-body {
+            padding: 28px;
+        }
+
+        .card-body.p-0 {
+            padding: 0;
+        }
+
+        /* ================================================
+           TABLES
+           ================================================ */
+        .table {
+            color: var(--text-primary);
+            margin-bottom: 0;
+        }
+
+        .table thead th {
+            background-color: rgba(244, 63, 94, 0.08);
+            color: var(--fw-primary);
+            font-weight: 600;
+            font-size: 0.8125rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: none;
+            padding: 16px 22px;
+        }
+
+        .table tbody tr {
+            transition: all var(--transition-normal);
+        }
+
+        .table tbody tr:hover {
+            background-color: rgba(244, 63, 94, 0.04);
+        }
+
+        .table tbody td {
+            padding: 18px 22px;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Cotizacion Item */
+        .cotizacion-item {
+            border-left: 4px solid var(--fw-primary);
+        }
+
+        .cotizacion-item:hover {
+            border-left-color: var(--fw-primary-light);
+        }
+
+        /* ================================================
+           FORMS
+           ================================================ */
+        .form-control, .form-select {
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px 18px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            transition: all var(--transition-normal);
+        }
+
+        .form-control::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .form-control:focus, .form-select:focus {
+            background-color: #fff;
+            border-color: rgba(244, 63, 94, 0.5);
+            box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.1);
+            color: var(--text-primary);
+        }
+
+        .form-label {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-bottom: 10px;
+        }
+
+        .form-check-input {
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--border-color);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--fw-primary);
+            border-color: var(--fw-primary);
+        }
+
+        .form-check-input:focus {
+            box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.1);
+        }
+
+        .form-check-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* ================================================
+           AEROLINEA CARD
+           ================================================ */
+        .aerolinea-card {
+            background: var(--gradient-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            margin-bottom: 24px;
+            overflow: hidden;
+            transition: all var(--transition-normal);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .aerolinea-card:hover {
+            border-color: var(--border-glow);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .aerolinea-card .card-header {
+            cursor: pointer;
+            transition: all var(--transition-normal);
+        }
+
+        .aerolinea-card .card-header:hover {
+            background: linear-gradient(135deg, #e11d48 0%, #f97316 100%);
+        }
+
+        .aerolinea-card .card-body {
+            background: rgba(255, 241, 242, 0.3);
+        }
+
+        .aerolinea-nombre {
+            font-weight: 700;
+            font-size: 1.05rem;
+        }
+
+        .collapse-icon {
+            transition: transform var(--transition-normal);
+        }
+
+        /* ================================================
+           ITINERARIO CARD
+           ================================================ */
+        .itinerario-card {
+            background: var(--gradient-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .itinerario-card .card-header {
+            background: var(--gradient-fw-soft);
+            padding: 14px 18px;
+            font-size: 0.95rem;
+        }
+
+        .itinerario-card .card-body {
+            padding: 22px;
+            background: rgba(255, 241, 242, 0.3);
+        }
+
+        /* ================================================
+           KG/RATE ROW
+           ================================================ */
+        .kg-rate-row {
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-end;
+            gap: 14px;
+            transition: all var(--transition-normal);
+        }
+
+        .kg-rate-row:hover {
+            border-color: var(--border-glow);
+        }
+
+        .kg-rate-row .form-control {
+            padding: 10px 14px;
+            font-size: 0.9rem;
+        }
+
+        .kg-rate-row .form-label {
+            font-size: 0.75rem;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+
+        .precio-final {
+            background: var(--gradient-fw);
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(244, 63, 94, 0.25);
+        }
+
+        /* ================================================
+           CARGO ROW
+           ================================================ */
+        .cargo-row {
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: all var(--transition-normal);
+        }
+
+        .cargo-row:hover {
+            border-color: var(--border-glow);
+        }
+
+        .cargo-row .form-control {
+            padding: 10px 14px;
+            font-size: 0.9rem;
+        }
+
+        /* ================================================
+           BADGES
+           ================================================ */
+        .badge {
+            font-weight: 600;
+            font-size: 0.75rem;
+            padding: 6px 14px;
+            border-radius: 10px;
+        }
+
+        .badge.bg-primary {
+            background: var(--gradient-fw) !important;
+            box-shadow: 0 4px 12px rgba(244, 63, 94, 0.2);
+        }
+
+        .badge.bg-secondary {
+            background: rgba(255, 241, 242, 0.8) !important;
+            color: var(--fw-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .badge.bg-light {
+            background: rgba(255, 255, 255, 0.9) !important;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .rutas-badge {
+            background: rgba(255, 255, 255, 0.25) !important;
+            color: #fff;
+        }
+
+        /* ================================================
+           ALERTS
+           ================================================ */
+        .alert {
+            border: none;
+            border-radius: 14px;
+            padding: 16px 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        /* ================================================
+           EMPTY STATE
+           ================================================ */
+        .empty-state {
+            text-align: center;
+            padding: 80px 24px;
+        }
+
+        .empty-state i {
+            font-size: 4.5rem;
+            margin-bottom: 24px;
+            background: var(--gradient-fw);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: block;
+        }
+
+        .empty-state h5 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+
+        .empty-state p {
+            color: var(--text-secondary);
+            margin-bottom: 28px;
+        }
+
+        /* ================================================
+           FOOTER
+           ================================================ */
+        .footer {
+            background-color: transparent;
+            color: var(--text-tertiary);
+            margin-top: auto;
+            padding: 24px 0;
+            position: relative;
+        }
+
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+        }
+
+        .footer .text-muted {
+            color: var(--text-tertiary) !important;
+            font-size: 0.8125rem;
+        }
+
+        .footer span {
+            background: var(--gradient-fw);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 600;
+        }
+
+        /* ================================================
+           DEPARTURE DAYS
+           ================================================ */
+        .departure-days {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .departure-days .form-check {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px 16px 10px 40px;
+            margin: 0;
+            transition: all var(--transition-normal);
+        }
+
+        .departure-days .form-check:hover {
+            border-color: var(--border-glow);
+        }
+
+        .departure-days .form-check-input:checked + .form-check-label {
+            color: var(--text-primary);
+        }
+
+        /* ================================================
+           TEXTAREA
+           ================================================ */
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        /* ================================================
+           ANIMATIONS
+           ================================================ */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        /* ================================================
+           SCROLLBAR
+           ================================================ */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #fff1f2;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(244, 63, 94, 0.3);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(244, 63, 94, 0.5);
+        }
+
+        /* Selection */
+        ::selection {
+            background: rgba(244, 63, 94, 0.2);
+            color: var(--text-primary);
+        }
+
+        /* ================================================
+           RESPONSIVE
+           ================================================ */
+        @media (max-width: 768px) {
+            .container-fluid.py-4 {
+                padding: 24px 16px !important;
+            }
+
+            .card-body {
+                padding: 20px;
+            }
+
+            .kg-rate-row {
+                flex-wrap: wrap;
+            }
+
+            .cargo-row {
+                flex-wrap: wrap;
+            }
+
+            h2 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid" style="max-width: 1200px; margin: 0 auto;">
+            <a class="navbar-brand" href="{{ url_for('cotizaciones.dashboard') }}">
+                <i class="bi bi-airplane-fill"></i> FreightWise
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'cotizaciones.dashboard' %}active{% endif %}"
+                           href="{{ url_for('cotizaciones.dashboard') }}">
+                            <i class="bi bi-house-door"></i> Inicio
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'cotizaciones.nueva_cotizacion' %}active{% endif %}"
+                           href="{{ url_for('cotizaciones.nueva_cotizacion') }}">
+                            <i class="bi bi-plus-circle"></i> Nueva Cotizacion
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav align-items-center">
+                    <li class="nav-item me-3">
+                        <a class="btn-back-portal" href="{{ url_for('main.home') }}">
+                            <i class="bi bi-grid-3x3-gap"></i> Portal Lux
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <span class="nav-link">
+                            <i class="bi bi-person-circle"></i> {{ session.get('username', 'Usuario') }}
+                        </span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.logout') }}">
+                            <i class="bi bi-box-arrow-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4 fade-in">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="footer">
+        <div class="container text-center">
+            <span>FreightWise</span> <span style="background: none; -webkit-text-fill-color: var(--text-tertiary);">&mdash; Cotizaciones de Flete Aereo</span>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

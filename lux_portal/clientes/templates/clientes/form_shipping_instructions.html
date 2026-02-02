@@ -1,0 +1,376 @@
+{% extends 'clientes/base_clientes.html' %}
+
+{% block title %}Shipping Instructions - Clientes{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="bi bi-truck text-rose"></i>
+                        {% if form_data and form_data.id %}
+                            Editar Shipping Instructions
+                        {% else %}
+                            Nuevo Shipping Instructions
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">Customer Shipping Instructions Form</p>
+                </div>
+                <a href="{{ url_for('clientes.formularios') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Volver
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" class="form-container">
+        <!-- Section 1: Contact Information -->
+        <div class="card mb-4 fade-in">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-person-lines-fill me-2"></i>1. Contact Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Contact Person - Full Name *</label>
+                        <input type="text" class="form-control" name="contact_full_name" required
+                               value="{{ form_data.contact_full_name if form_data else '' }}"
+                               placeholder="Nombre completo">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Job Title</label>
+                        <input type="text" class="form-control" name="contact_job_title"
+                               value="{{ form_data.contact_job_title if form_data else '' }}"
+                               placeholder="Cargo">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-control" name="contact_email"
+                               value="{{ form_data.contact_email if form_data else '' }}"
+                               placeholder="email@empresa.com">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Phone</label>
+                        <input type="tel" class="form-control" name="contact_phone"
+                               value="{{ form_data.contact_phone if form_data else '' }}"
+                               placeholder="+1 234 567 8900">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">WhatsApp</label>
+                        <input type="tel" class="form-control" name="contact_whatsapp"
+                               value="{{ form_data.contact_whatsapp if form_data else '' }}"
+                               placeholder="+1 234 567 8900">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Billing & Payment -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.1s">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-credit-card me-2"></i>2. Billing & Payment
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Billing Address</label>
+                        <textarea class="form-control" name="billing_address" rows="3"
+                                  placeholder="Direccion de facturacion completa">{{ form_data.billing_address if form_data else '' }}</textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Billing Emails</label>
+                        <textarea class="form-control" name="billing_emails" rows="3"
+                                  placeholder="Emails para facturacion (uno por linea)">{{ form_data.billing_emails if form_data else '' }}</textarea>
+                        <small class="text-muted">Ingresa un email por linea</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Additional Information -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.2s">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-square me-2"></i>3. Additional Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Uses Customs Broker?</label>
+                        <input type="text" class="form-control" name="uses_customs_broker"
+                               value="{{ form_data.uses_customs_broker if form_data else '' }}"
+                               placeholder="Nombre del broker aduanero (si aplica)">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Customs Broker Info</label>
+                        <input type="text" class="form-control" name="customs_broker_info"
+                               value="{{ form_data.customs_broker_info if form_data else '' }}"
+                               placeholder="Telefono del broker">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Customs Broker Emails</label>
+                        <textarea class="form-control" name="customs_broker_emails" rows="2"
+                                  placeholder="Emails del broker (uno por linea)">{{ form_data.customs_broker_emails if form_data else '' }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">API Required</label>
+                        <input type="text" class="form-control" name="api_required"
+                               value="{{ form_data.api_required if form_data else '' }}"
+                               placeholder="API requerido">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Requested Documents -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.3s">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-file-earmark-check me-2"></i>4. Requested Documents
+                </h5>
+            </div>
+            <div class="card-body">
+                {% set docs = form_data.get_documents() if form_data and form_data.get_documents else {} %}
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="form-check document-check">
+                            <input class="form-check-input" type="checkbox" name="invoice" id="doc_invoice"
+                                   {{ 'checked' if docs.get('invoice') else '' }}>
+                            <label class="form-check-label" for="doc_invoice">
+                                <i class="bi bi-receipt me-2"></i>Invoice
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check document-check">
+                            <input class="form-check-input" type="checkbox" name="coa" id="doc_coa"
+                                   {{ 'checked' if docs.get('coa') else '' }}>
+                            <label class="form-check-label" for="doc_coa">
+                                <i class="bi bi-file-medical me-2"></i>COA (Certificate of Analysis)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check document-check">
+                            <input class="form-check-input" type="checkbox" name="phyto" id="doc_phyto"
+                                   {{ 'checked' if docs.get('phyto') else '' }}>
+                            <label class="form-check-label" for="doc_phyto">
+                                <i class="bi bi-flower1 me-2"></i>Phyto
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check document-check">
+                            <input class="form-check-input" type="checkbox" name="phyto_destination" id="doc_phyto_dest"
+                                   {{ 'checked' if docs.get('phyto_destination') else '' }}>
+                            <label class="form-check-label" for="doc_phyto_dest">
+                                <i class="bi bi-geo-alt me-2"></i>Phyto Destination
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check document-check">
+                            <input class="form-check-input" type="checkbox" name="master_invoice" id="doc_master"
+                                   {{ 'checked' if docs.get('master_invoice') else '' }}>
+                            <label class="form-check-label" for="doc_master">
+                                <i class="bi bi-file-text me-2"></i>Master Invoice
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check document-check">
+                            <input class="form-check-input" type="checkbox" name="other_check" id="doc_other"
+                                   {{ 'checked' if docs.get('other') else '' }}>
+                            <label class="form-check-label" for="doc_other">
+                                <i class="bi bi-file-plus me-2"></i>Other
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Other Documents (specify)</label>
+                        <input type="text" class="form-control" name="documents_other"
+                               value="{{ docs.get('other', '') if docs else '' }}"
+                               placeholder="Especificar otros documentos requeridos">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Suppliers -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.4s">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-building me-2"></i>5. Suppliers
+                </h5>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addSupplier()">
+                    <i class="bi bi-plus-circle me-1"></i>Agregar
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="suppliers-container">
+                    {% if form_data and form_data.get_suppliers %}
+                        {% for sup in form_data.get_suppliers() %}
+                        <div class="row g-3 mb-3 supplier-row">
+                            <div class="col-md-10">
+                                <input type="text" class="form-control" name="supplier_name[]"
+                                       value="{{ sup.name }}" placeholder="Nombre del proveedor">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-outline-danger w-100" onclick="removeSupplier(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="row g-3 mb-3 supplier-row">
+                            <div class="col-md-10">
+                                <input type="text" class="form-control" name="supplier_name[]" placeholder="Nombre del proveedor">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-outline-danger w-100" onclick="removeSupplier(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="d-flex gap-3 justify-content-end mb-4">
+            <a href="{{ url_for('clientes.formularios') }}" class="btn btn-outline-secondary btn-lg">
+                <i class="bi bi-x-circle me-2"></i>Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check-circle me-2"></i>Guardar Formulario
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+.form-container .card {
+    border: 2px solid var(--border-color);
+    border-radius: 16px;
+}
+
+.form-container .card-header {
+    background: var(--gradient-card);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 1.5rem;
+}
+
+.form-container .card-header h5 {
+    color: var(--text-primary);
+}
+
+.form-container .form-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.form-container .form-control,
+.form-container .form-select {
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-container .form-control:focus,
+.form-container .form-select:focus {
+    border-color: var(--clientes-rose);
+    box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
+}
+
+.text-rose {
+    color: var(--clientes-rose);
+}
+
+.document-check {
+    padding: 1rem;
+    background: var(--clientes-blush);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.document-check:hover {
+    background: rgba(236, 72, 153, 0.1);
+}
+
+.document-check .form-check-input:checked {
+    background-color: var(--clientes-rose);
+    border-color: var(--clientes-rose);
+}
+
+.document-check .form-check-label {
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-outline-primary {
+    border-color: var(--clientes-rose);
+    color: var(--clientes-rose);
+}
+
+.btn-outline-primary:hover {
+    background: var(--clientes-rose);
+    border-color: var(--clientes-rose);
+    color: white;
+}
+
+.btn-primary {
+    background: var(--gradient-primary);
+    border: none;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.supplier-row {
+    padding: 1rem;
+    background: var(--clientes-blush);
+    border-radius: 10px;
+}
+</style>
+
+<script>
+function addSupplier() {
+    const container = document.getElementById('suppliers-container');
+    const html = `
+        <div class="row g-3 mb-3 supplier-row">
+            <div class="col-md-10">
+                <input type="text" class="form-control" name="supplier_name[]" placeholder="Nombre del proveedor">
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-danger w-100" onclick="removeSupplier(this)">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function removeSupplier(btn) {
+    const rows = document.querySelectorAll('.supplier-row');
+    if (rows.length > 1) {
+        btn.closest('.supplier-row').remove();
+    }
+}
+</script>
+{% endblock %}

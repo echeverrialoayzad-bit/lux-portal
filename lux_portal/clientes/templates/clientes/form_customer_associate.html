@@ -1,0 +1,439 @@
+{% extends 'clientes/base_clientes.html' %}
+
+{% block title %}Customer Associate Form - Clientes{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="bi bi-building text-rose"></i>
+                        {% if form_data and form_data.id %}
+                            Editar Customer Associate
+                        {% else %}
+                            Nuevo Customer Associate
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">Customers and Suppliers Profile Information</p>
+                </div>
+                <a href="{{ url_for('clientes.formularios') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Volver
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" class="form-container">
+        <!-- Section 1: General Information -->
+        <div class="card mb-4 fade-in">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>General Information / Informacion General
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Legal Name / Razon Social *</label>
+                        <input type="text" class="form-control" name="legal_name" required
+                               value="{{ form_data.legal_name if form_data else '' }}"
+                               placeholder="Nombre legal completo">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Tax ID / NIT/RUT *</label>
+                        <input type="text" class="form-control" name="tax_id"
+                               value="{{ form_data.tax_id if form_data else '' }}"
+                               placeholder="Numero de identificacion fiscal">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Type of Company</label>
+                        <select class="form-select" name="company_type">
+                            <option value="">Seleccionar...</option>
+                            <option value="private" {{ 'selected' if form_data and form_data.company_type == 'private' else '' }}>Private</option>
+                            <option value="public" {{ 'selected' if form_data and form_data.company_type == 'public' else '' }}>Public</option>
+                            <option value="non profit" {{ 'selected' if form_data and form_data.company_type == 'non profit' else '' }}>Non Profit</option>
+                            <option value="other" {{ 'selected' if form_data and form_data.company_type == 'other' else '' }}>Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Website</label>
+                        <input type="url" class="form-control" name="website"
+                               value="{{ form_data.website if form_data else '' }}"
+                               placeholder="https://www.ejemplo.com">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Address / Direccion *</label>
+                        <textarea class="form-control" name="address" rows="2"
+                                  placeholder="Direccion principal">{{ form_data.address if form_data else '' }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">City - Country / Ciudad - Pais *</label>
+                        <input type="text" class="form-control" name="city_country"
+                               value="{{ form_data.city_country if form_data else '' }}"
+                               placeholder="Ciudad, Pais">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Contact Telephone *</label>
+                        <input type="tel" class="form-control" name="telephone"
+                               value="{{ form_data.telephone if form_data else '' }}"
+                               placeholder="+1 234 567 8900">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Contact Email *</label>
+                        <input type="email" class="form-control" name="email"
+                               value="{{ form_data.email if form_data else '' }}"
+                               placeholder="contacto@empresa.com">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Annual Revenue</label>
+                        <input type="text" class="form-control" name="annual_revenue"
+                               value="{{ form_data.annual_revenue if form_data else '' }}"
+                               placeholder="Ventas anuales">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Business Activity / Actividad Economica *</label>
+                        <textarea class="form-control" name="business_activity" rows="2"
+                                  placeholder="Descripcion de la actividad principal">{{ form_data.business_activity if form_data else '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Legal Representative -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.1s">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-person-badge me-2"></i>Legal Representative / Representante Legal
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Name / Nombre *</label>
+                        <input type="text" class="form-control" name="legal_rep_name"
+                               value="{{ form_data.legal_rep_name if form_data else '' }}"
+                               placeholder="Nombre completo">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">ID Number / Numero de Identificacion *</label>
+                        <input type="text" class="form-control" name="legal_rep_id"
+                               value="{{ form_data.legal_rep_id if form_data else '' }}"
+                               placeholder="Numero de documento">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Telephone *</label>
+                        <input type="tel" class="form-control" name="legal_rep_telephone"
+                               value="{{ form_data.legal_rep_telephone if form_data else '' }}"
+                               placeholder="+1 234 567 8900">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-control" name="legal_rep_email"
+                               value="{{ form_data.legal_rep_email if form_data else '' }}"
+                               placeholder="representante@empresa.com">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Shareholders -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.2s">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-people me-2"></i>Shareholders / Accionistas
+                </h5>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addShareholder()">
+                    <i class="bi bi-plus-circle me-1"></i>Agregar
+                </button>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Personas naturales o juridicas que poseen directa o indirectamente el 5% o mas de la empresa.
+                </p>
+                <div id="shareholders-container">
+                    {% if form_data and form_data.get_shareholders %}
+                        {% for sh in form_data.get_shareholders() %}
+                        <div class="row g-3 mb-3 shareholder-row">
+                            <div class="col-md-5">
+                                <input type="text" class="form-control" name="shareholder_name[]"
+                                       value="{{ sh.name }}" placeholder="Nombre">
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" class="form-control" name="shareholder_id[]"
+                                       value="{{ sh.id_number }}" placeholder="Numero de ID">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-outline-danger w-100" onclick="removeShareholder(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="row g-3 mb-3 shareholder-row">
+                            <div class="col-md-5">
+                                <input type="text" class="form-control" name="shareholder_name[]" placeholder="Nombre">
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" class="form-control" name="shareholder_id[]" placeholder="Numero de ID">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-outline-danger w-100" onclick="removeShareholder(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Financial Information -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.3s">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-bank me-2"></i>Financial and Banking Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Financial Contact / Contacto Financiero</label>
+                        <input type="text" class="form-control" name="financial_contact"
+                               value="{{ form_data.financial_contact if form_data else '' }}"
+                               placeholder="Email y telefono del contacto financiero">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Beneficiary Bank / Banco *</label>
+                        <input type="text" class="form-control" name="bank_name"
+                               value="{{ form_data.bank_name if form_data else '' }}"
+                               placeholder="Nombre del banco">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Bank Account / Cuenta *</label>
+                        <input type="text" class="form-control" name="bank_account"
+                               value="{{ form_data.bank_account if form_data else '' }}"
+                               placeholder="Numero de cuenta">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">Bank Address / Direccion del Banco</label>
+                        <input type="text" class="form-control" name="bank_address"
+                               value="{{ form_data.bank_address if form_data else '' }}"
+                               placeholder="Direccion del banco">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">SWIFT / ABA *</label>
+                        <input type="text" class="form-control" name="swift_aba"
+                               value="{{ form_data.swift_aba if form_data else '' }}"
+                               placeholder="Codigo SWIFT">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Ethics and Compliance -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.4s">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-shield-check me-2"></i>Ethics and Compliance
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="ethics-questions">
+                    {% set ethics = form_data.get_ethics() if form_data and form_data.get_ethics else {} %}
+
+                    <div class="ethics-item mb-3">
+                        <label class="form-label">1. Any of its shareholders, legal representatives or employees has any position or contractual relationship with a government entity?</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="ethics_q1" id="q1_yes" value="yes" {{ 'checked' if ethics.get('q1') == 'yes' else '' }}>
+                            <label class="btn btn-outline-primary" for="q1_yes">Yes</label>
+                            <input type="radio" class="btn-check" name="ethics_q1" id="q1_no" value="no" {{ 'checked' if ethics.get('q1') == 'no' else '' }}>
+                            <label class="btn btn-outline-primary" for="q1_no">No</label>
+                        </div>
+                    </div>
+
+                    <div class="ethics-item mb-3">
+                        <label class="form-label">2. Does your company comply with all applicable laws and regulations in its operations?</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="ethics_q2" id="q2_yes" value="yes" {{ 'checked' if ethics.get('q2') == 'yes' else '' }}>
+                            <label class="btn btn-outline-primary" for="q2_yes">Yes</label>
+                            <input type="radio" class="btn-check" name="ethics_q2" id="q2_no" value="no" {{ 'checked' if ethics.get('q2') == 'no' else '' }}>
+                            <label class="btn btn-outline-primary" for="q2_no">No</label>
+                        </div>
+                    </div>
+
+                    <div class="ethics-item mb-3">
+                        <label class="form-label">3. Do you have a code of ethics or anti-corruption policies?</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="ethics_q3" id="q3_yes" value="yes" {{ 'checked' if ethics.get('q3') == 'yes' else '' }}>
+                            <label class="btn btn-outline-primary" for="q3_yes">Yes</label>
+                            <input type="radio" class="btn-check" name="ethics_q3" id="q3_no" value="no" {{ 'checked' if ethics.get('q3') == 'no' else '' }}>
+                            <label class="btn btn-outline-primary" for="q3_no">No</label>
+                        </div>
+                    </div>
+
+                    <div class="ethics-item mb-3">
+                        <label class="form-label">4. Have any of your directors or beneficial owners been involved in any illegal activities?</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="ethics_q4" id="q4_yes" value="yes" {{ 'checked' if ethics.get('q4') == 'yes' else '' }}>
+                            <label class="btn btn-outline-primary" for="q4_yes">Yes</label>
+                            <input type="radio" class="btn-check" name="ethics_q4" id="q4_no" value="no" {{ 'checked' if ethics.get('q4') == 'no' else '' }}>
+                            <label class="btn btn-outline-primary" for="q4_no">No</label>
+                        </div>
+                    </div>
+
+                    <div class="ethics-item mb-3">
+                        <label class="form-label">5. Does your company have data protection and confidentiality policies?</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="ethics_q5" id="q5_yes" value="yes" {{ 'checked' if ethics.get('q5') == 'yes' else '' }}>
+                            <label class="btn btn-outline-primary" for="q5_yes">Yes</label>
+                            <input type="radio" class="btn-check" name="ethics_q5" id="q5_no" value="no" {{ 'checked' if ethics.get('q5') == 'no' else '' }}>
+                            <label class="btn btn-outline-primary" for="q5_no">No</label>
+                        </div>
+                    </div>
+
+                    <div class="ethics-item mb-3">
+                        <label class="form-label">6. Does your company ensure that its supply chain is free from child labor?</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="ethics_q6" id="q6_yes" value="yes" {{ 'checked' if ethics.get('q6') == 'yes' else '' }}>
+                            <label class="btn btn-outline-primary" for="q6_yes">Yes</label>
+                            <input type="radio" class="btn-check" name="ethics_q6" id="q6_no" value="no" {{ 'checked' if ethics.get('q6') == 'no' else '' }}>
+                            <label class="btn btn-outline-primary" for="q6_no">No</label>
+                        </div>
+                    </div>
+
+                    <div class="ethics-item mb-3">
+                        <label class="form-label">7. Are your company or shareholders linked to any international sanctions lists?</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="ethics_q7" id="q7_yes" value="yes" {{ 'checked' if ethics.get('q7') == 'yes' else '' }}>
+                            <label class="btn btn-outline-primary" for="q7_yes">Yes</label>
+                            <input type="radio" class="btn-check" name="ethics_q7" id="q7_no" value="no" {{ 'checked' if ethics.get('q7') == 'no' else '' }}>
+                            <label class="btn btn-outline-primary" for="q7_no">No</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="d-flex gap-3 justify-content-end mb-4">
+            <a href="{{ url_for('clientes.formularios') }}" class="btn btn-outline-secondary btn-lg">
+                <i class="bi bi-x-circle me-2"></i>Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check-circle me-2"></i>Guardar Formulario
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+.form-container .card {
+    border: 2px solid var(--border-color);
+    border-radius: 16px;
+}
+
+.form-container .card-header {
+    background: var(--gradient-card);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 1.5rem;
+}
+
+.form-container .card-header h5 {
+    color: var(--text-primary);
+}
+
+.form-container .form-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.form-container .form-control,
+.form-container .form-select {
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-container .form-control:focus,
+.form-container .form-select:focus {
+    border-color: var(--clientes-rose);
+    box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
+}
+
+.text-rose {
+    color: var(--clientes-rose);
+}
+
+.ethics-item .form-label {
+    display: block;
+    margin-bottom: 0.75rem;
+}
+
+.ethics-item .btn-group {
+    max-width: 200px;
+}
+
+.btn-outline-primary {
+    border-color: var(--clientes-rose);
+    color: var(--clientes-rose);
+}
+
+.btn-outline-primary:hover,
+.btn-check:checked + .btn-outline-primary {
+    background: var(--clientes-rose);
+    border-color: var(--clientes-rose);
+    color: white;
+}
+
+.btn-primary {
+    background: var(--gradient-primary);
+    border: none;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.shareholder-row {
+    padding: 1rem;
+    background: var(--clientes-blush);
+    border-radius: 10px;
+}
+</style>
+
+<script>
+function addShareholder() {
+    const container = document.getElementById('shareholders-container');
+    const html = `
+        <div class="row g-3 mb-3 shareholder-row">
+            <div class="col-md-5">
+                <input type="text" class="form-control" name="shareholder_name[]" placeholder="Nombre">
+            </div>
+            <div class="col-md-5">
+                <input type="text" class="form-control" name="shareholder_id[]" placeholder="Numero de ID">
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-danger w-100" onclick="removeShareholder(this)">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function removeShareholder(btn) {
+    const rows = document.querySelectorAll('.shareholder-row');
+    if (rows.length > 1) {
+        btn.closest('.shareholder-row').remove();
+    }
+}
+</script>
+{% endblock %}

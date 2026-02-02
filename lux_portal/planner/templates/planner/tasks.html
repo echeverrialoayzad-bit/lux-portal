@@ -1,0 +1,141 @@
+{% extends 'planner/base_planner.html' %}
+{% block title %}Tareas - Planner{% endblock %}
+
+{% block extra_css %}
+<style>
+.filter-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+.filter-btn {
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    background: white;
+    color: var(--text-secondary);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.filter-btn:hover, .filter-btn.active {
+    background: var(--gradient-primary);
+    color: white;
+    border-color: transparent;
+}
+.task-card {
+    background: white;
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 12px;
+    border-left: 5px solid;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.2s;
+}
+.task-card:hover { transform: translateX(5px); box-shadow: var(--shadow-md); }
+.task-card.priority-high { border-color: #EF4444; }
+.task-card.priority-medium { border-color: #F59E0B; }
+.task-card.priority-low { border-color: #10B981; }
+.task-card.completed { opacity: 0.6; text-decoration: line-through; }
+.task-checkbox {
+    width: 24px; height: 24px;
+    border: 2px solid #d1d5db;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.task-checkbox:hover { border-color: var(--planner-lavender); }
+.task-checkbox.checked {
+    background: var(--gradient-primary);
+    border: none;
+    color: white;
+}
+.task-content { flex: 1; }
+.task-title { font-weight: 600; margin-bottom: 4px; }
+.task-meta { font-size: 0.8rem; color: var(--text-tertiary); display: flex; gap: 1rem; }
+.task-actions { display: flex; gap: 8px; }
+.priority-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.priority-badge.high { background: rgba(239,68,68,0.1); color: #EF4444; }
+.priority-badge.medium { background: rgba(245,158,11,0.1); color: #F59E0B; }
+.priority-badge.low { background: rgba(16,185,129,0.1); color: #10B981; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-check2-square me-2" style="color: var(--planner-lavender)"></i>Mis Tareas</h2>
+    <a href="{{ url_for('planner.task_form') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>Nueva Tarea
+    </a>
+</div>
+
+<div class="filter-bar">
+    <a href="?status=pending" class="filter-btn {% if filter_status == 'pending' %}active{% endif %}">Pendientes</a>
+    <a href="?status=completed" class="filter-btn {% if filter_status == 'completed' %}active{% endif %}">Completadas</a>
+    <a href="?status=all" class="filter-btn {% if filter_status == 'all' %}active{% endif %}">Todas</a>
+    <span style="border-left: 1px solid var(--border-color); margin: 0 8px;"></span>
+    <a href="?status={{ filter_status }}&priority=high" class="filter-btn {% if filter_priority == 'high' %}active{% endif %}">Alta</a>
+    <a href="?status={{ filter_status }}&priority=medium" class="filter-btn {% if filter_priority == 'medium' %}active{% endif %}">Media</a>
+    <a href="?status={{ filter_status }}&priority=low" class="filter-btn {% if filter_priority == 'low' %}active{% endif %}">Baja</a>
+</div>
+
+{% if tasks %}
+    {% for task in tasks %}
+    <div class="task-card priority-{{ task.priority }} {% if task.status == 'completed' %}completed{% endif %}" id="task-{{ task.id }}">
+        <div class="task-checkbox {% if task.status == 'completed' %}checked{% endif %}" onclick="toggleTask({{ task.id }}, '{{ task.status }}')">
+            {% if task.status == 'completed' %}<i class="bi bi-check"></i>{% endif %}
+        </div>
+        <div class="task-content">
+            <div class="task-title">{{ task.title }}</div>
+            <div class="task-meta">
+                {% if task.due_date %}
+                    <span {% if task.is_overdue %}style="color: #EF4444"{% endif %}>
+                        <i class="bi bi-calendar3 me-1"></i>{{ task.due_date.strftime('%d/%m/%Y') }}
+                    </span>
+                {% endif %}
+                <span><i class="bi bi-tag me-1"></i>{{ task.category }}</span>
+            </div>
+        </div>
+        <span class="priority-badge {{ task.priority }}">{{ task.priority|upper }}</span>
+        <div class="task-actions">
+            <a href="{{ url_for('planner.task_form', id=task.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteTask({{ task.id }})"><i class="bi bi-trash"></i></button>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-check-circle" style="font-size: 4rem; color: var(--planner-lavender); opacity: 0.5;"></i>
+        <p class="mt-3 text-muted">No hay tareas</p>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleTask(id, currentStatus) {
+    const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+    fetch(`/planner/api/task/${id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+    }).then(() => location.reload());
+}
+
+function deleteTask(id) {
+    if (!confirm('Eliminar esta tarea?')) return;
+    fetch(`/planner/api/task/${id}`, { method: 'DELETE' }).then(() => location.reload());
+}
+</script>
+{% endblock %}

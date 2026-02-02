@@ -1,0 +1,166 @@
+{% extends 'planner/base_planner.html' %}
+{% block title %}{{ 'Editar' if habit else 'Nuevo' }} Habito - Planner{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+.icon-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.icon-option {
+    width: 50px;
+    height: 50px;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1.3rem;
+    color: var(--text-secondary);
+}
+.icon-option:hover { border-color: var(--planner-lavender); color: var(--planner-lavender); }
+.icon-option.selected {
+    border-color: var(--planner-lavender);
+    background: rgba(139,92,246,0.1);
+    color: var(--planner-lavender);
+}
+.color-selector {
+    display: flex;
+    gap: 12px;
+}
+.color-option {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 3px solid transparent;
+}
+.color-option:hover { transform: scale(1.1); }
+.color-option.selected { border-color: var(--text-primary); }
+.color-option.rose { background: linear-gradient(135deg, #EC4899, #F472B6); }
+.color-option.lavender { background: linear-gradient(135deg, #8B5CF6, #A78BFA); }
+.color-option.mint { background: linear-gradient(135deg, #10B981, #34D399); }
+.color-option.yellow { background: linear-gradient(135deg, #F59E0B, #FBBF24); }
+.color-option.blue { background: linear-gradient(135deg, #3B82F6, #60A5FA); }
+.btn-delete {
+    background: rgba(239,68,68,0.1);
+    color: #EF4444;
+    border: none;
+}
+.btn-delete:hover { background: #EF4444; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <a href="{{ url_for('planner.habits') }}" class="btn btn-outline-primary me-3">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <h2><i class="bi bi-fire me-2" style="color: var(--planner-rose)"></i>{{ 'Editar' if habit else 'Nuevo' }} Habito</h2>
+</div>
+
+<div class="form-card">
+    <form method="POST">
+        <div class="mb-4">
+            <label class="form-label fw-bold">Nombre del habito</label>
+            <input type="text" class="form-control" name="name" value="{{ habit.name if habit else '' }}"
+                   placeholder="Ej: Meditar, Ejercicio, Leer..." required>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-bold">Icono</label>
+            <input type="hidden" name="icon" id="iconInput" value="{{ habit.icon if habit else 'check-circle' }}">
+            <div class="icon-selector">
+                {% set icons = ['check-circle', 'heart', 'star', 'lightning', 'droplet', 'book', 'pencil', 'music-note', 'bicycle', 'person-arms-up', 'sunrise', 'moon-stars', 'cup-hot', 'flower1', 'emoji-smile', 'palette', 'camera', 'headphones', 'journal', 'calendar-check'] %}
+                {% for icon in icons %}
+                <div class="icon-option {% if (habit and habit.icon == icon) or (not habit and icon == 'check-circle') %}selected{% endif %}"
+                     data-icon="{{ icon }}" onclick="selectIcon('{{ icon }}')">
+                    <i class="bi bi-{{ icon }}"></i>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-bold">Color</label>
+            <input type="hidden" name="color" id="colorInput" value="{{ habit.color if habit else 'rose' }}">
+            <div class="color-selector">
+                {% set colors = ['rose', 'lavender', 'mint', 'yellow', 'blue'] %}
+                {% for color in colors %}
+                <div class="color-option {{ color }} {% if (habit and habit.color == color) or (not habit and color == 'rose') %}selected{% endif %}"
+                     data-color="{{ color }}" onclick="selectColor('{{ color }}')"></div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-bold">Frecuencia semanal</label>
+            <select class="form-select" name="target_per_week">
+                {% for i in range(1, 8) %}
+                <option value="{{ i }}" {% if habit and habit.target_per_week == i %}selected{% endif %}>
+                    {{ i }} {{ 'dia' if i == 1 else 'dias' }} por semana
+                </option>
+                {% endfor %}
+            </select>
+            <div class="form-text">Cuantas veces por semana quieres completar este habito</div>
+        </div>
+
+        {% if habit %}
+        <div class="mb-4">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="active" id="activeCheck"
+                       {% if habit.active %}checked{% endif %}>
+                <label class="form-check-label" for="activeCheck">Habito activo</label>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="d-flex gap-2 justify-content-end mt-4">
+            {% if habit %}
+            <button type="button" class="btn btn-delete" onclick="deleteHabit()">
+                <i class="bi bi-trash me-2"></i>Eliminar
+            </button>
+            {% endif %}
+            <a href="{{ url_for('planner.habits') }}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg me-2"></i>{{ 'Guardar' if habit else 'Crear Habito' }}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectIcon(icon) {
+    document.querySelectorAll('.icon-option').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`[data-icon="${icon}"]`).classList.add('selected');
+    document.getElementById('iconInput').value = icon;
+}
+
+function selectColor(color) {
+    document.querySelectorAll('.color-option').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`[data-color="${color}"]`).classList.add('selected');
+    document.getElementById('colorInput').value = color;
+}
+
+{% if habit %}
+function deleteHabit() {
+    if (!confirm('Eliminar este habito y todo su historial?')) return;
+    fetch('/planner/api/habit/{{ habit.id }}', { method: 'DELETE' })
+        .then(() => window.location.href = '/planner/habits');
+}
+{% endif %}
+</script>
+{% endblock %}

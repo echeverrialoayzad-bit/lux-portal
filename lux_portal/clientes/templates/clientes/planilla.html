@@ -1,0 +1,597 @@
+{% extends 'clientes/base_clientes.html' %}
+
+{% block title %}{{ cliente.codigo }} - Planilla{% endblock %}
+
+{% block extra_css %}
+<style>
+    .planilla-header {
+        background: var(--gradient-primary);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+    }
+
+    .planilla-header h2 {
+        margin: 0;
+        font-weight: 700;
+    }
+
+    .planilla-header .ruta-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 0.375rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.875rem;
+    }
+
+    /* Spreadsheet styles */
+    .spreadsheet-container {
+        overflow-x: auto;
+        margin-bottom: 1.5rem;
+    }
+
+    .spreadsheet {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8125rem;
+    }
+
+    .spreadsheet th {
+        background: var(--clientes-light);
+        color: var(--clientes-primary);
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.6875rem;
+        letter-spacing: 0.5px;
+        padding: 0.5rem 0.375rem;
+        border: 1px solid var(--border-color);
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .spreadsheet td {
+        padding: 0;
+        border: 1px solid var(--border-color);
+        background: white;
+    }
+
+    .spreadsheet input,
+    .spreadsheet select {
+        width: 100%;
+        border: none;
+        padding: 0.5rem 0.375rem;
+        font-size: 0.8125rem;
+        background: transparent;
+        outline: none;
+    }
+
+    .spreadsheet input[type="date"] {
+        min-width: 130px;
+    }
+
+    .spreadsheet input:focus,
+    .spreadsheet select:focus {
+        background: var(--clientes-light);
+    }
+
+    /* Campos calculados (solo lectura) */
+    .spreadsheet input.calculated {
+        background: #e8f4e8 !important;
+        color: #155724;
+        font-weight: 600;
+    }
+
+    .spreadsheet .col-sm { width: 70px; }
+    .spreadsheet .col-md { width: 100px; }
+    .spreadsheet .col-lg { width: 140px; }
+
+    .spreadsheet .row-actions {
+        padding: 0.25rem;
+        text-align: center;
+    }
+
+    .spreadsheet .btn-row {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        border-radius: 4px;
+    }
+
+    /* Status colors */
+    .status-ok { background: #d4edda !important; }
+    .status-pending { background: #fff3cd !important; }
+    .status-set { background: #cce5ff !important; }
+
+    /* Section cards */
+    .section-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+
+    .section-card .section-title {
+        background: var(--clientes-light);
+        color: var(--clientes-primary);
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        font-size: 0.875rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .section-card .section-body {
+        padding: 1rem;
+    }
+
+    /* Notas */
+    .notas-textarea {
+        width: 100%;
+        min-height: 100px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0.75rem;
+        resize: vertical;
+    }
+
+    .notas-textarea:focus {
+        border-color: var(--clientes-accent);
+        outline: none;
+    }
+
+    /* Bank info */
+    .bank-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .bank-item label {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.25rem;
+    }
+
+    .bank-item input {
+        width: 100%;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+    }
+
+    /* Action buttons */
+    .action-bar {
+        position: sticky;
+        bottom: 0;
+        background: var(--bg-card);
+        border-top: 1px solid var(--border-color);
+        padding: 1rem;
+        margin: 0 -2rem -2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 100;
+    }
+
+    .save-indicator {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+
+    .save-indicator.saving {
+        color: var(--clientes-accent);
+    }
+
+    .save-indicator.saved {
+        color: #28a745;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="planilla-header fade-in">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <div class="d-flex align-items-center gap-3 mb-1">
+                <h2>{{ cliente.codigo }}</h2>
+                {% if cliente.ruta_principal %}
+                <span class="ruta-badge">STORAGE {{ cliente.ruta_principal }}</span>
+                {% endif %}
+            </div>
+            <div class="opacity-75">{{ cliente.nombre }}</div>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-light btn-sm" onclick="agregarFila()">
+                <i class="bi bi-plus-circle me-1"></i>Agregar Fila
+            </button>
+            <a href="{{ url_for('clientes.dashboard') }}" class="btn btn-outline-light btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Volver
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Rutas/Tarifas -->
+<div class="section-card fade-in">
+    <div class="section-title">
+        <i class="bi bi-table me-2"></i>Rutas y Tarifas
+    </div>
+    <div class="spreadsheet-container">
+        <table class="spreadsheet" id="rutasTable">
+            <thead>
+                <tr>
+                    <th class="col-md">Airline</th>
+                    <th class="col-sm">AWC</th>
+                    <th class="col-sm">Date</th>
+                    <th class="col-sm">Origin</th>
+                    <th class="col-sm">Destiny</th>
+                    <th class="col-md">KG/Day</th>
+                    <th class="col-sm">Pieces</th>
+                    <th class="col-sm">KG</th>
+                    <th class="col-sm">Add. KG</th>
+                    <th class="col-sm">Net Rate</th>
+                    <th class="col-sm">Valentine</th>
+                    <th class="col-sm">Op. Cost</th>
+                    <th class="col-sm">Net+Costs</th>
+                    <th class="col-sm">Profit</th>
+                    <th class="col-sm">Sell Rate</th>
+                    <th class="col-md">Update</th>
+                    <th class="col-sm">Approval</th>
+                    <th class="col-sm">Departure</th>
+                    <th class="col-sm">En Route</th>
+                    <th class="col-sm">Arrival</th>
+                    <th class="col-lg">Notes</th>
+                    <th class="col-md">Alert</th>
+                    <th style="width: 40px;"></th>
+                </tr>
+            </thead>
+            <tbody id="rutasBody">
+                <!-- Filas dinamicas -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Notas -->
+<div class="row">
+    <div class="col-12">
+        <div class="section-card fade-in">
+            <div class="section-title">
+                <i class="bi bi-sticky me-2"></i>Notas
+            </div>
+            <div class="section-body">
+                <textarea class="notas-textarea" id="notas" placeholder="Notas del cliente...">{{ planilla.notas or '' }}</textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info Bancaria -->
+<div class="section-card fade-in">
+    <div class="section-title">
+        <i class="bi bi-bank me-2"></i>Informacion Bancaria
+    </div>
+    <div class="section-body">
+        <div class="bank-grid">
+            <div class="bank-item">
+                <label>Banco</label>
+                <input type="text" id="bankBanco" value="{{ planilla.banco or 'Banco Pichincha' }}">
+            </div>
+            <div class="bank-item">
+                <label>SWIFT</label>
+                <input type="text" id="bankSwift" value="{{ planilla.swift or 'PICHECEQXXX' }}">
+            </div>
+            <div class="bank-item">
+                <label>Cuenta</label>
+                <input type="text" id="bankCuenta" value="{{ planilla.cuenta or '2100339784' }}">
+            </div>
+            <div class="bank-item">
+                <label>Empresa</label>
+                <input type="text" id="bankEmpresa" value="{{ planilla.empresa or 'FREIGHTWISE FORWARDING S.A' }}">
+            </div>
+            <div class="bank-item">
+                <label>Tax ID</label>
+                <input type="text" id="bankTaxId" value="{{ planilla.tax_id or '1793230131001' }}">
+            </div>
+            <div class="bank-item">
+                <label>Direccion</label>
+                <input type="text" id="bankDireccion" value="{{ planilla.direccion or 'Pedro de Alfaro y Francisco Ruiz' }}">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Bar -->
+<div class="action-bar">
+    <span class="save-indicator" id="saveIndicator">
+        <i class="bi bi-cloud-check me-1"></i>Sin cambios
+    </span>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary" onclick="window.location.reload()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Recargar
+        </button>
+        <button type="button" class="btn btn-primary" onclick="guardarTodo()">
+            <i class="bi bi-save me-1"></i>Guardar Cambios
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const clienteId = {{ cliente.id }};
+let rutasData = {{ rutas|tojson|safe }};
+let hasChanges = false;
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    renderRutas();
+    setupAutoSave();
+});
+
+function renderRutas() {
+    const tbody = document.getElementById('rutasBody');
+    tbody.innerHTML = '';
+
+    if (rutasData.length === 0) {
+        agregarFila();
+        return;
+    }
+
+    rutasData.forEach((ruta, index) => {
+        const tr = crearFilaRuta(ruta, index);
+        tbody.appendChild(tr);
+    });
+}
+
+function crearFilaRuta(ruta, index) {
+    const tr = document.createElement('tr');
+    tr.dataset.index = index;
+
+    const campos = [
+        'airline', 'awc', 'date', 'origin', 'destiny',
+        'total_kg_per_day', 'pieces', 'kg', 'additional_kg',
+        'net_rate', 'valentine_increase', 'operative_cost',
+        'net_plus_costs', 'profit', 'selling_rate',
+        'update_status', 'client_approval', 'departure',
+        'en_route_status', 'arrival', 'important_notes', 'alert'
+    ];
+
+    // Campos que disparan calculo de formulas
+    const camposFormula = ['net_rate', 'valentine_increase', 'operative_cost', 'profit'];
+    // Campos calculados automaticamente
+    const camposCalculados = ['net_plus_costs', 'selling_rate'];
+
+    campos.forEach(campo => {
+        const td = document.createElement('td');
+        const input = document.createElement('input');
+
+        // Campo date usa calendario
+        if (campo === 'date') {
+            input.type = 'date';
+        } else {
+            input.type = 'text';
+        }
+
+        input.value = ruta[campo] || '';
+        input.dataset.field = campo;
+        input.dataset.index = index;
+
+        // Campos calculados son de solo lectura
+        if (camposCalculados.includes(campo)) {
+            input.classList.add('calculated');
+            input.readOnly = true;
+        }
+
+        input.addEventListener('change', () => onCellChange(index, campo, input.value));
+        input.addEventListener('input', markUnsaved);
+
+        // Campos que disparan recalculo de formulas
+        if (camposFormula.includes(campo)) {
+            input.addEventListener('input', () => calcularFormulasRuta(index));
+        }
+
+        // Aplicar clases de estado
+        if (campo === 'update_status' || campo === 'client_approval' || campo === 'alert') {
+            input.addEventListener('change', function() {
+                updateStatusClass(this);
+            });
+            setTimeout(() => updateStatusClass(input), 0);
+        }
+
+        td.appendChild(input);
+        tr.appendChild(td);
+    });
+
+    // Boton eliminar
+    const tdActions = document.createElement('td');
+    tdActions.className = 'row-actions';
+    tdActions.innerHTML = `
+        <button type="button" class="btn btn-outline-danger btn-row" onclick="eliminarFila(${index})">
+            <i class="bi bi-x"></i>
+        </button>
+    `;
+    tr.appendChild(tdActions);
+
+    // Calcular formulas iniciales
+    setTimeout(() => calcularFormulasRuta(index), 0);
+
+    return tr;
+}
+
+// Calcular formulas de la tabla de rutas
+function calcularFormulasRuta(index) {
+    const tr = document.querySelector(`tr[data-index="${index}"]`);
+    if (!tr) return;
+
+    const getValue = (field) => {
+        const input = tr.querySelector(`input[data-field="${field}"]`);
+        return parseFloat(input?.value) || 0;
+    };
+
+    const setValue = (field, value) => {
+        const input = tr.querySelector(`input[data-field="${field}"]`);
+        if (input) {
+            input.value = value.toFixed(2);
+            rutasData[index][field] = input.value;
+        }
+    };
+
+    // Net+Costs = Net Rate + Valentine Increase + Operative Cost
+    const netRate = getValue('net_rate');
+    const valentine = getValue('valentine_increase');
+    const opCost = getValue('operative_cost');
+    const netPlusCosts = netRate + valentine + opCost;
+    setValue('net_plus_costs', netPlusCosts);
+
+    // Selling Rate = Net+Costs + Profit
+    const profit = getValue('profit');
+    const sellingRate = netPlusCosts + profit;
+    setValue('selling_rate', sellingRate);
+
+    markUnsaved();
+}
+
+function updateStatusClass(input) {
+    const value = input.value.toLowerCase().trim();
+    input.classList.remove('status-ok', 'status-pending', 'status-set');
+
+    if (value.includes('ok') || value.includes('under control')) {
+        input.classList.add('status-ok');
+    } else if (value.includes('pending')) {
+        input.classList.add('status-pending');
+    } else if (value.includes('set')) {
+        input.classList.add('status-set');
+    }
+}
+
+function onCellChange(index, campo, valor) {
+    rutasData[index][campo] = valor;
+    markUnsaved();
+}
+
+function agregarFila() {
+    const nuevaRuta = {
+        airline: '', awc: '', date: '', origin: '', destiny: '',
+        total_kg_per_day: '', pieces: '', kg: '', additional_kg: '',
+        net_rate: '', valentine_increase: '', operative_cost: '',
+        net_plus_costs: '', profit: '', selling_rate: '',
+        update_status: '', client_approval: '', departure: '',
+        en_route_status: '', arrival: '', important_notes: '', alert: ''
+    };
+    rutasData.push(nuevaRuta);
+    renderRutas();
+    markUnsaved();
+}
+
+function eliminarFila(index) {
+    if (rutasData.length <= 1) {
+        alert('Debe haber al menos una fila');
+        return;
+    }
+    rutasData.splice(index, 1);
+    renderRutas();
+    markUnsaved();
+}
+
+function markUnsaved() {
+    hasChanges = true;
+    const indicator = document.getElementById('saveIndicator');
+    indicator.className = 'save-indicator';
+    indicator.innerHTML = '<i class="bi bi-exclamation-circle me-1"></i>Cambios sin guardar';
+}
+
+function markSaving() {
+    const indicator = document.getElementById('saveIndicator');
+    indicator.className = 'save-indicator saving';
+    indicator.innerHTML = '<i class="bi bi-arrow-repeat spin me-1"></i>Guardando...';
+}
+
+function markSaved() {
+    hasChanges = false;
+    const indicator = document.getElementById('saveIndicator');
+    indicator.className = 'save-indicator saved';
+    indicator.innerHTML = '<i class="bi bi-check-circle me-1"></i>Guardado';
+
+    setTimeout(() => {
+        if (!hasChanges) {
+            indicator.className = 'save-indicator';
+            indicator.innerHTML = '<i class="bi bi-cloud-check me-1"></i>Sin cambios';
+        }
+    }, 2000);
+}
+
+function getBancoData() {
+    return {
+        banco: document.getElementById('bankBanco').value,
+        swift: document.getElementById('bankSwift').value,
+        cuenta: document.getElementById('bankCuenta').value,
+        empresa: document.getElementById('bankEmpresa').value,
+        tax_id: document.getElementById('bankTaxId').value,
+        direccion: document.getElementById('bankDireccion').value
+    };
+}
+
+async function guardarTodo() {
+    markSaving();
+
+    const data = {
+        rutas: rutasData,
+        notas: document.getElementById('notas').value
+    };
+
+    try {
+        const response = await fetch(`/clientes/api/planilla/${clienteId}/todo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            markSaved();
+
+            // Guardar info bancaria
+            await fetch(`/clientes/api/planilla/${clienteId}/banco`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(getBancoData())
+            });
+        } else {
+            alert('Error al guardar: ' + result.error);
+            markUnsaved();
+        }
+    } catch (error) {
+        alert('Error al guardar: ' + error);
+        markUnsaved();
+    }
+}
+
+function setupAutoSave() {
+    // Detectar cambios en notas y banco
+    document.querySelectorAll('.notas-textarea, .bank-item input').forEach(input => {
+        input.addEventListener('input', markUnsaved);
+    });
+
+    // Guardar antes de salir
+    window.addEventListener('beforeunload', function(e) {
+        if (hasChanges) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+}
+
+// CSS para animacion
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

@@ -1,0 +1,213 @@
+{% extends 'planner/base_planner.html' %}
+{% block title %}Habitos - Planner{% endblock %}
+
+{% block extra_css %}
+<style>
+.habit-card {
+    background: white;
+    border-radius: 20px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    transition: all 0.3s ease;
+}
+.habit-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.habit-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+.habit-icon.rose { background: rgba(236,72,153,0.1); color: var(--planner-rose); }
+.habit-icon.lavender { background: rgba(139,92,246,0.1); color: var(--planner-lavender); }
+.habit-icon.mint { background: rgba(16,185,129,0.1); color: var(--planner-mint); }
+.habit-icon.yellow { background: rgba(251,191,36,0.1); color: #F59E0B; }
+.habit-icon.blue { background: rgba(59,130,246,0.1); color: #3B82F6; }
+.habit-info { flex: 1; }
+.habit-name { font-weight: 700; font-size: 1.1rem; margin-bottom: 4px; }
+.habit-streak {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #92400E;
+}
+.week-tracker {
+    display: flex;
+    gap: 8px;
+}
+.day-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid var(--border-color);
+    background: white;
+    color: var(--text-secondary);
+}
+.day-circle.completed {
+    background: var(--gradient-primary);
+    border-color: transparent;
+    color: white;
+}
+.day-circle.today { border-color: var(--planner-lavender); }
+.day-circle:hover { transform: scale(1.1); }
+.habit-actions {
+    display: flex;
+    gap: 8px;
+}
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+.week-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: white;
+    padding: 8px 16px;
+    border-radius: 12px;
+}
+.week-nav button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+.week-nav button:hover { background: rgba(139,92,246,0.1); color: var(--planner-lavender); }
+.week-label { font-weight: 600; min-width: 200px; text-align: center; }
+.day-labels {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+    margin-right: 60px;
+}
+.day-label {
+    width: 40px;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="section-header">
+    <h2><i class="bi bi-fire me-2" style="color: var(--planner-rose)"></i>Mis Habitos</h2>
+    <div class="d-flex align-items-center gap-3">
+        <div class="week-nav">
+            <button onclick="changeWeek(-1)"><i class="bi bi-chevron-left"></i></button>
+            <span class="week-label" id="weekLabel">{{ week_start.strftime('%d %b') }} - {{ week_end.strftime('%d %b %Y') }}</span>
+            <button onclick="changeWeek(1)"><i class="bi bi-chevron-right"></i></button>
+        </div>
+        <a href="{{ url_for('planner.habit_form') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>Nuevo Habito
+        </a>
+    </div>
+</div>
+
+<!-- Day Labels -->
+<div class="d-flex mb-3" style="padding-left: calc(56px + 1.5rem + 200px);">
+    <div class="day-labels">
+        {% for i in range(7) %}
+        <div class="day-label">{{ ['L','M','X','J','V','S','D'][i] }}</div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Habits List -->
+{% if habits %}
+    {% for habit in habits %}
+    <div class="habit-card">
+        <div class="habit-icon {{ habit.color }}">
+            <i class="bi bi-{{ habit.icon }}"></i>
+        </div>
+        <div class="habit-info">
+            <div class="habit-name">{{ habit.name }}</div>
+            {% set streak = habit.get_streak() %}
+            {% if streak > 0 %}
+            <span class="habit-streak">
+                <i class="bi bi-fire"></i>{{ streak }} dias
+            </span>
+            {% endif %}
+        </div>
+        <div class="week-tracker">
+            {% set completions = habit.get_week_completion(week_start) %}
+            {% for i in range(7) %}
+            {% set day_date = week_start + timedelta(days=i) %}
+            <div class="day-circle {% if completions[i] %}completed{% endif %} {% if day_date == today %}today{% endif %}"
+                 onclick="toggleHabit({{ habit.id }}, '{{ day_date.isoformat() }}')"
+                 data-habit="{{ habit.id }}"
+                 data-date="{{ day_date.isoformat() }}">
+                {{ day_date.day }}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="habit-actions">
+            <a href="{{ url_for('planner.habit_form', id=habit.id) }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil"></i>
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-fire" style="font-size: 4rem; color: var(--text-tertiary);"></i>
+    <h4 class="mt-3 text-muted">No tienes habitos creados</h4>
+    <p class="text-muted">Crea tu primer habito para empezar a trackear tu progreso</p>
+    <a href="{{ url_for('planner.habit_form') }}" class="btn btn-primary mt-2">
+        <i class="bi bi-plus-circle me-2"></i>Crear Habito
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentWeekOffset = 0;
+
+function toggleHabit(habitId, dateStr) {
+    const circle = document.querySelector(`[data-habit="${habitId}"][data-date="${dateStr}"]`);
+
+    fetch('/planner/api/habit/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ habit_id: habitId, date: dateStr })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.completed) {
+            circle.classList.add('completed');
+        } else {
+            circle.classList.remove('completed');
+        }
+    });
+}
+
+function changeWeek(delta) {
+    currentWeekOffset += delta;
+    window.location.href = `/planner/habits?week_offset=${currentWeekOffset}`;
+}
+</script>
+{% endblock %}

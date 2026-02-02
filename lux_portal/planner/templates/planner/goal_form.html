@@ -1,0 +1,42 @@
+{% extends 'planner/base_planner.html' %}
+{% block title %}Meta del Mes - Planner{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-body p-4">
+                <h4 class="mb-4"><i class="bi bi-bullseye me-2" style="color: var(--planner-lavender)"></i>Meta de {{ today.strftime('%B %Y') }}</h4>
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Titulo de la Meta *</label>
+                        <input type="text" class="form-control" name="title" required value="{{ goal.title if goal else '' }}" placeholder="Ej: Cerrar 5 clientes nuevos">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Descripcion</label>
+                        <textarea class="form-control" name="description" rows="2" placeholder="Detalles de tu meta...">{{ goal.description if goal else '' }}</textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Meta (numero objetivo)</label>
+                            <input type="number" class="form-control" name="target_value" value="{{ goal.target_value if goal else 100 }}" min="1">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Progreso actual</label>
+                            <input type="number" class="form-control" name="current_value" value="{{ goal.current_value if goal else 0 }}" min="0">
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('planner.dashboard') }}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-primary flex-grow-1">Guardar Meta</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

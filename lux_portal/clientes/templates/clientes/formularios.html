@@ -1,0 +1,359 @@
+{% extends 'clientes/base_clientes.html' %}
+
+{% block title %}Formularios - Clientes{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="bi bi-file-earmark-text text-rose"></i> Formularios de Clientes
+                    </h2>
+                    <p class="text-muted mb-0">Selecciona un tipo de formulario para crear o editar</p>
+                </div>
+                <a href="{{ url_for('clientes.dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Volver a Clientes
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Type Selection -->
+    <div class="row mb-5">
+        <div class="col-md-4 mb-4">
+            <div class="card form-type-card h-100">
+                <div class="card-body text-center p-4">
+                    <div class="form-icon mb-3">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    <h5 class="mb-2">Customer Associate</h5>
+                    <p class="text-muted small mb-3">
+                        Perfil completo de cliente/proveedor con info legal y bancaria.
+                    </p>
+                    <div class="d-flex gap-2 justify-content-center flex-wrap">
+                        <a href="{{ url_for('clientes.customer_associate_form') }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-pencil me-1"></i>Manual
+                        </a>
+                        <a href="{{ url_for('clientes.upload_form', form_type='customer-associate') }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-upload me-1"></i>Excel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card form-type-card h-100">
+                <div class="card-body text-center p-4">
+                    <div class="form-icon mb-3">
+                        <i class="bi bi-truck"></i>
+                    </div>
+                    <h5 class="mb-2">Shipping Instructions</h5>
+                    <p class="text-muted small mb-3">
+                        Instrucciones de envio, facturacion y documentos requeridos.
+                    </p>
+                    <div class="d-flex gap-2 justify-content-center flex-wrap">
+                        <a href="{{ url_for('clientes.shipping_instructions_form') }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-pencil me-1"></i>Manual
+                        </a>
+                        <a href="{{ url_for('clientes.upload_form', form_type='shipping-instructions') }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-upload me-1"></i>Excel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card form-type-card h-100">
+                <div class="card-body text-center p-4">
+                    <div class="form-icon freight-icon mb-3">
+                        <i class="bi bi-calculator"></i>
+                    </div>
+                    <h5 class="mb-2">Freight Quote</h5>
+                    <p class="text-muted small mb-3">
+                        Cotizacion de flete con costos, cargos y datos bancarios.
+                    </p>
+                    <div class="d-flex gap-2 justify-content-center flex-wrap">
+                        <a href="{{ url_for('clientes.freight_quote_form') }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-pencil me-1"></i>Manual
+                        </a>
+                        <a href="{{ url_for('clientes.upload_form', form_type='freight-quote') }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-upload me-1"></i>Excel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Customer Associate Forms -->
+    {% if customer_forms %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-building me-2"></i>Customer Associate - Recientes
+                    </h5>
+                    <span class="badge bg-rose-light">{{ customer_forms|length }}</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Empresa</th>
+                                    <th>Tax ID</th>
+                                    <th>Ciudad</th>
+                                    <th>Fecha</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for form in customer_forms %}
+                                <tr>
+                                    <td>{{ form.id }}</td>
+                                    <td><strong>{{ form.legal_name or '-' }}</strong></td>
+                                    <td>{{ form.tax_id or '-' }}</td>
+                                    <td>{{ form.city_country or '-' }}</td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ form.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if form.fecha_actualizacion else '-' }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('clientes.customer_associate_form', id=form.id) }}"
+                                               class="btn btn-outline-primary" title="Editar">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{{ url_for('clientes.descargar_customer_associate', id=form.id) }}"
+                                               class="btn btn-outline-success" title="Descargar Excel">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                            <form action="{{ url_for('clientes.eliminar_customer_associate', id=form.id) }}"
+                                                  method="POST" class="d-inline"
+                                                  onsubmit="return confirm('Eliminar este formulario?')">
+                                                <button type="submit" class="btn btn-outline-danger" title="Eliminar">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Shipping Instructions Forms -->
+    {% if shipping_forms %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-truck me-2"></i>Shipping Instructions - Recientes
+                    </h5>
+                    <span class="badge bg-rose-light">{{ shipping_forms|length }}</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Contacto</th>
+                                    <th>Email</th>
+                                    <th>Telefono</th>
+                                    <th>Fecha</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for form in shipping_forms %}
+                                <tr>
+                                    <td>{{ form.id }}</td>
+                                    <td><strong>{{ form.contact_full_name or '-' }}</strong></td>
+                                    <td>{{ form.contact_email or '-' }}</td>
+                                    <td>{{ form.contact_phone or '-' }}</td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ form.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if form.fecha_actualizacion else '-' }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('clientes.shipping_instructions_form', id=form.id) }}"
+                                               class="btn btn-outline-primary" title="Editar">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{{ url_for('clientes.descargar_shipping_instructions', id=form.id) }}"
+                                               class="btn btn-outline-success" title="Descargar Excel">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                            <form action="{{ url_for('clientes.eliminar_shipping_instructions', id=form.id) }}"
+                                                  method="POST" class="d-inline"
+                                                  onsubmit="return confirm('Eliminar este formulario?')">
+                                                <button type="submit" class="btn btn-outline-danger" title="Eliminar">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Freight Quote Forms -->
+    {% if freight_forms %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-calculator me-2"></i>Freight Quote - Recientes
+                    </h5>
+                    <span class="badge bg-rose-light">{{ freight_forms|length }}</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Ruta</th>
+                                    <th>Net Weight</th>
+                                    <th>Rate</th>
+                                    <th>Total</th>
+                                    <th>Fecha</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for form in freight_forms %}
+                                <tr>
+                                    <td>{{ form.id }}</td>
+                                    <td><strong class="text-primary">{{ form.ruta or '-' }}</strong></td>
+                                    <td>{{ form.net_weight or 0 }} kg</td>
+                                    <td>${{ "%.2f"|format(form.rate or 0) }}</td>
+                                    <td><strong class="text-success">${{ "%.2f"|format(form.total or 0) }}</strong></td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ form.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if form.fecha_actualizacion else '-' }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('clientes.freight_quote_form', id=form.id) }}"
+                                               class="btn btn-outline-primary" title="Editar">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{{ url_for('clientes.descargar_freight_quote', id=form.id) }}"
+                                               class="btn btn-outline-success" title="Descargar Excel">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                            <form action="{{ url_for('clientes.eliminar_freight_quote', id=form.id) }}"
+                                                  method="POST" class="d-inline"
+                                                  onsubmit="return confirm('Eliminar esta cotizacion?')">
+                                                <button type="submit" class="btn btn-outline-danger" title="Eliminar">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not customer_forms and not shipping_forms and not freight_forms %}
+    <div class="row">
+        <div class="col-12">
+            <div class="empty-state">
+                <i class="bi bi-inbox"></i>
+                <h5>No hay formularios guardados</h5>
+                <p class="text-muted">Crea tu primer formulario usando las opciones de arriba</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.form-type-card {
+    transition: all 0.3s ease;
+    border: 2px solid var(--border-color);
+}
+
+.form-type-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--clientes-rose);
+    box-shadow: var(--shadow-lg);
+}
+
+.form-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto;
+    background: var(--gradient-primary);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.form-icon i {
+    font-size: 2rem;
+    color: white;
+}
+
+.freight-icon {
+    background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+}
+
+.text-rose {
+    color: var(--clientes-rose);
+}
+
+.bg-rose-light {
+    background: var(--clientes-rose-light);
+    color: white;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 2px dashed var(--border-color);
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: var(--text-tertiary);
+    margin-bottom: 20px;
+}
+</style>
+{% endblock %}

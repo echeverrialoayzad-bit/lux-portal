@@ -1,0 +1,63 @@
+{% extends 'clientes/base_clientes.html' %}
+
+{% block title %}Nuevo Cliente - Lux Portal{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('clientes.dashboard') }}">Clientes</a></li>
+                <li class="breadcrumb-item active">Nuevo Cliente</li>
+            </ol>
+        </nav>
+        <h2 class="mb-0">
+            <i class="bi bi-person-plus-fill" style="color: var(--clientes-primary);"></i> Nuevo Cliente
+        </h2>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card fade-in">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Informacion del Cliente</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="codigo" class="form-label">Codigo <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="codigo" name="codigo"
+                               placeholder="Ej: AKK, CHL, MIA" required
+                               style="text-transform: uppercase;">
+                        <small class="text-muted">Codigo unico para identificar al cliente</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre"
+                               placeholder="Nombre completo del cliente">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="ruta_principal" class="form-label">Ruta Principal</label>
+                        <input type="text" class="form-control" id="ruta_principal" name="ruta_principal"
+                               placeholder="Ej: UIO-AMS, UIO-BKK"
+                               style="text-transform: uppercase;">
+                        <small class="text-muted">Ruta de storage principal del cliente</small>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>Crear Cliente
+                        </button>
+                        <a href="{{ url_for('clientes.dashboard') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-2"></i>Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

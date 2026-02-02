@@ -1,0 +1,119 @@
+{% extends 'clientes/base_clientes.html' %}
+
+{% block title %}Clientes - Lux Portal{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <h2 class="mb-0">
+                <i class="bi bi-people-fill" style="color: var(--clientes-primary);"></i> Mis Clientes
+            </h2>
+            <div class="d-flex gap-2 flex-wrap">
+                <form class="search-box" method="GET">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="form-control" name="q"
+                           placeholder="Buscar cliente..."
+                           value="{{ busqueda }}" style="min-width: 250px;">
+                </form>
+                <a href="{{ url_for('clientes.formularios') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-file-earmark-text me-2"></i>Formularios
+                </a>
+                <a href="{{ url_for('clientes.nuevo_cliente') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle me-2"></i>Nuevo Cliente
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card fade-in">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Lista de Clientes</h5>
+        <span class="badge bg-primary">{{ clientes|length }} cliente(s)</span>
+    </div>
+    <div class="card-body p-0">
+        {% if clientes %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Codigo</th>
+                        <th>Nombre</th>
+                        <th>Ruta Principal</th>
+                        <th>Ultima Actualizacion</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cliente in clientes %}
+                    <tr class="cliente-item" style="cursor: pointer;" onclick="window.location='{{ url_for('clientes.ver_planilla', id=cliente.id) }}'">
+                        <td>
+                            <strong class="text-primary">{{ cliente.codigo }}</strong>
+                        </td>
+                        <td>{{ cliente.nombre }}</td>
+                        <td>
+                            {% if cliente.ruta_principal %}
+                            <span class="badge bg-secondary">{{ cliente.ruta_principal }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                <i class="bi bi-calendar3 me-1"></i>
+                                {{ cliente.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if cliente.fecha_actualizacion else 'N/A' }}
+                            </small>
+                        </td>
+                        <td onclick="event.stopPropagation();">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('clientes.ver_planilla', id=cliente.id) }}"
+                                   class="btn btn-outline-primary" title="Ver Planilla">
+                                    <i class="bi bi-table"></i>
+                                </a>
+                                <button type="button" class="btn btn-outline-danger"
+                                        onclick="eliminarCliente({{ cliente.id }}, '{{ cliente.codigo }}')" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-people"></i>
+            <h5>No hay clientes</h5>
+            <p class="text-muted">Agrega tu primer cliente para comenzar</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function eliminarCliente(id, codigo) {
+    if (!confirm(`Esta seguro de eliminar el cliente ${codigo}?`)) {
+        return;
+    }
+
+    fetch(`/clientes/api/cliente/${id}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error al eliminar: ' + error);
+    });
+}
+</script>
+{% endblock %}

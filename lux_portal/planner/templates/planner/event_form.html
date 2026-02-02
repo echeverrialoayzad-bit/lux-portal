@@ -1,0 +1,172 @@
+{% extends 'planner/base_planner.html' %}
+{% block title %}{{ 'Editar' if event else 'Nuevo' }} Evento - Planner{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+.type-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.type-option {
+    padding: 10px 20px;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+.type-option:hover { border-color: var(--planner-lavender); }
+.type-option.selected { border-color: transparent; color: white; }
+.type-option.work.selected { background: #F59E0B; }
+.type-option.meeting.selected { background: #8B5CF6; }
+.type-option.personal.selected { background: #10B981; }
+.type-option.reminder.selected { background: #3B82F6; }
+.type-option.urgent.selected { background: #EF4444; }
+.type-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+.type-dot.work { background: #F59E0B; }
+.type-dot.meeting { background: #8B5CF6; }
+.type-dot.personal { background: #10B981; }
+.type-dot.reminder { background: #3B82F6; }
+.type-dot.urgent { background: #EF4444; }
+.type-option.selected .type-dot { background: white; }
+.btn-delete {
+    background: rgba(239,68,68,0.1);
+    color: #EF4444;
+    border: none;
+}
+.btn-delete:hover { background: #EF4444; color: white; }
+.time-row {
+    display: flex;
+    gap: 1rem;
+}
+.time-row > div { flex: 1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <a href="{{ url_for('planner.agenda') }}" class="btn btn-outline-primary me-3">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <h2><i class="bi bi-calendar-event me-2" style="color: var(--planner-lavender)"></i>{{ 'Editar' if event else 'Nuevo' }} Evento</h2>
+</div>
+
+<div class="form-card">
+    <form method="POST">
+        <div class="mb-4">
+            <label class="form-label fw-bold">Titulo del evento</label>
+            <input type="text" class="form-control" name="title" value="{{ event.title if event else '' }}"
+                   placeholder="Ej: Reunion de equipo, Cita medica..." required>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-bold">Tipo de evento</label>
+            <input type="hidden" name="event_type" id="typeInput" value="{{ event.event_type if event else 'work' }}">
+            <div class="type-selector">
+                {% set types = [('work', 'Trabajo', 'briefcase'), ('meeting', 'Reunion', 'people'), ('personal', 'Personal', 'person'), ('reminder', 'Recordatorio', 'bell'), ('urgent', 'Urgente', 'exclamation-triangle')] %}
+                {% for type_id, type_name, type_icon in types %}
+                <div class="type-option {{ type_id }} {% if (event and event.event_type == type_id) or (not event and type_id == 'work') %}selected{% endif %}"
+                     data-type="{{ type_id }}" onclick="selectType('{{ type_id }}')">
+                    <span class="type-dot {{ type_id }}"></span>
+                    <i class="bi bi-{{ type_icon }}"></i>
+                    {{ type_name }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-bold">Fecha</label>
+            <input type="date" class="form-control" name="event_date"
+                   value="{{ event.event_date.isoformat() if event else today.isoformat() }}" required>
+        </div>
+
+        <div class="mb-4">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="all_day" id="allDayCheck"
+                       {% if event and event.all_day %}checked{% endif %}
+                       onchange="toggleTimeInputs()">
+                <label class="form-check-label" for="allDayCheck">Todo el dia</label>
+            </div>
+        </div>
+
+        <div class="time-row mb-4" id="timeInputs" style="{% if event and event.all_day %}display:none{% endif %}">
+            <div>
+                <label class="form-label fw-bold">Hora inicio</label>
+                <input type="time" class="form-control" name="start_time"
+                       value="{{ event.start_time.strftime('%H:%M') if event and event.start_time else '09:00' }}">
+            </div>
+            <div>
+                <label class="form-label fw-bold">Hora fin</label>
+                <input type="time" class="form-control" name="end_time"
+                       value="{{ event.end_time.strftime('%H:%M') if event and event.end_time else '10:00' }}">
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-bold">Ubicacion (opcional)</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                <input type="text" class="form-control" name="location" value="{{ event.location if event else '' }}"
+                       placeholder="Ej: Sala de conferencias, Zoom, etc.">
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-bold">Descripcion (opcional)</label>
+            <textarea class="form-control" name="description" rows="3"
+                      placeholder="Notas adicionales sobre el evento...">{{ event.description if event else '' }}</textarea>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end mt-4">
+            {% if event %}
+            <button type="button" class="btn btn-delete" onclick="deleteEvent()">
+                <i class="bi bi-trash me-2"></i>Eliminar
+            </button>
+            {% endif %}
+            <a href="{{ url_for('planner.agenda') }}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg me-2"></i>{{ 'Guardar' if event else 'Crear Evento' }}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function selectType(type) {
+    document.querySelectorAll('.type-option').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`[data-type="${type}"]`).classList.add('selected');
+    document.getElementById('typeInput').value = type;
+}
+
+function toggleTimeInputs() {
+    const allDay = document.getElementById('allDayCheck').checked;
+    document.getElementById('timeInputs').style.display = allDay ? 'none' : 'flex';
+}
+
+{% if event %}
+function deleteEvent() {
+    if (!confirm('Eliminar este evento?')) return;
+    fetch('/planner/api/event/{{ event.id }}', { method: 'DELETE' })
+        .then(() => window.location.href = '/planner/agenda');
+}
+{% endif %}
+</script>
+{% endblock %}

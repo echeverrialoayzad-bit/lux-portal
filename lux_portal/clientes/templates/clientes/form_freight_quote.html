@@ -1,0 +1,375 @@
+{% extends 'clientes/base_clientes.html' %}
+
+{% block title %}Cotizacion de Flete - Clientes{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="bi bi-calculator text-rose"></i>
+                        {% if form_data and form_data.id %}
+                            Editar Cotizacion
+                        {% else %}
+                            Nueva Cotizacion de Flete
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">FreightWise Freight Quote</p>
+                </div>
+                <a href="{{ url_for('clientes.formularios') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Volver
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" class="form-container" id="quoteForm">
+        <!-- Section 1: Ruta y Costos -->
+        <div class="card mb-4 fade-in">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-airplane me-2"></i>1. Ruta y Costos
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label">Ruta *</label>
+                        <input type="text" class="form-control form-control-lg text-center" name="ruta" required
+                               value="{{ form_data.ruta if form_data else '' }}"
+                               placeholder="UIO-BKK" style="text-transform: uppercase; font-weight: bold;">
+                        <small class="text-muted">Ej: UIO-AMS, GYE-MIA</small>
+                    </div>
+                </div>
+
+                <div class="quote-table">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0">
+                            <thead class="quote-header">
+                                <tr>
+                                    <th>NET WEIGHT</th>
+                                    <th>VOLUME WEIGHT</th>
+                                    <th>RATE</th>
+                                    <th>Weight x Rate</th>
+                                    <th>DUE AGENT</th>
+                                    <th>DUE CARRIER</th>
+                                    <th>CERTIFICATE</th>
+                                    <th>PHYTO</th>
+                                    <th class="total-col">TOTAL</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <input type="number" class="form-control text-center calc-input" name="net_weight"
+                                               value="{{ form_data.net_weight if form_data else '0' }}"
+                                               step="0.01" min="0">
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control text-center calc-input" name="volume_weight"
+                                                   value="{{ form_data.volume_weight if form_data else '0' }}"
+                                                   step="0.01" min="0">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control text-center calc-input" name="rate"
+                                                   value="{{ form_data.rate if form_data else '0' }}"
+                                                   step="0.01" min="0">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control text-center calculated" name="weight_x_rate"
+                                                   value="{{ form_data.weight_x_rate if form_data else '0' }}"
+                                                   readonly>
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control text-center calc-input" name="due_agent"
+                                                   value="{{ form_data.due_agent if form_data else '0' }}"
+                                                   step="0.01" min="0">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control text-center calc-input" name="due_carrier"
+                                                   value="{{ form_data.due_carrier if form_data else '0' }}"
+                                                   step="0.01" min="0">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control text-center calc-input" name="certificate"
+                                                   value="{{ form_data.certificate if form_data else '0' }}"
+                                                   step="0.01" min="0">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <input type="number" class="form-control text-center calc-input" name="phyto"
+                                                   value="{{ form_data.phyto if form_data else '0' }}"
+                                                   step="0.01" min="0">
+                                            <span class="input-group-text">$</span>
+                                        </div>
+                                    </td>
+                                    <td class="total-col">
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" class="form-control text-center fw-bold calculated" name="total"
+                                                   value="{{ form_data.total if form_data else '0' }}"
+                                                   readonly>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Notes -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.1s">
+            <div class="card-header notes-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-sticky me-2"></i>2. Notes
+                </h5>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control" name="notes" rows="4"
+                          placeholder="Notas adicionales para la cotizacion...">{{ form_data.notes if form_data else '' }}</textarea>
+            </div>
+        </div>
+
+        <!-- Section 3: Account (Datos Bancarios) -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.2s">
+            <div class="card-header account-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-bank me-2"></i>3. Account
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Bank</label>
+                        <input type="text" class="form-control" name="bank_name"
+                               value="{{ form_data.bank_name if form_data else 'Banco Pichincha' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">SWIFT</label>
+                        <input type="text" class="form-control" name="bank_swift"
+                               value="{{ form_data.bank_swift if form_data else 'PICHECEQXXX' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Account</label>
+                        <input type="text" class="form-control" name="bank_account"
+                               value="{{ form_data.bank_account if form_data else '2100339784' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Company</label>
+                        <input type="text" class="form-control" name="company_name"
+                               value="{{ form_data.company_name if form_data else 'FREIGHTWISE FORWARDING S.A' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Tax ID</label>
+                        <input type="text" class="form-control" name="tax_id"
+                               value="{{ form_data.tax_id if form_data else '1793230131001' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Address</label>
+                        <input type="text" class="form-control" name="company_address"
+                               value="{{ form_data.company_address if form_data else 'Pedro de Alfaro y Francisco Ruiz' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="d-flex gap-3 justify-content-end mb-4">
+            <a href="{{ url_for('clientes.formularios') }}" class="btn btn-outline-secondary btn-lg">
+                <i class="bi bi-x-circle me-2"></i>Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check-circle me-2"></i>Guardar Cotizacion
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+.form-container .card {
+    border: 2px solid var(--border-color);
+    border-radius: 16px;
+}
+
+.form-container .card-header {
+    background: var(--gradient-card);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 1.5rem;
+}
+
+.form-container .card-header h5 {
+    color: var(--text-primary);
+}
+
+.form-container .form-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.form-container .form-control {
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-container .form-control:focus {
+    border-color: var(--clientes-rose);
+    box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
+}
+
+.text-rose {
+    color: var(--clientes-rose);
+}
+
+/* Quote Table Styles */
+.quote-table {
+    background: var(--clientes-blush);
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.quote-table .table {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.quote-header {
+    background: var(--clientes-primary);
+}
+
+.quote-header th {
+    color: white;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-align: center;
+    padding: 0.75rem 0.5rem;
+    border: none;
+    white-space: nowrap;
+}
+
+.quote-table tbody td {
+    padding: 0.5rem;
+    vertical-align: middle;
+}
+
+.quote-table input {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+}
+
+.quote-table .input-group-text {
+    font-size: 0.8rem;
+    background: var(--clientes-blush);
+    border-color: var(--border-color);
+}
+
+.total-col {
+    background: rgba(236, 72, 153, 0.1);
+}
+
+.total-col input {
+    font-weight: bold;
+    color: var(--clientes-primary);
+}
+
+.calculated {
+    background: #f8f9fa !important;
+}
+
+/* Notes Header */
+.notes-header {
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%) !important;
+}
+
+.notes-header h5 {
+    color: white !important;
+}
+
+/* Account Header */
+.account-header {
+    background: var(--gradient-primary) !important;
+}
+
+.account-header h5 {
+    color: white !important;
+}
+
+.btn-outline-primary {
+    border-color: var(--clientes-rose);
+    color: var(--clientes-rose);
+}
+
+.btn-outline-primary:hover {
+    background: var(--clientes-rose);
+    border-color: var(--clientes-rose);
+    color: white;
+}
+
+.btn-primary {
+    background: var(--gradient-primary);
+    border: none;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+</style>
+
+<script>
+// Auto-calcular Weight x Rate y Total
+document.querySelectorAll('.calc-input').forEach(input => {
+    input.addEventListener('input', calculateTotals);
+});
+
+function calculateTotals() {
+    const netWeight = parseFloat(document.querySelector('[name="net_weight"]').value) || 0;
+    const volumeWeight = parseFloat(document.querySelector('[name="volume_weight"]').value) || 0;
+    const rate = parseFloat(document.querySelector('[name="rate"]').value) || 0;
+    const dueAgent = parseFloat(document.querySelector('[name="due_agent"]').value) || 0;
+    const dueCarrier = parseFloat(document.querySelector('[name="due_carrier"]').value) || 0;
+    const certificate = parseFloat(document.querySelector('[name="certificate"]').value) || 0;
+    const phyto = parseFloat(document.querySelector('[name="phyto"]').value) || 0;
+
+    // Usar el mayor entre net y volume weight
+    const chargeableWeight = Math.max(netWeight, volumeWeight);
+
+    // Weight x Rate
+    const weightXRate = chargeableWeight * rate;
+    document.querySelector('[name="weight_x_rate"]').value = weightXRate.toFixed(2);
+
+    // Total
+    const total = weightXRate + dueAgent + dueCarrier + certificate + phyto;
+    document.querySelector('[name="total"]').value = total.toFixed(2);
+}
+
+// Calcular al cargar la pagina
+calculateTotals();
+</script>
+{% endblock %}
