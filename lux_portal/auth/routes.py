@@ -9,6 +9,12 @@ from lux_portal.auth import auth_bp
 from lux_portal.config import Config
 
 
+@auth_bp.route('/health')
+def health():
+    """Health check endpoint para Railway."""
+    return 'OK', 200
+
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """Pagina de login."""
