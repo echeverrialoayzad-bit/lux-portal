@@ -13,7 +13,18 @@ from lux_portal.planner.models import (
 from lux_portal.extensions import db
 from lux_portal.auth.decorators import login_required
 from datetime import datetime, date, timedelta
+from sqlalchemy import case
 import calendar
+
+
+# Ordenamiento de prioridad: high=1, medium=2, low=3 (menor numero = mayor prioridad)
+def get_priority_order():
+    return case(
+        (Task.priority == 'high', 1),
+        (Task.priority == 'medium', 2),
+        (Task.priority == 'low', 3),
+        else_=4
+    )
 
 
 @planner_bp.route('/')
@@ -37,12 +48,12 @@ def dashboard():
             Task.due_date == today,
             Task.priority == 'high'
         )
-    ).order_by(Task.priority.desc(), Task.due_date).limit(10).all()
+    ).order_by(get_priority_order(), Task.due_date).limit(10).all()
 
     # Todas las tareas pendientes
     all_pending_tasks = Task.query.filter(
         Task.status != 'completed'
-    ).order_by(Task.priority.desc(), Task.due_date, Task.order).all()
+    ).order_by(get_priority_order(), Task.due_date, Task.order).all()
 
     # Eventos de esta semana
     week_start = today - timedelta(days=today.weekday())
@@ -207,7 +218,7 @@ def tasks():
     if filter_priority != 'all':
         query = query.filter(Task.priority == filter_priority)
 
-    tasks = query.order_by(Task.priority.desc(), Task.due_date, Task.order).all()
+    tasks = query.order_by(get_priority_order(), Task.due_date, Task.order).all()
 
     return render_template(
         'planner/tasks.html',
