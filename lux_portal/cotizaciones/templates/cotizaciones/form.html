@@ -42,7 +42,7 @@
                 <div class="col-md-4">
                     <label class="form-label">Valido Desde (mm/dd/yyyy)</label>
                     <input type="text" class="form-control" id="validFrom"
-                           value="{{ cotizacion.valid_from if cotizacion else '' }}"
+                           value="{{ cotizacion.valid_from if cotizacion and cotizacion.valid_from else now.strftime('%m/%d/%Y') }}"
                            placeholder="01/15/2025">
                 </div>
                 <div class="col-md-8">
@@ -343,6 +343,70 @@ let aerolineasLista = [];
 let cargosComunes = [];
 let aerolineasData = {{ aerolineas | tojson | safe if aerolineas else '[]' }};
 
+// Mapeo de codigos IATA por region para ganancia por defecto
+const IATA_EUROPA = [
+    'AMS', 'FRA', 'CDG', 'LHR', 'MAD', 'BCN', 'MXP', 'FCO', 'BRU', 'ZRH',
+    'VIE', 'PRG', 'WAW', 'CPH', 'OSL', 'HEL', 'DUB', 'LIS', 'ATH', 'MUC',
+    'HAM', 'DUS', 'STR', 'TXL', 'BER', 'LGW', 'STN', 'MAN', 'EDI', 'GLA',
+    'ORY', 'NCE', 'LYS', 'MRS', 'PMI', 'AGP', 'VLC', 'BIO', 'SVQ', 'LIN',
+    'NAP', 'VCE', 'BGY', 'BLQ', 'PSA', 'CTA', 'LUX', 'GVA', 'BSL', 'EIN',
+    'RTM', 'BUD', 'OTP', 'SOF', 'BEG', 'ZAG', 'LJU', 'SKP', 'TIA', 'SJJ',
+    'RIX', 'VNO', 'TLL', 'KEF', 'ARN', 'GOT', 'CPH', 'BGO', 'TRD', 'SVG'
+];
+
+const IATA_USA = [
+    'JFK', 'MIA', 'LAX', 'ORD', 'ATL', 'DFW', 'SFO', 'BOS', 'IAH', 'SEA',
+    'PHL', 'MSP', 'DTW', 'EWR', 'DEN', 'CLT', 'LAS', 'PHX', 'IAD', 'MCO',
+    'FLL', 'TPA', 'SAN', 'PDX', 'SLC', 'STL', 'BWI', 'DCA', 'HNL', 'OAK',
+    'SJC', 'SMF', 'AUS', 'SAT', 'RDU', 'BNA', 'MCI', 'IND', 'CLE', 'PIT',
+    'CMH', 'CVG', 'MKE', 'OMA', 'ABQ', 'TUS', 'ELP', 'JAX', 'RSW', 'PBI',
+    'BUF', 'SYR', 'ROC', 'ALB', 'PWM', 'BDL', 'PVD', 'MHT', 'ORF', 'RIC',
+    'YYZ', 'YUL', 'YVR', 'YYC', 'YEG', 'YOW', 'YHZ', 'YWG'  // Canada incluido
+];
+
+const IATA_ASIA = [
+    'BKK', 'SIN', 'HKG', 'NRT', 'HND', 'ICN', 'PEK', 'PVG', 'TPE', 'KUL',
+    'CGK', 'MNL', 'DEL', 'BOM', 'MAA', 'BLR', 'HYD', 'CCU', 'SGN', 'HAN',
+    'RGN', 'PNH', 'VTE', 'CMB', 'KTM', 'DAC', 'KHI', 'LHE', 'ISB', 'DXB',
+    'DOH', 'AUH', 'KWI', 'BAH', 'MCT', 'RUH', 'JED', 'DMM', 'AMM', 'BEY',
+    'TLV', 'CAI', 'ADD', 'NBO', 'JNB', 'CPT', 'LOS', 'ACC', 'ABJ', 'DKR',
+    'SYD', 'MEL', 'BNE', 'PER', 'AKL', 'CHC', 'WLG', 'SVO', 'DME', 'LED',
+    'IST', 'SAW', 'AYT', 'ESB', 'ALA', 'TAS', 'GYD', 'EVN', 'TBS'
+];
+
+// Funcion para obtener ganancia por defecto segun destino
+function obtenerGananciaPorDestino(iataCode) {
+    const code = iataCode.toUpperCase().trim();
+
+    if (IATA_USA.includes(code)) {
+        return 0.05;  // USA
+    } else if (IATA_EUROPA.includes(code)) {
+        return 0.15;  // Europa
+    } else {
+        return 0.25;  // Asia y otros destinos
+    }
+}
+
+// Funcion para actualizar ganancia en todos los kg_rates cuando cambia destino
+function actualizarGananciaPorDestino() {
+    const destino = document.getElementById('destino').value.toUpperCase().trim();
+    if (destino.length !== 3) return;  // Solo procesar si es un codigo IATA valido (3 letras)
+
+    const gananciaDefault = obtenerGananciaPorDestino(destino);
+
+    // Actualizar todos los campos de ganancia que esten en 0 o vacios
+    document.querySelectorAll('.margin-input').forEach(input => {
+        const valorActual = parseFloat(input.value) || 0;
+        // Solo actualizar si esta en 0 (no modificado por el usuario)
+        if (valorActual === 0) {
+            input.value = gananciaDefault.toFixed(2);
+            // Recalcular precio final
+            const row = input.closest('.kg-rate-row');
+            if (row) calcularPrecioFinal(row);
+        }
+    });
+}
+
 // Cargar datos al iniciar
 document.addEventListener('DOMContentLoaded', async function() {
     // Cargar lista de aerolineas
@@ -357,6 +421,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (aerolineasData && aerolineasData.length > 0) {
         cargarAerolineasExistentes();
     }
+
+    // Listener para actualizar ganancia cuando cambia el destino
+    const destinoInput = document.getElementById('destino');
+    destinoInput.addEventListener('input', actualizarGananciaPorDestino);
+    destinoInput.addEventListener('change', actualizarGananciaPorDestino);
 });
 
 function cargarAerolineasExistentes() {
@@ -558,6 +627,13 @@ function agregarKgRate(btn, datos = null) {
         row.querySelector('.rate-input').value = datos.tarifa || '0.00';
         row.querySelector('.margin-input').value = datos.margen || '0.00';
         row.querySelector('.costo-op-input').value = datos.costo_operativo || '0.00';
+    } else {
+        // Si no hay datos, usar ganancia por defecto segun destino
+        const destino = document.getElementById('destino').value.toUpperCase().trim();
+        if (destino.length === 3) {
+            const gananciaDefault = obtenerGananciaPorDestino(destino);
+            row.querySelector('.margin-input').value = gananciaDefault.toFixed(2);
+        }
     }
 
     const inputs = clone.querySelectorAll('.rate-input, .margin-input, .costo-op-input');

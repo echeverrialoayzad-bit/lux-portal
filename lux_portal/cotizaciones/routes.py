@@ -27,7 +27,7 @@ def dashboard():
 @login_required
 def nueva_cotizacion():
     """Formulario para crear nueva cotizacion."""
-    return render_template('cotizaciones/form.html', cotizacion=None, aerolineas=[])
+    return render_template('cotizaciones/form.html', cotizacion=None, aerolineas=[], now=datetime.now())
 
 
 @cotizaciones_bp.route('/editar/<int:id>')
@@ -35,7 +35,7 @@ def nueva_cotizacion():
 def editar_cotizacion(id):
     """Formulario para editar cotizacion existente."""
     cotizacion = Cotizacion.query.get_or_404(id)
-    return render_template('cotizaciones/form.html', cotizacion=cotizacion, aerolineas=cotizacion.aerolineas)
+    return render_template('cotizaciones/form.html', cotizacion=cotizacion, aerolineas=cotizacion.aerolineas, now=datetime.now())
 
 
 @cotizaciones_bp.route('/api/cotizacion', methods=['POST'])
