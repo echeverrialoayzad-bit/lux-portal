@@ -18,8 +18,13 @@ import os
 import io
 import re
 
-# Ruta del logo
-LOGO_PATH = r"C:\Users\nicol\OneDrive - The Coca-Cola Company\Proyectos\planilla cottizacion\imagen.png"
+# Ruta del logo (relativa al proyecto)
+def get_logo_path():
+    """Obtiene la ruta del logo de forma compatible con cualquier entorno."""
+    # Ruta relativa desde este archivo
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    logo_path = os.path.join(current_dir, '..', '..', 'static', 'images', 'freightwise_logo.png')
+    return os.path.normpath(logo_path)
 
 # Colores FreightWise (igual que Excel)
 PURPLE_COLOR = HexColor('#5f259f')
@@ -98,9 +103,10 @@ def crear_pdf_cotizacion(datos, idioma='es'):
 
     # Intentar agregar logo
     logo_cell = ''
-    if os.path.exists(LOGO_PATH):
+    logo_path = get_logo_path()
+    if os.path.exists(logo_path):
         try:
-            logo = Image(LOGO_PATH, width=2.5*inch, height=0.35*inch)
+            logo = Image(logo_path, width=2.5*inch, height=0.35*inch)
             logo_cell = logo
         except:
             logo_cell = ''
