@@ -14,8 +14,12 @@ import os
 import re
 import io
 
-# Ruta del logo
-LOGO_PATH = r"C:\Users\nicol\OneDrive - The Coca-Cola Company\Proyectos\planilla cottizacion\imagen.png"
+# Ruta del logo (relativa al proyecto)
+def get_logo_path():
+    """Obtiene la ruta del logo de forma compatible con cualquier entorno."""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    logo_path = os.path.join(current_dir, '..', '..', 'static', 'images', 'freightwise_logo.png')
+    return os.path.normpath(logo_path)
 
 # Intentar importar librerias de traduccion
 try:
@@ -143,8 +147,9 @@ def generar_hoja(ws, datos, idioma='es'):
         ws.column_dimensions[col].width = width
 
     # Agregar logo
-    if os.path.exists(LOGO_PATH):
-        img_logo = Image(LOGO_PATH)
+    logo_path = get_logo_path()
+    if os.path.exists(logo_path):
+        img_logo = Image(logo_path)
         img_logo.width = 264
         img_logo.height = 37
         ws.add_image(img_logo, 'L2')
