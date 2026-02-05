@@ -622,18 +622,20 @@ function agregarKgRate(btn, datos = null) {
 
     const row = clone.querySelector('.kg-rate-row');
 
+    // Obtener ganancia por defecto segun destino
+    const destino = document.getElementById('destino').value.toUpperCase().trim();
+    const gananciaDefault = destino.length === 3 ? obtenerGananciaPorDestino(destino) : 0;
+
     if (datos) {
         row.querySelector('.kg-input').value = datos.kg || '+100';
         row.querySelector('.rate-input').value = datos.tarifa || '0.00';
-        row.querySelector('.margin-input').value = datos.margen || '0.00';
+        // Si el margen guardado es 0 o no existe, usar el default por destino
+        const margenGuardado = parseFloat(datos.margen) || 0;
+        row.querySelector('.margin-input').value = margenGuardado > 0 ? datos.margen : gananciaDefault.toFixed(2);
         row.querySelector('.costo-op-input').value = datos.costo_operativo || '0.00';
     } else {
         // Si no hay datos, usar ganancia por defecto segun destino
-        const destino = document.getElementById('destino').value.toUpperCase().trim();
-        if (destino.length === 3) {
-            const gananciaDefault = obtenerGananciaPorDestino(destino);
-            row.querySelector('.margin-input').value = gananciaDefault.toFixed(2);
-        }
+        row.querySelector('.margin-input').value = gananciaDefault.toFixed(2);
     }
 
     const inputs = clone.querySelectorAll('.rate-input, .margin-input, .costo-op-input');
