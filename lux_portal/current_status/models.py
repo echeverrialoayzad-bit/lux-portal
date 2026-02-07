@@ -32,8 +32,13 @@ class AirlineRate(db.Model):
     transit_time = db.Column(db.String(100), default='')
     kg_availability = db.Column(db.String(100), default='')
     date = db.Column(db.String(200), default='')
+    net_rate = db.Column(db.String(100), default='')
+    operative = db.Column(db.String(100), default='')
+    net_ops = db.Column(db.String(100), default='')
+    profit = db.Column(db.String(100), default='')
     final_rate = db.Column(db.String(100), default='')
     additional_costs = db.Column(db.String(200), default='')
+    additional_costs_value = db.Column(db.String(200), default='')
     notes = db.Column(db.String(500), default='')
 
 
