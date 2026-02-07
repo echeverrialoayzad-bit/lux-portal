@@ -345,16 +345,20 @@ def _generar_excel_cliente(cliente, hide_internal=False):
     if hide_internal:
         headers1 = ['Airline', 'Route', 'Transit Time', 'KG Availability', 'Date',
                     'Final Rate', 'Additional Costs', '', 'Notes']
+        add_costs_col = 7  # column index for Additional Costs merge
     else:
         headers1 = ['Airline', 'Route', 'Transit Time', 'KG Availability', 'Date',
                     'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate',
                     'Additional Costs', '', 'Notes']
+        add_costs_col = 11
     for col, h in enumerate(headers1, 1):
         cell = ws.cell(row=row, column=col, value=h)
         cell.fill = green_fill
         cell.font = header_font
         cell.alignment = Alignment(horizontal='center')
         cell.border = thin_border
+    # Merge "Additional Costs" header across 2 columns
+    ws.merge_cells(start_row=row, start_column=add_costs_col, end_row=row, end_column=add_costs_col + 1)
     row += 1
     for r in cliente.rates:
         if hide_internal:
@@ -520,12 +524,14 @@ def _generar_pdf_cliente(cliente, hide_internal=False):
 
     # Table 1: Airline Rates
     if hide_internal:
-        data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Final Rate', 'Add. Costs', '', 'Notes']]
+        data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Final Rate', 'Additional Costs', '', 'Notes']]
+        add_span = (6, 0, 7, 0)  # merge cols 6-7 row 0
         for r in cliente.rates:
             data1.append([r.airline, r.route, r.transit_time, r.kg_availability, r.date,
                           r.final_rate, r.additional_costs, r.additional_costs_value, r.notes])
     else:
-        data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate', 'Add. Costs', '', 'Notes']]
+        data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate', 'Additional Costs', '', 'Notes']]
+        add_span = (10, 0, 11, 0)  # merge cols 10-11 row 0
         for r in cliente.rates:
             data1.append([r.airline, r.route, r.transit_time, r.kg_availability, r.date,
                           r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
@@ -533,6 +539,7 @@ def _generar_pdf_cliente(cliente, hide_internal=False):
     if len(data1) > 1:
         t1 = Table(data1, repeatRows=1)
         t1.setStyle(TableStyle([
+            ('SPAN', (add_span[0], add_span[1]), (add_span[2], add_span[3])),
             ('BACKGROUND', (0, 0), (-1, 0), burgundy),
             ('TEXTCOLOR', (0, 0), (-1, 0), white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),

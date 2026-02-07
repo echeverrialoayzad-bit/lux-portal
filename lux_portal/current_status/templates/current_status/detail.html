@@ -172,8 +172,7 @@
                         <th class="col-internal">Net+OPS</th>
                         <th class="col-internal">Profit</th>
                         <th>Final Rate</th>
-                        <th>Additional Costs</th>
-                        <th></th>
+                        <th colspan="2">Additional Costs</th>
                         <th>Notes</th>
                         <th style="width: 36px;"></th>
                     </tr>
@@ -338,8 +337,20 @@ function toggleEstado() {
     });
 }
 
+// --- Redondeo de numeros ---
+const NUMERIC_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit', 'final_rate', 'additional_costs_value', 'kg_availability', 'valor'];
+function roundIfNumeric(input) {
+    const val = input.value.trim();
+    if (val === '') return;
+    const num = parseFloat(val.replace(/,/g, ''));
+    if (!isNaN(num)) {
+        input.value = num.toFixed(2);
+    }
+}
+
 // --- Airline Rates (Table 1) ---
 function guardarRate(input) {
+    if (NUMERIC_FIELDS.includes(input.dataset.field)) roundIfNumeric(input);
     const row = input.closest('tr');
     const id = row.dataset.id;
     fetch(`${BASE}/api/rate/${id}`, {
@@ -409,6 +420,7 @@ function eliminarAirline(btn, id) {
 
 // --- Payments (Table 3) ---
 function guardarPayment(input) {
+    if (NUMERIC_FIELDS.includes(input.dataset.field)) roundIfNumeric(input);
     const row = input.closest('tr');
     const id = row.dataset.id;
     fetch(`${BASE}/api/payment/${id}`, {
