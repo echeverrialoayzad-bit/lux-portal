@@ -21,6 +21,7 @@
         letter-spacing: 0.04em;
         padding: 12px 10px !important;
         border: none !important;
+        text-align: center !important;
     }
     .status-table th {
         background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
@@ -30,6 +31,7 @@
         letter-spacing: 0.04em;
         padding: 12px 10px !important;
         border: none !important;
+        text-align: center !important;
     }
     .payment-table th {
         background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
@@ -39,25 +41,44 @@
         letter-spacing: 0.04em;
         padding: 12px 10px !important;
         border: none !important;
+        text-align: center !important;
     }
+    /* Tabla 1 necesita ancho completo para 14 columnas */
+    .rate-table { min-width: 1800px; }
+    .status-table { min-width: 900px; }
+    .payment-table { min-width: 600px; }
     .editable-cell {
         padding: 0 !important;
         vertical-align: middle !important;
-        min-width: 130px;
     }
     .editable-cell input {
         border: none;
         background: transparent;
         width: 100%;
-        min-width: 120px;
         padding: 10px 8px;
         font-size: 0.875rem;
         color: var(--lux-text-primary);
         outline: none;
+        box-sizing: border-box;
+        text-align: center;
     }
     .editable-cell input:focus {
         background: rgba(124, 58, 237, 0.04);
     }
+    /* Anchos por tipo de columna - Tabla 1 */
+    .col-airline { min-width: 140px; }
+    .col-route { min-width: 180px; }
+    .col-transit { min-width: 110px; }
+    .col-kg { min-width: 120px; }
+    .col-date { min-width: 130px; }
+    .col-number { min-width: 100px; }
+    .col-addcost { min-width: 150px; }
+    .col-addval { min-width: 100px; }
+    .col-notes { min-width: 200px; }
+    /* Anchos - Tabla 2 */
+    .col-status-field { min-width: 170px; }
+    /* Anchos - Tabla 3 */
+    .col-payment-field { min-width: 180px; }
     /* Ocultar columnas internas */
     .rate-table.hide-internal .col-internal {
         display: none;
@@ -162,37 +183,37 @@
             <table class="table rate-table mb-0" id="rateTable">
                 <thead>
                     <tr>
-                        <th>Airline</th>
-                        <th>Route</th>
-                        <th>Transit Time</th>
-                        <th>KG Availability</th>
-                        <th>Date</th>
-                        <th class="col-internal">Net Rate</th>
-                        <th class="col-internal">Operative</th>
-                        <th class="col-internal">Net+OPS</th>
-                        <th class="col-internal">Profit</th>
-                        <th>Final Rate</th>
-                        <th colspan="2">Additional Costs</th>
-                        <th>Notes</th>
+                        <th class="col-airline">Airline</th>
+                        <th class="col-route">Route</th>
+                        <th class="col-transit">Transit Time</th>
+                        <th class="col-kg">KG Availability</th>
+                        <th class="col-date">Date</th>
+                        <th class="col-internal col-number">Net Rate</th>
+                        <th class="col-internal col-number">Operative</th>
+                        <th class="col-internal col-number">Net+OPS</th>
+                        <th class="col-internal col-number">Profit</th>
+                        <th class="col-number">Final Rate</th>
+                        <th class="col-addcost" colspan="2">Additional Costs</th>
+                        <th class="col-notes">Notes</th>
                         <th style="width: 36px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for r in cliente.rates %}
                     <tr data-id="{{ r.id }}">
-                        <td class="editable-cell"><input value="{{ r.airline }}" data-field="airline" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.route }}" data-field="route" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.transit_time }}" data-field="transit_time" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.kg_availability }}" data-field="kg_availability" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.date }}" data-field="date" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell col-internal"><input value="{{ r.net_rate }}" data-field="net_rate" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell col-internal"><input value="{{ r.operative }}" data-field="operative" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell col-internal"><input value="{{ r.net_ops }}" data-field="net_ops" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell col-internal"><input value="{{ r.profit }}" data-field="profit" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.final_rate }}" data-field="final_rate" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.additional_costs }}" data-field="additional_costs" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.additional_costs_value }}" data-field="additional_costs_value" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.notes }}" data-field="notes" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-airline"><input value="{{ r.airline }}" data-field="airline" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-route"><input value="{{ r.route }}" data-field="route" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-transit"><input value="{{ r.transit_time }}" data-field="transit_time" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-kg"><input value="{{ r.kg_availability }}" data-field="kg_availability" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-date"><input value="{{ r.date }}" data-field="date" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-internal col-number"><input value="{{ r.net_rate }}" data-field="net_rate" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-internal col-number"><input value="{{ r.operative }}" data-field="operative" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-internal col-number"><input value="{{ r.net_ops }}" data-field="net_ops" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-internal col-number"><input value="{{ r.profit }}" data-field="profit" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-number"><input value="{{ r.final_rate }}" data-field="final_rate" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-addcost"><input value="{{ r.additional_costs }}" data-field="additional_costs" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-addval"><input value="{{ r.additional_costs_value }}" data-field="additional_costs_value" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-notes"><input value="{{ r.notes }}" data-field="notes" onblur="guardarRate(this)"></td>
                         <td class="text-center" style="vertical-align: middle;">
                             <button class="btn-delete-row" onclick="eliminarRate(this, {{ r.id }})"><i class="bi bi-x-lg"></i></button>
                         </td>
@@ -212,22 +233,22 @@
             <table class="table status-table mb-0" id="airlineTable">
                 <thead>
                     <tr>
-                        <th>Current Status</th>
-                        <th>Proximo Vuelo</th>
-                        <th>Entrega de Fincas</th>
-                        <th>Hora Maxima de Entrega</th>
-                        <th>Aerolinea</th>
+                        <th class="col-status-field">Current Status</th>
+                        <th class="col-status-field">Proximo Vuelo</th>
+                        <th class="col-status-field">Entrega de Fincas</th>
+                        <th class="col-status-field">Hora Maxima de Entrega</th>
+                        <th class="col-status-field">Aerolinea</th>
                         <th style="width: 36px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for a in cliente.airlines %}
                     <tr data-id="{{ a.id }}">
-                        <td class="editable-cell"><input value="{{ a.current_status }}" data-field="current_status" onblur="guardarAirline(this)"></td>
-                        <td class="editable-cell"><input value="{{ a.proximo_vuelo }}" data-field="proximo_vuelo" onblur="guardarAirline(this)"></td>
-                        <td class="editable-cell"><input value="{{ a.entrega_fincas }}" data-field="entrega_fincas" onblur="guardarAirline(this)"></td>
-                        <td class="editable-cell"><input value="{{ a.hora_maxima }}" data-field="hora_maxima" onblur="guardarAirline(this)"></td>
-                        <td class="editable-cell"><input value="{{ a.aerolinea }}" data-field="aerolinea" onblur="guardarAirline(this)"></td>
+                        <td class="editable-cell col-status-field"><input value="{{ a.current_status }}" data-field="current_status" onblur="guardarAirline(this)"></td>
+                        <td class="editable-cell col-status-field"><input value="{{ a.proximo_vuelo }}" data-field="proximo_vuelo" onblur="guardarAirline(this)"></td>
+                        <td class="editable-cell col-status-field"><input value="{{ a.entrega_fincas }}" data-field="entrega_fincas" onblur="guardarAirline(this)"></td>
+                        <td class="editable-cell col-status-field"><input value="{{ a.hora_maxima }}" data-field="hora_maxima" onblur="guardarAirline(this)"></td>
+                        <td class="editable-cell col-status-field"><input value="{{ a.aerolinea }}" data-field="aerolinea" onblur="guardarAirline(this)"></td>
                         <td class="text-center" style="vertical-align: middle;">
                             <button class="btn-delete-row" onclick="eliminarAirline(this, {{ a.id }})"><i class="bi bi-x-lg"></i></button>
                         </td>
@@ -250,18 +271,18 @@
             <table class="table payment-table mb-0">
                 <thead>
                     <tr>
-                        <th>Valor</th>
-                        <th>Fecha</th>
-                        <th>Credito</th>
+                        <th class="col-payment-field">Valor</th>
+                        <th class="col-payment-field">Fecha</th>
+                        <th class="col-payment-field">Credito</th>
                         <th style="width: 36px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in cliente.payments %}
                     <tr data-id="{{ p.id }}">
-                        <td class="editable-cell"><input value="{{ p.valor }}" data-field="valor" onblur="guardarPayment(this)"></td>
-                        <td class="editable-cell"><input value="{{ p.fecha }}" data-field="fecha" onblur="guardarPayment(this)"></td>
-                        <td class="editable-cell"><input value="{{ p.credito }}" data-field="credito" onblur="guardarPayment(this)"></td>
+                        <td class="editable-cell col-payment-field"><input value="{{ p.valor }}" data-field="valor" onblur="guardarPayment(this)"></td>
+                        <td class="editable-cell col-payment-field"><input value="{{ p.fecha }}" data-field="fecha" onblur="guardarPayment(this)"></td>
+                        <td class="editable-cell col-payment-field"><input value="{{ p.credito }}" data-field="credito" onblur="guardarPayment(this)"></td>
                         <td class="text-center" style="vertical-align: middle;">
                             <button class="btn-delete-row" onclick="eliminarPayment(this, {{ p.id }})"><i class="bi bi-x-lg"></i></button>
                         </td>
