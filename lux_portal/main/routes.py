@@ -36,6 +36,14 @@ AVAILABLE_MODULES = [
         'url': 'planner.dashboard',
         'color': '#8B5CF6'  # Lavender para Planner
     },
+    {
+        'id': 'current_status',
+        'name': 'Current Status',
+        'description': 'Seguimiento de estado de envios por cliente',
+        'icon': 'bi-speedometer2',
+        'url': 'current_status.dashboard',
+        'color': '#7c3aed'  # Purple para Current Status
+    },
 ]
 
 

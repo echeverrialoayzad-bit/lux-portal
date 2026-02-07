@@ -24,12 +24,14 @@ def create_app(config_name='default'):
     from lux_portal.cotizaciones import cotizaciones_bp
     from lux_portal.clientes import clientes_bp
     from lux_portal.planner import planner_bp
+    from lux_portal.current_status import current_status_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(cotizaciones_bp, url_prefix='/cotizaciones')
     app.register_blueprint(clientes_bp)
     app.register_blueprint(planner_bp)
+    app.register_blueprint(current_status_bp)
 
     # Crear tablas de base de datos
     with app.app_context():
