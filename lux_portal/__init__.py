@@ -33,8 +33,28 @@ def create_app(config_name='default'):
     app.register_blueprint(planner_bp)
     app.register_blueprint(current_status_bp)
 
-    # Crear tablas de base de datos
+    # Crear tablas de base de datos y migrar columnas faltantes
     with app.app_context():
         db.create_all()
+        _migrate_db(app)
 
     return app
+
+
+def _migrate_db(app):
+    """Agrega columnas faltantes a tablas existentes."""
+    migrations = [
+        ('airline_rates', 'net_rate', 'VARCHAR(100) DEFAULT \'\''),
+        ('airline_rates', 'operative', 'VARCHAR(100) DEFAULT \'\''),
+        ('airline_rates', 'net_ops', 'VARCHAR(100) DEFAULT \'\''),
+        ('airline_rates', 'profit', 'VARCHAR(100) DEFAULT \'\''),
+        ('airline_rates', 'additional_costs_value', 'VARCHAR(200) DEFAULT \'\''),
+    ]
+    for table, column, col_type in migrations:
+        try:
+            db.session.execute(db.text(
+                f'ALTER TABLE {table} ADD COLUMN {column} {col_type}'
+            ))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()

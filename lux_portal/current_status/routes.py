@@ -208,6 +208,103 @@ def descargar_todos():
     return _generar_excel_todos(clientes)
 
 
+# ===================== UPLOAD EXCEL =====================
+
+@current_status_bp.route('/api/client/<int:id>/upload-excel', methods=['POST'])
+@login_required
+def upload_excel(id):
+    """Subir un Excel para rellenar las 3 tablas del cliente"""
+    from openpyxl import load_workbook
+
+    cliente = StatusClient.query.get_or_404(id)
+    file = request.files.get('file')
+    if not file or not file.filename.endswith(('.xlsx', '.xls')):
+        return jsonify({'success': False, 'error': 'Archivo Excel requerido (.xlsx)'}), 400
+
+    try:
+        wb = load_workbook(file, data_only=True)
+        ws = wb.active
+
+        # Read all rows as lists of string values
+        rows = []
+        for row in ws.iter_rows(values_only=True):
+            rows.append([str(cell).strip() if cell is not None else '' for cell in row])
+
+        # Detect table sections by looking for header keywords
+        table1_start = None  # Airline Rates
+        table2_start = None  # Current Status
+        table3_start = None  # Payment
+
+        for i, row in enumerate(rows):
+            row_lower = [c.lower() for c in row]
+            row_joined = ' '.join(row_lower)
+
+            if table1_start is None and ('airline' in row_lower or 'airline' in row_joined) and ('route' in row_lower or 'route' in row_joined):
+                table1_start = i
+            elif table1_start is not None and table2_start is None and ('current status' in row_joined or 'current_status' in row_joined or ('proximo' in row_joined and 'vuelo' in row_joined)):
+                table2_start = i
+            elif table2_start is not None and table3_start is None and ('payment' in row_joined or ('valor' in row_lower and 'fecha' in row_lower)):
+                table3_start = i
+
+        # Parse Table 1: Airline Rates (from table1_start+1 to table2_start-1)
+        if table1_start is not None:
+            end1 = table2_start if table2_start else len(rows)
+            for i in range(table1_start + 1, end1):
+                row = rows[i]
+                # Skip empty rows
+                if all(c == '' or c == 'None' for c in row):
+                    continue
+                rate = AirlineRate(client_id=id)
+                # Map columns by position (matching header order)
+                fields1 = ['airline', 'route', 'transit_time', 'kg_availability', 'date',
+                           'net_rate', 'operative', 'net_ops', 'profit', 'final_rate',
+                           'additional_costs', 'additional_costs_value', 'notes']
+                for j, field in enumerate(fields1):
+                    if j < len(row):
+                        val = row[j] if row[j] != 'None' else ''
+                        setattr(rate, field, val)
+                db.session.add(rate)
+
+        # Parse Table 2: Current Status (from table2_start+1 to table3_start-1)
+        if table2_start is not None:
+            end2 = table3_start if table3_start else len(rows)
+            for i in range(table2_start + 1, end2):
+                row = rows[i]
+                if all(c == '' or c == 'None' for c in row):
+                    continue
+                airline = StatusAirline(client_id=id)
+                fields2 = ['current_status', 'proximo_vuelo', 'entrega_fincas', 'hora_maxima', 'aerolinea']
+                for j, field in enumerate(fields2):
+                    if j < len(row):
+                        val = row[j] if row[j] != 'None' else ''
+                        setattr(airline, field, val)
+                db.session.add(airline)
+
+        # Parse Table 3: Payment (from table3_start+1 to end)
+        if table3_start is not None:
+            # Payment header may have: "Payment ClientName", Valor, Fecha, Credito
+            # Data rows have: empty first col, valor, fecha, credito
+            for i in range(table3_start + 1, len(rows)):
+                row = rows[i]
+                if all(c == '' or c == 'None' for c in row):
+                    continue
+                payment = StatusPayment(client_id=id)
+                # The payment table header has 4 cols, data starts at col 2 (index 1)
+                fields3 = [('valor', 1), ('fecha', 2), ('credito', 3)]
+                for field, idx in fields3:
+                    if idx < len(row):
+                        val = row[idx] if row[idx] != 'None' else ''
+                        setattr(payment, field, val)
+                db.session.add(payment)
+
+        db.session.commit()
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ===================== EXCEL GENERATORS =====================
 
 def _generar_excel_cliente(cliente):
