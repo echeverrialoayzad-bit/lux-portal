@@ -1,54 +1,54 @@
-/* Lux Portal - Modern Corporate Design
-   Elegant, Professional & Clean
+/* Lux Portal - Girly Corporate Design
+   Elegant, Feminine & Professional
    ================================================ */
 
 :root {
-    /* Primary Palette - Blue & Indigo */
-    --lux-rose: #1d4ed8;
-    --lux-rose-light: #60a5fa;
-    --lux-rose-soft: #dbeafe;
-    --lux-blush: #eff6ff;
-    --lux-lavender: #6366f1;
-    --lux-lavender-light: #a5b4fc;
-    --lux-mauve: #818cf8;
+    /* Primary Palette - Rose & Lavender */
+    --lux-rose: #e11d74;
+    --lux-rose-light: #f472b6;
+    --lux-rose-soft: #fce7f3;
+    --lux-blush: #fdf2f8;
+    --lux-lavender: #a855f7;
+    --lux-lavender-light: #c4b5fd;
+    --lux-mauve: #d946ef;
     --lux-champagne: #fef3c7;
-    --lux-rosegold: #4f46e5;
-    --lux-coral: #38bdf8;
+    --lux-rosegold: #b76e79;
+    --lux-coral: #fb7185;
 
     /* Backgrounds - Light & Soft */
-    --lux-bg: #f8fafc;
+    --lux-bg: #fffbfc;
     --lux-bg-elevated: #ffffff;
     --lux-bg-card: rgba(255, 255, 255, 0.9);
-    --lux-bg-glass: rgba(239, 246, 255, 0.6);
+    --lux-bg-glass: rgba(255, 240, 245, 0.6);
 
     /* Text */
-    --lux-text-primary: #1e293b;
-    --lux-text-secondary: #475569;
-    --lux-text-tertiary: #94a3b8;
+    --lux-text-primary: #4a1942;
+    --lux-text-secondary: #7c5270;
+    --lux-text-tertiary: #a78bba;
 
     /* Borders */
-    --lux-border: rgba(29, 78, 216, 0.12);
-    --lux-border-light: rgba(96, 165, 250, 0.08);
-    --lux-border-glow: rgba(29, 78, 216, 0.25);
+    --lux-border: rgba(225, 29, 116, 0.12);
+    --lux-border-light: rgba(244, 114, 182, 0.08);
+    --lux-border-glow: rgba(225, 29, 116, 0.25);
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, #60a5fa 0%, #818cf8 50%, #6366f1 100%);
-    --gradient-hero: linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #4f46e5 100%);
-    --gradient-accent: linear-gradient(135deg, #60a5fa 0%, #818cf8 100%);
-    --gradient-soft: linear-gradient(135deg, #eff6ff 0%, #eef2ff 50%, #f0f9ff 100%);
-    --gradient-mesh: radial-gradient(at 40% 20%, rgba(96, 165, 250, 0.15) 0px, transparent 50%),
-                     radial-gradient(at 80% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
-                     radial-gradient(at 0% 50%, rgba(56, 189, 248, 0.1) 0px, transparent 50%),
-                     radial-gradient(at 80% 80%, rgba(129, 140, 248, 0.08) 0px, transparent 50%),
-                     radial-gradient(at 20% 100%, rgba(99, 102, 241, 0.08) 0px, transparent 50%);
-    --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(239,246,255,0.9) 100%);
+    --gradient-primary: linear-gradient(135deg, #f472b6 0%, #c084fc 50%, #a78bfa 100%);
+    --gradient-hero: linear-gradient(135deg, #ec4899 0%, #d946ef 50%, #a855f7 100%);
+    --gradient-accent: linear-gradient(135deg, #f472b6 0%, #c084fc 100%);
+    --gradient-soft: linear-gradient(135deg, #fdf2f8 0%, #faf5ff 50%, #fff1f2 100%);
+    --gradient-mesh: radial-gradient(at 40% 20%, rgba(244, 114, 182, 0.15) 0px, transparent 50%),
+                     radial-gradient(at 80% 0%, rgba(192, 132, 252, 0.12) 0px, transparent 50%),
+                     radial-gradient(at 0% 50%, rgba(251, 113, 133, 0.1) 0px, transparent 50%),
+                     radial-gradient(at 80% 80%, rgba(217, 70, 239, 0.08) 0px, transparent 50%),
+                     radial-gradient(at 20% 100%, rgba(168, 85, 247, 0.08) 0px, transparent 50%);
+    --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(253,242,248,0.9) 100%);
 
     /* Shadows */
-    --shadow-sm: 0 2px 8px rgba(29, 78, 216, 0.08);
-    --shadow-md: 0 8px 24px rgba(29, 78, 216, 0.1);
-    --shadow-lg: 0 16px 48px rgba(29, 78, 216, 0.12);
-    --shadow-glow: 0 0 40px rgba(96, 165, 250, 0.2);
-    --shadow-glow-lavender: 0 0 40px rgba(99, 102, 241, 0.2);
+    --shadow-sm: 0 2px 8px rgba(225, 29, 116, 0.08);
+    --shadow-md: 0 8px 24px rgba(225, 29, 116, 0.1);
+    --shadow-lg: 0 16px 48px rgba(225, 29, 116, 0.12);
+    --shadow-glow: 0 0 40px rgba(244, 114, 182, 0.2);
+    --shadow-glow-lavender: 0 0 40px rgba(192, 132, 252, 0.2);
 
     /* Transitions */
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -84,7 +84,7 @@ body {
 }
 
 /* ================================================
-   ANIMATED BACKGROUND
+   ANIMATED BACKGROUND - Soft & Feminine
    ================================================ */
 body::before {
     content: '';
@@ -106,7 +106,7 @@ body::after {
     right: 0;
     bottom: 0;
     background:
-        url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2360a5fa' fill-opacity='0.03'%3E%3Cpath d='M20 20c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10zm-20 0c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10z'/%3E%3C/g%3E%3C/svg%3E");
+        url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23f472b6' fill-opacity='0.03'%3E%3Cpath d='M20 20c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10zm-20 0c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10z'/%3E%3C/g%3E%3C/svg%3E");
     z-index: -1;
     opacity: 0.6;
 }
@@ -118,7 +118,7 @@ body::after {
     75% { background-position: 0% 100%; }
 }
 
-/* Floating Orbs - Blue & Indigo */
+/* Floating Orbs - Pink & Lavender */
 .floating-orb {
     position: fixed;
     border-radius: 50%;
@@ -131,7 +131,7 @@ body::after {
 .orb-1 {
     width: 400px;
     height: 400px;
-    background: rgba(96, 165, 250, 0.2);
+    background: rgba(244, 114, 182, 0.2);
     top: -100px;
     right: -100px;
     animation-delay: 0s;
@@ -140,7 +140,7 @@ body::after {
 .orb-2 {
     width: 350px;
     height: 350px;
-    background: rgba(99, 102, 241, 0.18);
+    background: rgba(192, 132, 252, 0.18);
     bottom: -100px;
     left: -100px;
     animation-delay: -5s;
@@ -149,7 +149,7 @@ body::after {
 .orb-3 {
     width: 300px;
     height: 300px;
-    background: rgba(56, 189, 248, 0.15);
+    background: rgba(251, 113, 133, 0.15);
     top: 50%;
     right: 10%;
     animation-delay: -10s;
@@ -174,7 +174,7 @@ body::after {
     position: sticky;
     top: 0;
     z-index: 1000;
-    box-shadow: 0 4px 30px rgba(96, 165, 250, 0.08);
+    box-shadow: 0 4px 30px rgba(244, 114, 182, 0.08);
 }
 
 .lux-navbar .container-fluid {
@@ -270,7 +270,7 @@ body::after {
 }
 
 .navbar-toggler-icon {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%231d4ed8' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23e11d74' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
 }
 
 /* ================================================
@@ -284,7 +284,7 @@ body::after {
 }
 
 /* ================================================
-   HERO SECTION
+   HERO SECTION - Feminine & Elegant
    ================================================ */
 .lux-hero {
     position: relative;
@@ -333,8 +333,8 @@ body::after {
 }
 
 @keyframes titleGlow {
-    0% { filter: drop-shadow(0 0 20px rgba(96, 165, 250, 0.3)); }
-    100% { filter: drop-shadow(0 0 40px rgba(99, 102, 241, 0.4)); }
+    0% { filter: drop-shadow(0 0 20px rgba(244, 114, 182, 0.3)); }
+    100% { filter: drop-shadow(0 0 40px rgba(192, 132, 252, 0.4)); }
 }
 
 .hero-subtitle {
@@ -351,7 +351,7 @@ body::after {
     right: -150px;
     width: 600px;
     height: 600px;
-    background: radial-gradient(circle, rgba(96, 165, 250, 0.15) 0%, transparent 60%);
+    background: radial-gradient(circle, rgba(244, 114, 182, 0.15) 0%, transparent 60%);
     border-radius: 50%;
     z-index: 1;
     filter: blur(40px);
@@ -363,7 +363,7 @@ body::after {
     50% { transform: scale(1.1) rotate(180deg); opacity: 0.8; }
 }
 
-/* Geometric Lines */
+/* Geometric Lines - Soft Curves */
 .hero-lines {
     position: absolute;
     top: 0;
@@ -394,7 +394,7 @@ body::after {
     right: 25%;
     width: 150px;
     height: 150px;
-    border: 2px solid rgba(99, 102, 241, 0.2);
+    border: 2px solid rgba(192, 132, 252, 0.2);
     border-radius: 50%;
     animation: lineFloat 12s ease-in-out infinite reverse;
 }
@@ -405,7 +405,7 @@ body::after {
 }
 
 /* ================================================
-   STATS ROW
+   STATS ROW - Soft Cards
    ================================================ */
 .stats-row {
     display: flex;
@@ -467,7 +467,7 @@ body::after {
     background: var(--gradient-accent);
     border: none;
     color: #fff;
-    box-shadow: 0 8px 24px rgba(96, 165, 250, 0.3);
+    box-shadow: 0 8px 24px rgba(244, 114, 182, 0.3);
 }
 
 .stat-info {
@@ -523,7 +523,7 @@ body::after {
     color: #fff;
     padding: 6px 14px;
     border-radius: 100px;
-    box-shadow: 0 4px 15px rgba(96, 165, 250, 0.3);
+    box-shadow: 0 4px 15px rgba(244, 114, 182, 0.3);
 }
 
 .apps-grid {
@@ -533,7 +533,7 @@ body::after {
 }
 
 /* ================================================
-   APP CARD
+   APP CARD - Elegant Design
    ================================================ */
 .app-card {
     display: flex;
@@ -576,7 +576,7 @@ body::after {
 }
 
 .app-card:hover {
-    border-color: rgba(96, 165, 250, 0.3);
+    border-color: rgba(244, 114, 182, 0.3);
     box-shadow: var(--shadow-lg), var(--shadow-glow);
     transform: translateY(-6px) scale(1.01);
 }
@@ -596,7 +596,7 @@ body::after {
 
 .app-card:hover .app-icon {
     transform: scale(1.1) rotate(5deg);
-    box-shadow: 0 12px 30px rgba(96, 165, 250, 0.3);
+    box-shadow: 0 12px 30px rgba(244, 114, 182, 0.3);
 }
 
 .app-icon-wrapper {
@@ -684,7 +684,7 @@ body::after {
     transition: all var(--transition-normal);
     position: relative;
     z-index: 1;
-    box-shadow: 0 4px 15px rgba(96, 165, 250, 0.3);
+    box-shadow: 0 4px 15px rgba(244, 114, 182, 0.3);
 }
 
 .app-card.coming-soon {
@@ -759,7 +759,7 @@ body::after {
 }
 
 /* ================================================
-   LOGIN PAGE
+   LOGIN PAGE - Romantic & Professional
    ================================================ */
 .login-container {
     min-height: 100vh;
@@ -861,8 +861,8 @@ body::after {
 
 .login-card .form-control:focus {
     background: #fff;
-    border-color: rgba(96, 165, 250, 0.5);
-    box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.12);
+    border-color: rgba(244, 114, 182, 0.5);
+    box-shadow: 0 0 0 4px rgba(244, 114, 182, 0.12);
     color: var(--lux-text-primary);
 }
 
@@ -882,7 +882,7 @@ body::after {
 
 .login-card .btn-primary:hover {
     transform: translateY(-3px);
-    box-shadow: 0 12px 35px rgba(96, 165, 250, 0.35);
+    box-shadow: 0 12px 35px rgba(244, 114, 182, 0.35);
 }
 
 /* ================================================
@@ -946,7 +946,7 @@ body::after {
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(96, 165, 250, 0.35);
+    box-shadow: 0 8px 25px rgba(244, 114, 182, 0.35);
 }
 
 .btn-outline-secondary {
@@ -1015,7 +1015,7 @@ body::after {
 }
 
 .table tbody tr:hover {
-    background: rgba(96, 165, 250, 0.03);
+    background: rgba(244, 114, 182, 0.03);
 }
 
 /* ================================================
@@ -1033,8 +1033,8 @@ body::after {
 
 .form-control:focus, .form-select:focus {
     background: #fff;
-    border-color: rgba(96, 165, 250, 0.5);
-    box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.12);
+    border-color: rgba(244, 114, 182, 0.5);
+    box-shadow: 0 0 0 4px rgba(244, 114, 182, 0.12);
     color: var(--lux-text-primary);
 }
 
@@ -1061,7 +1061,7 @@ body::after {
 
 .badge.bg-primary {
     background: var(--gradient-accent) !important;
-    box-shadow: 0 4px 12px rgba(96, 165, 250, 0.25);
+    box-shadow: 0 4px 12px rgba(244, 114, 182, 0.25);
 }
 
 .badge.bg-secondary {
@@ -1195,7 +1195,7 @@ body::after {
     margin-right: auto;
 }
 
-/* Scrollbar - Elegant Blue */
+/* Scrollbar - Elegant Pink */
 ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -1217,7 +1217,7 @@ body::after {
 
 /* Selection */
 ::selection {
-    background: rgba(96, 165, 250, 0.25);
+    background: rgba(244, 114, 182, 0.25);
     color: var(--lux-text-primary);
 }
 
