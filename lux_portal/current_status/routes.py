@@ -192,9 +192,10 @@ def descargar_cliente(id):
     """Descargar formulario de un cliente en Excel o PDF"""
     cliente = StatusClient.query.get_or_404(id)
     formato = request.args.get('formato', 'excel')
+    hide_internal = request.args.get('hide_internal', '0') == '1'
     if formato == 'pdf':
-        return _generar_pdf_cliente(cliente)
-    return _generar_excel_cliente(cliente)
+        return _generar_pdf_cliente(cliente, hide_internal=hide_internal)
+    return _generar_excel_cliente(cliente, hide_internal=hide_internal)
 
 
 @current_status_bp.route('/descargar-todos')
@@ -307,7 +308,7 @@ def upload_excel(id):
 
 # ===================== EXCEL GENERATORS =====================
 
-def _generar_excel_cliente(cliente):
+def _generar_excel_cliente(cliente, hide_internal=False):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.drawing.image import Image
@@ -341,9 +342,13 @@ def _generar_excel_cliente(cliente):
     row += 2
 
     # Table 1: Airline Rates
-    headers1 = ['Airline', 'Route', 'Transit Time', 'KG Availability', 'Date',
-                'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate',
-                'Additional Costs', '', 'Notes']
+    if hide_internal:
+        headers1 = ['Airline', 'Route', 'Transit Time', 'KG Availability', 'Date',
+                    'Final Rate', 'Additional Costs', '', 'Notes']
+    else:
+        headers1 = ['Airline', 'Route', 'Transit Time', 'KG Availability', 'Date',
+                    'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate',
+                    'Additional Costs', '', 'Notes']
     for col, h in enumerate(headers1, 1):
         cell = ws.cell(row=row, column=col, value=h)
         cell.fill = green_fill
@@ -352,9 +357,13 @@ def _generar_excel_cliente(cliente):
         cell.border = thin_border
     row += 1
     for r in cliente.rates:
-        vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
-                r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
-                r.additional_costs, r.additional_costs_value, r.notes]
+        if hide_internal:
+            vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
+                    r.final_rate, r.additional_costs, r.additional_costs_value, r.notes]
+        else:
+            vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
+                    r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
+                    r.additional_costs, r.additional_costs_value, r.notes]
         for col, v in enumerate(vals, 1):
             cell = ws.cell(row=row, column=col, value=v)
             cell.border = thin_border
@@ -480,7 +489,7 @@ def _generar_excel_todos(clientes):
 
 # ===================== PDF GENERATORS =====================
 
-def _generar_pdf_cliente(cliente):
+def _generar_pdf_cliente(cliente, hide_internal=False):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.units import mm
@@ -510,11 +519,17 @@ def _generar_pdf_cliente(cliente):
     white = colors.white
 
     # Table 1: Airline Rates
-    data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate', 'Add. Costs', '', 'Notes']]
-    for r in cliente.rates:
-        data1.append([r.airline, r.route, r.transit_time, r.kg_availability, r.date,
-                      r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
-                      r.additional_costs, r.additional_costs_value, r.notes])
+    if hide_internal:
+        data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Final Rate', 'Add. Costs', '', 'Notes']]
+        for r in cliente.rates:
+            data1.append([r.airline, r.route, r.transit_time, r.kg_availability, r.date,
+                          r.final_rate, r.additional_costs, r.additional_costs_value, r.notes])
+    else:
+        data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate', 'Add. Costs', '', 'Notes']]
+        for r in cliente.rates:
+            data1.append([r.airline, r.route, r.transit_time, r.kg_availability, r.date,
+                          r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
+                          r.additional_costs, r.additional_costs_value, r.notes])
     if len(data1) > 1:
         t1 = Table(data1, repeatRows=1)
         t1.setStyle(TableStyle([

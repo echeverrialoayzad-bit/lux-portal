@@ -43,11 +43,13 @@
     .editable-cell {
         padding: 0 !important;
         vertical-align: middle !important;
+        min-width: 130px;
     }
     .editable-cell input {
         border: none;
         background: transparent;
         width: 100%;
+        min-width: 120px;
         padding: 10px 8px;
         font-size: 0.875rem;
         color: var(--lux-text-primary);
@@ -55,6 +57,10 @@
     }
     .editable-cell input:focus {
         background: rgba(124, 58, 237, 0.04);
+    }
+    /* Ocultar columnas internas */
+    .rate-table.hide-internal .col-internal {
+        display: none;
     }
     .client-name-input {
         font-size: 2rem;
@@ -146,6 +152,11 @@
     </div>
 
     <!-- TABLE 1: Airline Rates -->
+    <div class="d-flex justify-content-end mb-2">
+        <button class="btn btn-sm btn-outline-secondary" id="toggleInternalBtn" onclick="toggleInternal()">
+            <i class="bi bi-eye-slash me-1"></i>Ocultar Net Rate → Profit
+        </button>
+    </div>
     <div class="card mb-4">
         <div class="table-responsive">
             <table class="table rate-table mb-0" id="rateTable">
@@ -156,10 +167,10 @@
                         <th>Transit Time</th>
                         <th>KG Availability</th>
                         <th>Date</th>
-                        <th>Net Rate</th>
-                        <th>Operative</th>
-                        <th>Net+OPS</th>
-                        <th>Profit</th>
+                        <th class="col-internal">Net Rate</th>
+                        <th class="col-internal">Operative</th>
+                        <th class="col-internal">Net+OPS</th>
+                        <th class="col-internal">Profit</th>
                         <th>Final Rate</th>
                         <th>Additional Costs</th>
                         <th></th>
@@ -175,10 +186,10 @@
                         <td class="editable-cell"><input value="{{ r.transit_time }}" data-field="transit_time" onblur="guardarRate(this)"></td>
                         <td class="editable-cell"><input value="{{ r.kg_availability }}" data-field="kg_availability" onblur="guardarRate(this)"></td>
                         <td class="editable-cell"><input value="{{ r.date }}" data-field="date" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.net_rate }}" data-field="net_rate" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.operative }}" data-field="operative" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.net_ops }}" data-field="net_ops" onblur="guardarRate(this)"></td>
-                        <td class="editable-cell"><input value="{{ r.profit }}" data-field="profit" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-internal"><input value="{{ r.net_rate }}" data-field="net_rate" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-internal"><input value="{{ r.operative }}" data-field="operative" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-internal"><input value="{{ r.net_ops }}" data-field="net_ops" onblur="guardarRate(this)"></td>
+                        <td class="editable-cell col-internal"><input value="{{ r.profit }}" data-field="profit" onblur="guardarRate(this)"></td>
                         <td class="editable-cell"><input value="{{ r.final_rate }}" data-field="final_rate" onblur="guardarRate(this)"></td>
                         <td class="editable-cell"><input value="{{ r.additional_costs }}" data-field="additional_costs" onblur="guardarRate(this)"></td>
                         <td class="editable-cell"><input value="{{ r.additional_costs_value }}" data-field="additional_costs_value" onblur="guardarRate(this)"></td>
@@ -271,6 +282,32 @@
 <script>
 const CLIENT_ID = {{ cliente.id }};
 const BASE = '/current-status';
+let internalHidden = false;
+const INTERNAL_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit'];
+
+function toggleInternal() {
+    const table = document.getElementById('rateTable');
+    const btn = document.getElementById('toggleInternalBtn');
+    internalHidden = !internalHidden;
+    table.classList.toggle('hide-internal', internalHidden);
+    btn.innerHTML = internalHidden
+        ? '<i class="bi bi-eye me-1"></i>Mostrar Net Rate → Profit'
+        : '<i class="bi bi-eye-slash me-1"></i>Ocultar Net Rate → Profit';
+    // Update export links
+    updateExportLinks();
+}
+
+function updateExportLinks() {
+    document.querySelectorAll('.export-btns a').forEach(a => {
+        const url = new URL(a.href);
+        if (internalHidden) {
+            url.searchParams.set('hide_internal', '1');
+        } else {
+            url.searchParams.delete('hide_internal');
+        }
+        a.href = url.toString();
+    });
+}
 
 function guardarNombre() {
     const nombre = document.getElementById('clientName').value.trim();
@@ -321,7 +358,8 @@ function agregarRate() {
         const tr = document.createElement('tr');
         tr.dataset.id = data.id;
         fields.forEach(f => {
-            tr.innerHTML += `<td class="editable-cell"><input value="" data-field="${f}" onblur="guardarRate(this)"></td>`;
+            const cls = INTERNAL_FIELDS.includes(f) ? 'editable-cell col-internal' : 'editable-cell';
+            tr.innerHTML += `<td class="${cls}"><input value="" data-field="${f}" onblur="guardarRate(this)"></td>`;
         });
         tr.innerHTML += `<td class="text-center" style="vertical-align:middle;"><button class="btn-delete-row" onclick="eliminarRate(this,${data.id})"><i class="bi bi-x-lg"></i></button></td>`;
         tbody.appendChild(tr);
