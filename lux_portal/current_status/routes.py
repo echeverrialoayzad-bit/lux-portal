@@ -222,6 +222,19 @@ def upload_excel(id):
     if not file or not file.filename.endswith(('.xlsx', '.xls')):
         return jsonify({'success': False, 'error': 'Archivo Excel requerido (.xlsx)'}), 400
 
+    # Fields that should be rounded to 2 decimals
+    NUMERIC_FIELDS = {'net_rate', 'operative', 'net_ops', 'profit', 'final_rate',
+                      'additional_costs_value', 'kg_availability', 'valor'}
+
+    def round_val(val, field):
+        """Round to 2 decimals if field is numeric."""
+        if field not in NUMERIC_FIELDS or not val:
+            return val
+        try:
+            return f"{float(val.replace(',', '')):.2f}"
+        except (ValueError, AttributeError):
+            return val
+
     try:
         wb = load_workbook(file, data_only=True)
         ws = wb.active
@@ -263,7 +276,7 @@ def upload_excel(id):
                 for j, field in enumerate(fields1):
                     if j < len(row):
                         val = row[j] if row[j] != 'None' else ''
-                        setattr(rate, field, val)
+                        setattr(rate, field, round_val(val, field))
                 db.session.add(rate)
 
         # Parse Table 2: Current Status (from table2_start+1 to table3_start-1)
@@ -295,7 +308,7 @@ def upload_excel(id):
                 for field, idx in fields3:
                     if idx < len(row):
                         val = row[idx] if row[idx] != 'None' else ''
-                        setattr(payment, field, val)
+                        setattr(payment, field, round_val(val, field))
                 db.session.add(payment)
 
         db.session.commit()
