@@ -295,6 +295,15 @@
         font-weight: 600;
         user-select: none;
     }
+    /* Column drag-and-drop */
+    .rate-table th[data-col] { cursor: grab; }
+    .rate-table th[data-col="__addcol"],
+    .rate-table th[data-col="__del"] { cursor: default; }
+    .rate-table th.dragging { opacity: 0.4; }
+    .rate-table th.drag-over {
+        background: rgba(255,255,255,0.25) !important;
+        box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7);
+    }
     .rate-table .col-notes { width: 12%; }
     .rate-table .col-del { width: 3%; }
     .rate-table .col-custom { width: 7%; }
@@ -461,23 +470,23 @@
             <table class="table rate-table mb-0" id="rateTable">
                 <thead>
                     <tr>
-                        <th class="col-airline"><span contenteditable="true" class="th-text">Airline</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th class="col-route"><span contenteditable="true" class="th-text">Route</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th class="col-transit"><span contenteditable="true" class="th-text">Transit</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th class="col-kg"><span contenteditable="true" class="th-text">KG</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th class="col-date"><span contenteditable="true" class="th-text">Date</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Net Rate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Operative</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Net+OPS</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Profit</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th class="col-number"><span contenteditable="true" class="th-text">Final Rate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th class="col-addcost" colspan="2"><span contenteditable="true" class="th-text">Additional Costs</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th class="col-notes"><span contenteditable="true" class="th-text">Notes</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-airline" data-col="airline"><span contenteditable="true" class="th-text" draggable="false">Airline</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-route" data-col="route"><span contenteditable="true" class="th-text" draggable="false">Route</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-transit" data-col="transit"><span contenteditable="true" class="th-text" draggable="false">Transit</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-kg" data-col="kg"><span contenteditable="true" class="th-text" draggable="false">KG</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-date" data-col="date"><span contenteditable="true" class="th-text" draggable="false">Date</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-internal col-number" data-col="net_rate"><span contenteditable="true" class="th-text" draggable="false">Net Rate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-internal col-number" data-col="operative"><span contenteditable="true" class="th-text" draggable="false">Operative</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-internal col-number" data-col="net_ops"><span contenteditable="true" class="th-text" draggable="false">Net+OPS</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-internal col-number" data-col="profit"><span contenteditable="true" class="th-text" draggable="false">Profit</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-number" data-col="final_rate"><span contenteditable="true" class="th-text" draggable="false">Final Rate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-addcost" data-col="addcosts" colspan="2"><span contenteditable="true" class="th-text" draggable="false">Additional Costs</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-notes" data-col="notes"><span contenteditable="true" class="th-text" draggable="false">Notes</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         {% for col in cliente.get_custom_cols('rates') %}
-                        <th class="col-custom"><span contenteditable="true" class="th-text custom-col-name" data-table="rates" data-col-name="{{ col }}">{{ col }}</span><button class="btn-del-col" onclick="deleteCustomCol('rates','{{ col }}',this)" title="Eliminar columna">&times;</button><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-custom" data-col="custom_{{ col }}"><span contenteditable="true" class="th-text custom-col-name" draggable="false" data-table="rates" data-col-name="{{ col }}">{{ col }}</span><button class="btn-del-col" onclick="deleteCustomCol('rates','{{ col }}',this)" title="Eliminar columna">&times;</button><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         {% endfor %}
-                        <th class="col-add-col"><button class="btn-add-col" onclick="addCustomCol('rates')" title="Agregar columna"><i class="bi bi-plus"></i></button></th>
-                        <th class="col-del"></th>
+                        <th class="col-add-col" data-col="__addcol"><button class="btn-add-col" onclick="addCustomCol('rates')" title="Agregar columna"><i class="bi bi-plus"></i></button></th>
+                        <th class="col-del" data-col="__del"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -715,9 +724,12 @@ document.addEventListener('DOMContentLoaded', () => {
     initColumnResize();
     initRowResize();
     initCustomColRename();
+    autoTagBodyCols();
+    loadColumnOrder();
     groupRouteRows();
     loadTableFormat();
     initContextMenu();
+    initColumnDrag();
 });
 
 // --- Table formatting (font size, alignment, bold) ---
@@ -1220,6 +1232,156 @@ function ctxDeleteRow() {
     document.getElementById('ctxMenu').classList.remove('show');
 }
 
+// --- Column Drag-and-Drop Reordering ---
+const FIELD_TO_COL = {
+    'airline':'airline','route':'route','transit_time':'transit',
+    'kg_availability':'kg','date':'date','net_rate':'net_rate',
+    'operative':'operative','net_ops':'net_ops','profit':'profit',
+    'final_rate':'final_rate'
+};
+
+function autoTagBodyCols() {
+    const table = document.getElementById('rateTable');
+    const ths = Array.from(table.querySelectorAll('thead th'));
+    table.querySelectorAll('tbody tr').forEach(row => {
+        Array.from(row.children).forEach((td, i) => {
+            if (i < ths.length && ths[i].dataset.col) {
+                td.dataset.col = ths[i].dataset.col;
+            }
+        });
+    });
+}
+
+function loadColumnOrder() {
+    try {
+        const saved = JSON.parse(localStorage.getItem('cs_col_order_' + CLIENT_ID));
+        if (!saved || !saved.length) return;
+        const table = document.getElementById('rateTable');
+        const headerRow = table.querySelector('thead tr');
+        const currentCols = Array.from(headerRow.querySelectorAll('th[data-col]'))
+            .map(th => th.dataset.col)
+            .filter(c => !c.startsWith('__'));
+        const currentSet = new Set(currentCols);
+        const savedSet = new Set(saved);
+        // Merge: saved order first, then any new columns not in saved
+        const order = saved.filter(c => currentSet.has(c));
+        currentCols.forEach(c => { if (!savedSet.has(c)) order.push(c); });
+        applyColumnOrder(order);
+    } catch(e) {}
+}
+
+function saveColumnOrder() {
+    const table = document.getElementById('rateTable');
+    const order = Array.from(table.querySelectorAll('thead th[data-col]'))
+        .map(th => th.dataset.col)
+        .filter(c => !c.startsWith('__'));
+    localStorage.setItem('cs_col_order_' + CLIENT_ID, JSON.stringify(order));
+}
+
+function applyColumnOrder(order) {
+    const table = document.getElementById('rateTable');
+    const headerRow = table.querySelector('thead tr');
+    // Get fixed columns (stay at end)
+    const fixedThs = Array.from(headerRow.querySelectorAll('th[data-col^="__"]'));
+    // Reorder header
+    order.forEach(col => {
+        const th = headerRow.querySelector(`th[data-col="${col}"]`);
+        if (th && fixedThs.length) fixedThs[0].before(th);
+    });
+    // Reorder body rows
+    table.querySelectorAll('tbody tr').forEach(row => {
+        const fixedTds = Array.from(row.querySelectorAll('td[data-col^="__"]'));
+        order.forEach(col => {
+            const td = row.querySelector(`td[data-col="${col}"]`);
+            if (td && fixedTds.length) fixedTds[0].before(td);
+        });
+    });
+}
+
+function initColumnDrag() {
+    const table = document.getElementById('rateTable');
+    const headerRow = table.querySelector('thead tr');
+
+    headerRow.querySelectorAll('th[data-col]').forEach(th => {
+        if (th.dataset.col.startsWith('__')) return;
+        th.draggable = true;
+
+        th.addEventListener('dragstart', (e) => {
+            // Don't drag if editing text
+            const active = document.activeElement;
+            if (active && active.classList.contains('th-text')) {
+                e.preventDefault(); return;
+            }
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', th.dataset.col);
+            th.classList.add('dragging');
+            setTimeout(() => { th.style.opacity = '0.4'; }, 0);
+        });
+
+        th.addEventListener('dragend', () => {
+            th.classList.remove('dragging');
+            th.style.opacity = '';
+            headerRow.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        });
+
+        th.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (!th.classList.contains('dragging')) th.classList.add('drag-over');
+        });
+
+        th.addEventListener('dragleave', () => { th.classList.remove('drag-over'); });
+
+        th.addEventListener('drop', (e) => {
+            e.preventDefault();
+            th.classList.remove('drag-over');
+            const sourceCol = e.dataTransfer.getData('text/plain');
+            const targetCol = th.dataset.col;
+            if (!sourceCol || sourceCol === targetCol) return;
+            moveColumn(sourceCol, targetCol);
+        });
+    });
+}
+
+function moveColumn(sourceCol, targetCol) {
+    const table = document.getElementById('rateTable');
+    const headerRow = table.querySelector('thead tr');
+    const sourceTh = headerRow.querySelector(`th[data-col="${sourceCol}"]`);
+    const targetTh = headerRow.querySelector(`th[data-col="${targetCol}"]`);
+    if (!sourceTh || !targetTh) return;
+
+    const sourceIdx = Array.from(headerRow.children).indexOf(sourceTh);
+    const targetIdx = Array.from(headerRow.children).indexOf(targetTh);
+
+    if (sourceIdx < targetIdx) targetTh.after(sourceTh);
+    else targetTh.before(sourceTh);
+
+    // Move in all body rows
+    table.querySelectorAll('tbody tr').forEach(row => {
+        const sTd = row.querySelector(`td[data-col="${sourceCol}"]`);
+        const tTd = row.querySelector(`td[data-col="${targetCol}"]`);
+        if (!sTd || !tTd) return;
+        const si = Array.from(row.children).indexOf(sTd);
+        const ti = Array.from(row.children).indexOf(tTd);
+        if (si < ti) tTd.after(sTd);
+        else tTd.before(sTd);
+    });
+
+    saveColumnOrder();
+    groupRouteRows();
+}
+
+function reorderNewRow(tr) {
+    const headerOrder = Array.from(document.querySelectorAll('#rateTable thead th'))
+        .map(th => th.dataset.col).filter(Boolean);
+    const cells = {};
+    Array.from(tr.children).forEach(td => {
+        if (td.dataset.col) cells[td.dataset.col] = td;
+    });
+    while (tr.firstChild) tr.removeChild(tr.firstChild);
+    headerOrder.forEach(col => { if (cells[col]) tr.appendChild(cells[col]); });
+}
+
 function buildRateRow(id, airlineName) {
     const fields = ['airline','route','transit_time','kg_availability','date','net_rate','operative','net_ops','profit','final_rate'];
     const calcFields = ['net_rate','operative','profit'];
@@ -1230,6 +1392,7 @@ function buildRateRow(id, airlineName) {
         const cls = INTERNAL_FIELDS.includes(f) ? 'editable-cell col-internal' : 'editable-cell';
         const td = document.createElement('td');
         td.className = cls;
+        td.dataset.col = FIELD_TO_COL[f] || f;
         if (f === 'airline') td.classList.add('col-airline');
         const ta = document.createElement('textarea');
         ta.dataset.field = f;
@@ -1273,6 +1436,7 @@ function buildRateRow(id, airlineName) {
     // Additional Costs cell
     const addcostTd = document.createElement('td');
     addcostTd.className = 'editable-cell';
+    addcostTd.dataset.col = 'addcosts';
     addcostTd.colSpan = 2;
     addcostTd.style.padding = '2px';
     addcostTd.innerHTML = `<div class="addcosts-container" data-rate-id="${id}">
@@ -1282,6 +1446,7 @@ function buildRateRow(id, airlineName) {
     // Notes
     const notesTd = document.createElement('td');
     notesTd.className = 'editable-cell col-notes';
+    notesTd.dataset.col = 'notes';
     const notesTa = document.createElement('textarea');
     notesTa.dataset.field = 'notes';
     notesTa.setAttribute('onblur', 'guardarRate(this)');
@@ -1292,6 +1457,7 @@ function buildRateRow(id, airlineName) {
     document.querySelectorAll('#rateTable thead .custom-col-name[data-table="rates"]').forEach(span => {
         const td = document.createElement('td');
         td.className = 'editable-cell col-custom';
+        td.dataset.col = 'custom_' + span.dataset.colName;
         const ta = document.createElement('textarea');
         ta.dataset.field = 'extra:' + span.dataset.colName;
         ta.setAttribute('onblur', 'guardarRate(this)');
@@ -1300,12 +1466,17 @@ function buildRateRow(id, airlineName) {
         tr.appendChild(td);
     });
     // Add col placeholder + delete button
-    tr.appendChild(document.createElement('td'));
+    const addColTd = document.createElement('td');
+    addColTd.dataset.col = '__addcol';
+    tr.appendChild(addColTd);
     const delTd = document.createElement('td');
     delTd.className = 'text-center col-del';
+    delTd.dataset.col = '__del';
     delTd.style.verticalAlign = 'middle';
     delTd.innerHTML = `<button class="btn-delete-row" onclick="eliminarRate(this,${id})"><i class="bi bi-x-lg"></i></button>`;
     tr.appendChild(delTd);
+    // Reorder to match current column order
+    reorderNewRow(tr);
     return tr;
 }
 
