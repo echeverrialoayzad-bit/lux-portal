@@ -346,7 +346,7 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
     header_font = Font(bold=True, color='FFFFFF', size=10)
     data_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
     header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    gray_fill = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
+    gray_fill = PatternFill(start_color='E2E8F0', end_color='E2E8F0', fill_type='solid')
     thin_border = Border(
         left=Side(style='thin'), right=Side(style='thin'),
         top=Side(style='thin'), bottom=Side(style='thin')
@@ -601,7 +601,7 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
                 ('SPAN', (add_span[0], add_span[1]), (add_span[2], add_span[3])),
                 ('BACKGROUND', (0, 0), (-1, 0), burgundy),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F8F8')]),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#E2E8F0')]),
             ] + common_style))
             elements.append(t1)
             elements.append(Spacer(1, 15))
@@ -617,7 +617,7 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
             t2.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), purple),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F3FF')]),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#E2E8F0')]),
             ] + common_style))
             elements.append(t2)
             elements.append(Spacer(1, 15))
@@ -633,7 +633,7 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
             t3.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), blue),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#EFF6FF')]),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#E2E8F0')]),
             ] + common_style))
             elements.append(t3)
 
