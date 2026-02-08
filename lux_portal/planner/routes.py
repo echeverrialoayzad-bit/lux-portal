@@ -421,6 +421,9 @@ def agenda():
     else:
         next_year, next_month = cal_year, cal_month + 1
 
+    meses_es = {1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',
+                7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'}
+
     return render_template(
         'planner/agenda.html',
         days=days,
@@ -431,8 +434,8 @@ def agenda():
         cal_weeks=cal_weeks,
         cal_year=cal_year,
         cal_month=cal_month,
-        cal_month_name=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-                        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][cal_month - 1],
+        cal_month_name=meses_es[cal_month],
+        meses_es=meses_es,
         event_dates=event_dates,
         prev_year=prev_year,
         prev_month=prev_month,

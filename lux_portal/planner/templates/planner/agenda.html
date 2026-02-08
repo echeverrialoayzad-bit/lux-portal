@@ -248,7 +248,7 @@
         <a href="{{ url_for('planner.agenda', view='week', week_offset=week_offset - 1) }}" class="btn-cal" title="Semana anterior">
             <i class="bi bi-chevron-left"></i>
         </a>
-        <span class="month-title">Semana del {{ cal_weeks[0][0].strftime('%d') }} al {{ cal_weeks[0][-1].strftime('%d de %B %Y') }}</span>
+        <span class="month-title">Semana del {{ cal_weeks[0][0].strftime('%d') }} al {{ cal_weeks[0][-1].strftime('%d') }} de {{ meses_es[cal_weeks[0][-1].month] }} {{ cal_weeks[0][-1].strftime('%Y') }}</span>
         <a href="{{ url_for('planner.agenda', view='week', week_offset=week_offset + 1) }}" class="btn-cal" title="Semana siguiente">
             <i class="bi bi-chevron-right"></i>
         </a>
@@ -308,7 +308,7 @@
 <div class="agenda-day {% if day.is_today %}today{% endif %}" id="day-{{ day.date.isoformat() }}">
     <div class="day-header {% if day.is_today %}today{% endif %}">
         <span class="day-name">{{ ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo'][day.date.weekday()] }}</span>
-        <span class="day-date">{{ day.date.strftime('%d de %B') }}</span>
+        <span class="day-date">{{ day.date.strftime('%d') }} de {{ meses_es[day.date.month] }}</span>
     </div>
     <div class="events-list">
         {% if day.events %}
