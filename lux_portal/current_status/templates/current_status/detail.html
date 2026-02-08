@@ -22,7 +22,8 @@
         padding: 10px 4px !important;
         border: none !important;
         text-align: center !important;
-        white-space: nowrap;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
     .status-table th {
         background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
@@ -74,14 +75,14 @@
         background: rgba(124, 58, 237, 0.04);
     }
     /* Rate table column widths (13 cols + delete) */
-    .rate-table .col-airline { width: 9%; }
-    .rate-table .col-route { width: 10%; }
-    .rate-table .col-transit { width: 6%; }
-    .rate-table .col-kg { width: 5%; }
-    .rate-table .col-date { width: 8%; }
-    .rate-table .col-number { width: 5%; }
-    .rate-table .col-addcost { width: 11%; }
-    .rate-table .col-notes { width: 18%; }
+    .rate-table .col-airline { width: 8%; }
+    .rate-table .col-route { width: 9%; }
+    .rate-table .col-transit { width: 5%; }
+    .rate-table .col-kg { width: 4%; }
+    .rate-table .col-date { width: 7%; }
+    .rate-table .col-number { width: 6.5%; }
+    .rate-table .col-addcost { width: 10%; }
+    .rate-table .col-notes { width: 14%; }
     .rate-table .col-del { width: 3%; }
     /* Ocultar columnas internas */
     .rate-table.hide-internal .col-internal {
