@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from lux_portal.extensions import db
 
@@ -12,6 +13,7 @@ class StatusClient(db.Model):
     fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
     fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     activo = db.Column(db.Boolean, default=True)
+    custom_columns = db.Column(db.Text, default='{}')
 
     rates = db.relationship('AirlineRate', backref='client', cascade='all, delete-orphan',
                             order_by='AirlineRate.id')
@@ -19,6 +21,12 @@ class StatusClient(db.Model):
                                order_by='StatusAirline.id')
     payments = db.relationship('StatusPayment', backref='client', cascade='all, delete-orphan',
                                order_by='StatusPayment.id')
+
+    def get_custom_cols(self, table_type):
+        try:
+            return json.loads(self.custom_columns or '{}').get(table_type, [])
+        except Exception:
+            return []
 
 
 class AirlineRate(db.Model):
@@ -40,6 +48,13 @@ class AirlineRate(db.Model):
     additional_costs = db.Column(db.String(200), default='')
     additional_costs_value = db.Column(db.String(200), default='')
     notes = db.Column(db.String(500), default='')
+    extra_data = db.Column(db.Text, default='{}')
+
+    def get_extra(self):
+        try:
+            return json.loads(self.extra_data or '{}')
+        except Exception:
+            return {}
 
 
 class StatusAirline(db.Model):
@@ -53,6 +68,13 @@ class StatusAirline(db.Model):
     entrega_fincas = db.Column(db.String(200), default='')
     hora_maxima = db.Column(db.String(200), default='')
     aerolinea = db.Column(db.String(200), default='')
+    extra_data = db.Column(db.Text, default='{}')
+
+    def get_extra(self):
+        try:
+            return json.loads(self.extra_data or '{}')
+        except Exception:
+            return {}
 
 
 class StatusPayment(db.Model):
@@ -64,3 +86,10 @@ class StatusPayment(db.Model):
     valor = db.Column(db.String(200), default='')
     fecha = db.Column(db.String(200), default='')
     credito = db.Column(db.String(200), default='')
+    extra_data = db.Column(db.Text, default='{}')
+
+    def get_extra(self):
+        try:
+            return json.loads(self.extra_data or '{}')
+        except Exception:
+            return {}

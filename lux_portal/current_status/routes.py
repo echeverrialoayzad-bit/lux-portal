@@ -1,5 +1,6 @@
 import io
 import os
+import json
 from datetime import datetime
 from flask import render_template, request, redirect, url_for, flash, jsonify, send_file
 from lux_portal.current_status import current_status_bp
@@ -100,11 +101,16 @@ def agregar_rate(id):
 def actualizar_rate(id):
     rate = AirlineRate.query.get_or_404(id)
     data = request.get_json()
-    for field in ['airline', 'route', 'transit_time', 'kg_availability', 'date',
-                  'net_rate', 'operative', 'net_ops', 'profit',
-                  'final_rate', 'additional_costs', 'additional_costs_value', 'notes']:
-        if field in data:
-            setattr(rate, field, data[field])
+    if 'extra' in data:
+        extra = rate.get_extra()
+        extra.update(data['extra'])
+        rate.extra_data = json.dumps(extra)
+    else:
+        for field in ['airline', 'route', 'transit_time', 'kg_availability', 'date',
+                      'net_rate', 'operative', 'net_ops', 'profit',
+                      'final_rate', 'additional_costs', 'additional_costs_value', 'notes']:
+            if field in data:
+                setattr(rate, field, data[field])
     db.session.commit()
     return jsonify({'success': True})
 
@@ -135,9 +141,14 @@ def agregar_airline(id):
 def actualizar_airline(id):
     airline = StatusAirline.query.get_or_404(id)
     data = request.get_json()
-    for field in ['current_status', 'proximo_vuelo', 'entrega_fincas', 'hora_maxima', 'aerolinea']:
-        if field in data:
-            setattr(airline, field, data[field])
+    if 'extra' in data:
+        extra = airline.get_extra()
+        extra.update(data['extra'])
+        airline.extra_data = json.dumps(extra)
+    else:
+        for field in ['current_status', 'proximo_vuelo', 'entrega_fincas', 'hora_maxima', 'aerolinea']:
+            if field in data:
+                setattr(airline, field, data[field])
     db.session.commit()
     return jsonify({'success': True})
 
@@ -168,9 +179,14 @@ def agregar_payment(id):
 def actualizar_payment(id):
     payment = StatusPayment.query.get_or_404(id)
     data = request.get_json()
-    for field in ['valor', 'fecha', 'credito']:
-        if field in data:
-            setattr(payment, field, data[field])
+    if 'extra' in data:
+        extra = payment.get_extra()
+        extra.update(data['extra'])
+        payment.extra_data = json.dumps(extra)
+    else:
+        for field in ['valor', 'fecha', 'credito']:
+            if field in data:
+                setattr(payment, field, data[field])
     db.session.commit()
     return jsonify({'success': True})
 
@@ -182,6 +198,92 @@ def eliminar_payment(id):
     db.session.delete(payment)
     db.session.commit()
     return jsonify({'success': True})
+
+
+# ===================== API: CUSTOM COLUMNS =====================
+
+@current_status_bp.route('/api/client/<int:id>/custom-column', methods=['POST'])
+@login_required
+def agregar_custom_column(id):
+    cliente = StatusClient.query.get_or_404(id)
+    data = request.get_json()
+    table_type = data.get('table_type')
+    col_name = data.get('name', 'Nueva Columna')
+    try:
+        cols = json.loads(cliente.custom_columns or '{}')
+        if table_type not in cols:
+            cols[table_type] = []
+        cols[table_type].append(col_name)
+        cliente.custom_columns = json.dumps(cols)
+        db.session.commit()
+        return jsonify({'success': True, 'columns': cols[table_type], 'index': len(cols[table_type]) - 1})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@current_status_bp.route('/api/client/<int:id>/custom-column', methods=['DELETE'])
+@login_required
+def eliminar_custom_column(id):
+    cliente = StatusClient.query.get_or_404(id)
+    data = request.get_json()
+    table_type = data.get('table_type')
+    col_name = data.get('name')
+    try:
+        cols = json.loads(cliente.custom_columns or '{}')
+        if table_type in cols and col_name in cols[table_type]:
+            cols[table_type].remove(col_name)
+            cliente.custom_columns = json.dumps(cols)
+            # Remove data from rows
+            if table_type == 'rates':
+                rows = cliente.rates
+            elif table_type == 'airlines':
+                rows = cliente.airlines
+            else:
+                rows = cliente.payments
+            for row in rows:
+                extra = row.get_extra()
+                extra.pop(col_name, None)
+                row.extra_data = json.dumps(extra)
+            db.session.commit()
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': 'Column not found'}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@current_status_bp.route('/api/client/<int:id>/custom-column/rename', methods=['PUT'])
+@login_required
+def renombrar_custom_column(id):
+    cliente = StatusClient.query.get_or_404(id)
+    data = request.get_json()
+    table_type = data.get('table_type')
+    old_name = data.get('old_name')
+    new_name = data.get('new_name', '')
+    try:
+        cols = json.loads(cliente.custom_columns or '{}')
+        if table_type in cols and old_name in cols[table_type]:
+            idx = cols[table_type].index(old_name)
+            cols[table_type][idx] = new_name
+            cliente.custom_columns = json.dumps(cols)
+            if table_type == 'rates':
+                rows = cliente.rates
+            elif table_type == 'airlines':
+                rows = cliente.airlines
+            else:
+                rows = cliente.payments
+            for row in rows:
+                extra = row.get_extra()
+                if old_name in extra:
+                    extra[new_name] = extra.pop(old_name)
+                    row.extra_data = json.dumps(extra)
+            db.session.commit()
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'error': 'Column not found'}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ===================== EXPORT: SINGLE CLIENT =====================
@@ -341,8 +443,6 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
 
     # Styles
     purple_fill = PatternFill(start_color='7C3AED', end_color='7C3AED', fill_type='solid')
-    blue_fill = PatternFill(start_color='3B82F6', end_color='3B82F6', fill_type='solid')
-    green_fill = PatternFill(start_color='7C3AED', end_color='7C3AED', fill_type='solid')
     header_font = Font(bold=True, color='FFFFFF', size=10)
     data_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
     header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -358,6 +458,10 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
     ws.cell(row=row, column=1, value=cliente.nombre).font = Font(bold=True, size=14)
     row += 2
 
+    custom_rates = cliente.get_custom_cols('rates')
+    custom_airlines = cliente.get_custom_cols('airlines')
+    custom_payments = cliente.get_custom_cols('payments')
+
     # Table 1: Airline Rates
     if tabla in ('all', 'rates'):
         if hide_internal:
@@ -369,9 +473,10 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
                         'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate',
                         'Additional Costs', '', 'Notes']
             add_costs_col = 11
+        headers1 += custom_rates
         for col, h in enumerate(headers1, 1):
             cell = ws.cell(row=row, column=col, value=h)
-            cell.fill = green_fill
+            cell.fill = purple_fill
             cell.font = header_font
             cell.alignment = header_alignment
             cell.border = thin_border
@@ -385,6 +490,8 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
                 vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
                         r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
                         r.additional_costs, r.additional_costs_value, r.notes]
+            extra = r.get_extra()
+            vals += [extra.get(c, '') for c in custom_rates]
             for col, v in enumerate(vals, 1):
                 cell = ws.cell(row=row, column=col, value=v)
                 cell.border = thin_border
@@ -396,7 +503,7 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
 
     # Table 2: Current Status
     if tabla in ('all', 'status'):
-        headers2 = ['Current Status', 'Proximo Vuelo', 'Entrega de Fincas', 'Hora Maxima', 'Aerolinea']
+        headers2 = ['Current Status', 'Proximo Vuelo', 'Entrega de Fincas', 'Hora Maxima', 'Aerolinea'] + custom_airlines
         for col, h in enumerate(headers2, 1):
             cell = ws.cell(row=row, column=col, value=h)
             cell.fill = purple_fill
@@ -405,7 +512,9 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
             cell.border = thin_border
         row += 1
         for idx, a in enumerate(cliente.airlines):
+            extra = a.get_extra()
             vals = [a.current_status, a.proximo_vuelo, a.entrega_fincas, a.hora_maxima, a.aerolinea]
+            vals += [extra.get(c, '') for c in custom_airlines]
             for col, v in enumerate(vals, 1):
                 cell = ws.cell(row=row, column=col, value=v)
                 cell.border = thin_border
@@ -417,16 +526,18 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
 
     # Table 3: Payment
     if tabla in ('all', 'payment'):
-        headers3 = [f'Payment {cliente.nombre}', 'Valor', 'Fecha', 'Credito']
+        headers3 = [f'Payment {cliente.nombre}', 'Valor', 'Fecha', 'Credito'] + custom_payments
         for col, h in enumerate(headers3, 1):
             cell = ws.cell(row=row, column=col, value=h)
-            cell.fill = blue_fill
+            cell.fill = purple_fill
             cell.font = header_font
             cell.alignment = header_alignment
             cell.border = thin_border
         row += 1
         for idx, p in enumerate(cliente.payments):
+            extra = p.get_extra()
             vals = ['', p.valor, p.fecha, p.credito]
+            vals += [extra.get(c, '') for c in custom_payments]
             for col, v in enumerate(vals, 1):
                 cell = ws.cell(row=row, column=col, value=v)
                 cell.border = thin_border
@@ -563,9 +674,6 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
     elements.append(Spacer(1, 10))
 
     purple = colors.HexColor('#7C3AED')
-    blue = colors.HexColor('#3B82F6')
-    burgundy = colors.HexColor('#7C3AED')
-    white = colors.white
 
     common_style = [
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -575,31 +683,40 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
         ('RIGHTPADDING', (0, 0), (-1, -1), 3),
     ]
 
+    custom_rates = cliente.get_custom_cols('rates')
+    custom_airlines = cliente.get_custom_cols('airlines')
+    custom_payments = cliente.get_custom_cols('payments')
+
     # Table 1: Airline Rates
     if tabla in ('all', 'rates'):
+        extra_w = [20*mm] * len(custom_rates)
         if hide_internal:
             data1 = [[PH('Airline'), PH('Route'), PH('Transit'), PH('KG'), PH('Date'),
-                       PH('Final Rate'), PH('Additional Costs'), PH(''), PH('Notes')]]
+                       PH('Final Rate'), PH('Additional Costs'), PH(''), PH('Notes')] + [PH(c) for c in custom_rates]]
             add_span = (6, 0, 7, 0)
-            col_widths1 = [40*mm, 38*mm, 22*mm, 18*mm, 28*mm, 20*mm, 28*mm, 20*mm, 55*mm]
+            col_widths1 = [40*mm, 38*mm, 22*mm, 18*mm, 28*mm, 20*mm, 28*mm, 20*mm, 55*mm] + extra_w
             for r in cliente.rates:
+                extra = r.get_extra()
                 data1.append([P(r.airline), P(r.route), P(r.transit_time), P(r.kg_availability), P(r.date),
-                              P(r.final_rate), P(r.additional_costs), P(r.additional_costs_value), P(r.notes)])
+                              P(r.final_rate), P(r.additional_costs), P(r.additional_costs_value), P(r.notes)]
+                             + [P(extra.get(c, '')) for c in custom_rates])
         else:
             data1 = [[PH('Airline'), PH('Route'), PH('Transit'), PH('KG'), PH('Date'),
                        PH('Net Rate'), PH('Operative'), PH('Net+OPS'), PH('Profit'), PH('Final Rate'),
-                       PH('Add. Costs'), PH(''), PH('Notes')]]
+                       PH('Add. Costs'), PH(''), PH('Notes')] + [PH(c) for c in custom_rates]]
             add_span = (10, 0, 11, 0)
-            col_widths1 = [28*mm, 28*mm, 18*mm, 14*mm, 22*mm, 14*mm, 14*mm, 14*mm, 14*mm, 16*mm, 22*mm, 16*mm, 37*mm]
+            col_widths1 = [28*mm, 28*mm, 18*mm, 14*mm, 22*mm, 14*mm, 14*mm, 14*mm, 14*mm, 16*mm, 22*mm, 16*mm, 37*mm] + extra_w
             for r in cliente.rates:
+                extra = r.get_extra()
                 data1.append([P(r.airline), P(r.route), P(r.transit_time), P(r.kg_availability), P(r.date),
                               P(r.net_rate), P(r.operative), P(r.net_ops), P(r.profit), P(r.final_rate),
-                              P(r.additional_costs), P(r.additional_costs_value), P(r.notes)])
+                              P(r.additional_costs), P(r.additional_costs_value), P(r.notes)]
+                             + [P(extra.get(c, '')) for c in custom_rates])
         if len(data1) > 1:
             t1 = Table(data1, repeatRows=1, colWidths=col_widths1)
             t1.setStyle(TableStyle([
                 ('SPAN', (add_span[0], add_span[1]), (add_span[2], add_span[3])),
-                ('BACKGROUND', (0, 0), (-1, 0), burgundy),
+                ('BACKGROUND', (0, 0), (-1, 0), purple),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#E2E8F0')]),
             ] + common_style))
@@ -608,10 +725,13 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
 
     # Table 2: Current Status
     if tabla in ('all', 'status'):
-        data2 = [[PH('Current Status'), PH('Proximo Vuelo'), PH('Entrega de Fincas'), PH('Hora Maxima'), PH('Aerolinea')]]
-        col_widths2 = [55*mm, 55*mm, 55*mm, 45*mm, 45*mm]
+        data2 = [[PH('Current Status'), PH('Proximo Vuelo'), PH('Entrega de Fincas'), PH('Hora Maxima'), PH('Aerolinea')]
+                  + [PH(c) for c in custom_airlines]]
+        col_widths2 = [55*mm, 55*mm, 55*mm, 45*mm, 45*mm] + [35*mm] * len(custom_airlines)
         for a in cliente.airlines:
-            data2.append([P(a.current_status), P(a.proximo_vuelo), P(a.entrega_fincas), P(a.hora_maxima), P(a.aerolinea)])
+            extra = a.get_extra()
+            data2.append([P(a.current_status), P(a.proximo_vuelo), P(a.entrega_fincas), P(a.hora_maxima), P(a.aerolinea)]
+                         + [P(extra.get(c, '')) for c in custom_airlines])
         if len(data2) > 1:
             t2 = Table(data2, repeatRows=1, colWidths=col_widths2)
             t2.setStyle(TableStyle([
@@ -624,14 +744,17 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
 
     # Table 3: Payment
     if tabla in ('all', 'payment'):
-        data3 = [[PH(f'Payment {cliente.nombre}'), PH('Valor'), PH('Fecha'), PH('Credito')]]
-        col_widths3 = [65*mm, 65*mm, 65*mm, 65*mm]
+        data3 = [[PH(f'Payment {cliente.nombre}'), PH('Valor'), PH('Fecha'), PH('Credito')]
+                  + [PH(c) for c in custom_payments]]
+        col_widths3 = [65*mm, 65*mm, 65*mm, 65*mm] + [40*mm] * len(custom_payments)
         for p in cliente.payments:
-            data3.append([P(''), P(p.valor), P(p.fecha), P(p.credito)])
+            extra = p.get_extra()
+            data3.append([P(''), P(p.valor), P(p.fecha), P(p.credito)]
+                         + [P(extra.get(c, '')) for c in custom_payments])
         if len(data3) > 1:
             t3 = Table(data3, repeatRows=1, colWidths=col_widths3)
             t3.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), blue),
+                ('BACKGROUND', (0, 0), (-1, 0), purple),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#E2E8F0')]),
             ] + common_style))

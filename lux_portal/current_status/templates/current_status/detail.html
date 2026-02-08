@@ -13,23 +13,18 @@
 
 {% block extra_css %}
 <style>
-    /* Borders on all tables */
-    .status-table, .payment-table {
+    /* All tables */
+    .rate-table, .status-table, .payment-table {
         width: 100%;
         table-layout: fixed;
         border: 1px solid #cbd5e1 !important;
-    }
-    .rate-table {
-        width: 100%;
-        border: 1px solid #cbd5e1 !important;
-        table-layout: fixed;
     }
     .rate-table th, .status-table th, .payment-table th,
     .rate-table td, .status-table td, .payment-table td {
         border: 1px solid #cbd5e1 !important;
     }
-    /* Rate table */
-    .rate-table th {
+    /* Purple headers for ALL tables */
+    .rate-table th, .status-table th, .payment-table th {
         background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
         color: #fff !important;
         font-size: 0.65rem !important;
@@ -44,17 +39,17 @@
         overflow: hidden;
         user-select: none;
     }
-    .rate-table th .th-text {
+    .th-text {
         display: block;
         outline: none;
         cursor: text;
         min-height: 1em;
     }
-    .rate-table th .th-text:focus {
+    .th-text:focus {
         background: rgba(255,255,255,0.15);
         border-radius: 3px;
     }
-    /* Resize handle */
+    /* Resize handle (column width) */
     .resize-handle {
         position: absolute;
         right: 0;
@@ -69,49 +64,38 @@
     .resize-handle.active {
         background: rgba(255,255,255,0.4);
     }
-    .rate-table tbody tr:nth-child(even) td {
+    /* Resize handle (row height) */
+    .resize-handle-h {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 5px;
+        cursor: row-resize;
+        background: transparent;
+        z-index: 2;
+    }
+    .resize-handle-h:hover,
+    .resize-handle-h.active {
+        background: rgba(255,255,255,0.4);
+    }
+    /* Alternating rows */
+    .rate-table tbody tr:nth-child(even) td,
+    .status-table tbody tr:nth-child(even) td,
+    .payment-table tbody tr:nth-child(even) td {
         background-color: #e2e8f0 !important;
     }
-    .rate-table tbody tr:nth-child(odd) td {
+    .rate-table tbody tr:nth-child(odd) td,
+    .status-table tbody tr:nth-child(odd) td,
+    .payment-table tbody tr:nth-child(odd) td {
         background-color: #ffffff !important;
     }
+    /* Rate table data font */
     .rate-table .editable-cell textarea {
         font-size: 0.65rem;
         padding: 4px 2px;
         min-height: 28px;
         line-height: 1.3;
-    }
-    /* Status table */
-    .status-table th {
-        background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
-        color: #fff !important;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        padding: 10px 6px !important;
-        text-align: center !important;
-    }
-    .status-table tbody tr:nth-child(even) td {
-        background-color: #e2e8f0 !important;
-    }
-    .status-table tbody tr:nth-child(odd) td {
-        background-color: #ffffff !important;
-    }
-    /* Payment table */
-    .payment-table th {
-        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
-        color: #fff !important;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        padding: 10px 6px !important;
-        text-align: center !important;
-    }
-    .payment-table tbody tr:nth-child(even) td {
-        background-color: #e2e8f0 !important;
-    }
-    .payment-table tbody tr:nth-child(odd) td {
-        background-color: #ffffff !important;
     }
     /* Editable cells */
     .editable-cell {
@@ -139,7 +123,7 @@
     .editable-cell textarea:focus {
         background: rgba(124, 58, 237, 0.04);
     }
-    /* Rate table column widths (13 cols + delete) */
+    /* Rate table column widths */
     .rate-table .col-airline { width: 8%; }
     .rate-table .col-route { width: 10%; }
     .rate-table .col-transit { width: 5%; }
@@ -147,17 +131,47 @@
     .rate-table .col-date { width: 7%; }
     .rate-table .col-number { width: 6%; }
     .rate-table .col-addcost { width: 10%; }
-    .rate-table .col-notes { width: 14%; }
+    .rate-table .col-notes { width: 12%; }
     .rate-table .col-del { width: 3%; }
+    .rate-table .col-custom { width: 7%; }
+    .rate-table .col-add-col { width: 28px; }
     .rate-table .col-route textarea {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    /* Ocultar columnas internas */
+    /* Hide internal columns */
     .rate-table.hide-internal .col-internal {
         display: none;
     }
+    /* Add column button */
+    .btn-add-col {
+        background: rgba(255,255,255,0.2);
+        border: 1px dashed rgba(255,255,255,0.5);
+        color: #fff;
+        border-radius: 4px;
+        cursor: pointer;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+        line-height: 1;
+    }
+    .btn-add-col:hover {
+        background: rgba(255,255,255,0.35);
+    }
+    /* Delete custom column */
+    .btn-del-col {
+        position: absolute;
+        top: 1px;
+        right: 8px;
+        background: none;
+        border: none;
+        color: rgba(255,255,255,0.5);
+        cursor: pointer;
+        font-size: 0.55rem;
+        padding: 0;
+        line-height: 1;
+    }
+    .btn-del-col:hover { color: #fca5a5; }
     .client-name-input {
         font-size: 2rem;
         font-weight: 800;
@@ -268,18 +282,22 @@
             <table class="table rate-table mb-0" id="rateTable">
                 <thead>
                     <tr>
-                        <th class="col-airline"><span contenteditable="true" class="th-text">Airline</span><div class="resize-handle"></div></th>
-                        <th class="col-route"><span contenteditable="true" class="th-text">Route</span><div class="resize-handle"></div></th>
-                        <th class="col-transit"><span contenteditable="true" class="th-text">Transit</span><div class="resize-handle"></div></th>
-                        <th class="col-kg"><span contenteditable="true" class="th-text">KG</span><div class="resize-handle"></div></th>
-                        <th class="col-date"><span contenteditable="true" class="th-text">Date</span><div class="resize-handle"></div></th>
-                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Net Rate</span><div class="resize-handle"></div></th>
-                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Operative</span><div class="resize-handle"></div></th>
-                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Net+OPS</span><div class="resize-handle"></div></th>
-                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Profit</span><div class="resize-handle"></div></th>
-                        <th class="col-number"><span contenteditable="true" class="th-text">Final Rate</span><div class="resize-handle"></div></th>
-                        <th class="col-addcost" colspan="2"><span contenteditable="true" class="th-text">Additional Costs</span><div class="resize-handle"></div></th>
-                        <th class="col-notes"><span contenteditable="true" class="th-text">Notes</span><div class="resize-handle"></div></th>
+                        <th class="col-airline"><span contenteditable="true" class="th-text">Airline</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-route"><span contenteditable="true" class="th-text">Route</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-transit"><span contenteditable="true" class="th-text">Transit</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-kg"><span contenteditable="true" class="th-text">KG</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-date"><span contenteditable="true" class="th-text">Date</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Net Rate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Operative</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Net+OPS</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Profit</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-number"><span contenteditable="true" class="th-text">Final Rate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-addcost" colspan="2"><span contenteditable="true" class="th-text">Additional Costs</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th class="col-notes"><span contenteditable="true" class="th-text">Notes</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        {% for col in cliente.get_custom_cols('rates') %}
+                        <th class="col-custom"><span contenteditable="true" class="th-text custom-col-name" data-table="rates" data-col-name="{{ col }}">{{ col }}</span><button class="btn-del-col" onclick="deleteCustomCol('rates','{{ col }}',this)" title="Eliminar columna">&times;</button><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        {% endfor %}
+                        <th class="col-add-col"><button class="btn-add-col" onclick="addCustomCol('rates')" title="Agregar columna"><i class="bi bi-plus"></i></button></th>
                         <th class="col-del"></th>
                     </tr>
                 </thead>
@@ -299,6 +317,10 @@
                         <td class="editable-cell"><textarea data-field="additional_costs" onblur="guardarRate(this)">{{ r.additional_costs }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="additional_costs_value" onblur="guardarRate(this)">{{ r.additional_costs_value }}</textarea></td>
                         <td class="editable-cell col-notes"><textarea data-field="notes" onblur="guardarRate(this)">{{ r.notes }}</textarea></td>
+                        {% for col in cliente.get_custom_cols('rates') %}
+                        <td class="editable-cell col-custom"><textarea data-field="extra:{{ col }}" onblur="guardarRate(this)">{{ r.get_extra().get(col, '') }}</textarea></td>
+                        {% endfor %}
+                        <td></td>
                         <td class="text-center col-del" style="vertical-align: middle;">
                             <button class="btn-delete-row" onclick="eliminarRate(this, {{ r.id }})"><i class="bi bi-x-lg"></i></button>
                         </td>
@@ -328,11 +350,15 @@
             <table class="table status-table mb-0" id="airlineTable">
                 <thead>
                     <tr>
-                        <th>Current Status</th>
-                        <th>Proximo Vuelo</th>
-                        <th>Entrega de Fincas</th>
-                        <th>Hora Maxima</th>
-                        <th>Aerolinea</th>
+                        <th><span contenteditable="true" class="th-text">Current Status</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">Proximo Vuelo</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">Entrega de Fincas</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">Hora Maxima</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">Aerolinea</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        {% for col in cliente.get_custom_cols('airlines') %}
+                        <th><span contenteditable="true" class="th-text custom-col-name" data-table="airlines" data-col-name="{{ col }}">{{ col }}</span><button class="btn-del-col" onclick="deleteCustomCol('airlines','{{ col }}',this)" title="Eliminar columna">&times;</button><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        {% endfor %}
+                        <th style="width: 28px;"><button class="btn-add-col" onclick="addCustomCol('airlines')" title="Agregar columna"><i class="bi bi-plus"></i></button></th>
                         <th style="width: 36px;"></th>
                     </tr>
                 </thead>
@@ -344,6 +370,10 @@
                         <td class="editable-cell"><textarea data-field="entrega_fincas" onblur="guardarAirline(this)">{{ a.entrega_fincas }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="hora_maxima" onblur="guardarAirline(this)">{{ a.hora_maxima }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="aerolinea" onblur="guardarAirline(this)">{{ a.aerolinea }}</textarea></td>
+                        {% for col in cliente.get_custom_cols('airlines') %}
+                        <td class="editable-cell"><textarea data-field="extra:{{ col }}" onblur="guardarAirline(this)">{{ a.get_extra().get(col, '') }}</textarea></td>
+                        {% endfor %}
+                        <td></td>
                         <td class="text-center" style="vertical-align: middle;">
                             <button class="btn-delete-row" onclick="eliminarAirline(this, {{ a.id }})"><i class="bi bi-x-lg"></i></button>
                         </td>
@@ -369,16 +399,20 @@
         </a>
     </div>
     <div class="card">
-        <div class="card-header" style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; border-radius: 20px 20px 0 0; font-size: 1rem;">
+        <div class="card-header" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; border-radius: 20px 20px 0 0; font-size: 1rem;">
             <i class="bi bi-credit-card me-2"></i>Payment <span id="paymentClientName">{{ cliente.nombre }}</span>
         </div>
         <div class="table-responsive">
-            <table class="table payment-table mb-0">
+            <table class="table payment-table mb-0" id="paymentTable">
                 <thead>
                     <tr>
-                        <th>Valor</th>
-                        <th>Fecha</th>
-                        <th>Credito</th>
+                        <th><span contenteditable="true" class="th-text">Valor</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">Fecha</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">Credito</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        {% for col in cliente.get_custom_cols('payments') %}
+                        <th><span contenteditable="true" class="th-text custom-col-name" data-table="payments" data-col-name="{{ col }}">{{ col }}</span><button class="btn-del-col" onclick="deleteCustomCol('payments','{{ col }}',this)" title="Eliminar columna">&times;</button><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        {% endfor %}
+                        <th style="width: 28px;"><button class="btn-add-col" onclick="addCustomCol('payments')" title="Agregar columna"><i class="bi bi-plus"></i></button></th>
                         <th style="width: 36px;"></th>
                     </tr>
                 </thead>
@@ -388,6 +422,10 @@
                         <td class="editable-cell"><textarea data-field="valor" onblur="guardarPayment(this)">{{ p.valor }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="fecha" onblur="guardarPayment(this)">{{ p.fecha }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="credito" onblur="guardarPayment(this)">{{ p.credito }}</textarea></td>
+                        {% for col in cliente.get_custom_cols('payments') %}
+                        <td class="editable-cell"><textarea data-field="extra:{{ col }}" onblur="guardarPayment(this)">{{ p.get_extra().get(col, '') }}</textarea></td>
+                        {% endfor %}
+                        <td></td>
                         <td class="text-center" style="vertical-align: middle;">
                             <button class="btn-delete-row" onclick="eliminarPayment(this, {{ p.id }})"><i class="bi bi-x-lg"></i></button>
                         </td>
@@ -415,22 +453,20 @@ function autoResize(el) {
     el.style.height = 'auto';
     el.style.height = el.scrollHeight + 'px';
 }
-// Init all textareas on load + column resize
+// Init
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.editable-cell textarea').forEach(ta => {
         autoResize(ta);
         ta.addEventListener('input', () => autoResize(ta));
     });
     initColumnResize();
+    initRowResize();
+    initCustomColRename();
 });
 
 // --- Column resize (like Excel) ---
 function initColumnResize() {
-    const table = document.getElementById('rateTable');
-    if (!table) return;
-    const handles = table.querySelectorAll('.resize-handle');
-
-    handles.forEach(handle => {
+    document.querySelectorAll('.resize-handle').forEach(handle => {
         handle.addEventListener('mousedown', function(e) {
             e.preventDefault();
             e.stopPropagation();
@@ -438,6 +474,7 @@ function initColumnResize() {
             const startX = e.pageX;
             const startWidth = th.offsetWidth;
             this.classList.add('active');
+            const self = this;
 
             const onMouseMove = (e) => {
                 const diff = e.pageX - startX;
@@ -447,16 +484,98 @@ function initColumnResize() {
             };
 
             const onMouseUp = () => {
-                handle.classList.remove('active');
+                self.classList.remove('active');
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
-                // Re-adjust textareas after resize
-                table.querySelectorAll('.editable-cell textarea').forEach(ta => autoResize(ta));
+                document.querySelectorAll('.editable-cell textarea').forEach(ta => autoResize(ta));
             };
 
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
         });
+    });
+}
+
+// --- Row height resize (like Excel) ---
+function initRowResize() {
+    document.querySelectorAll('.resize-handle-h').forEach(handle => {
+        handle.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const th = this.parentElement;
+            const tr = th.parentElement;
+            const startY = e.pageY;
+            const startHeight = tr.offsetHeight;
+            this.classList.add('active');
+            const self = this;
+
+            const onMouseMove = (e) => {
+                const diff = e.pageY - startY;
+                const newHeight = Math.max(20, startHeight + diff);
+                tr.style.height = newHeight + 'px';
+                tr.querySelectorAll('th').forEach(t => t.style.height = newHeight + 'px');
+            };
+
+            const onMouseUp = () => {
+                self.classList.remove('active');
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+    });
+}
+
+// --- Custom column rename ---
+function initCustomColRename() {
+    document.querySelectorAll('.custom-col-name').forEach(span => {
+        span.addEventListener('blur', function() {
+            const newName = this.textContent.trim();
+            const oldName = this.dataset.colName;
+            const tableType = this.dataset.table;
+            if (newName && newName !== oldName) {
+                fetch(`${BASE}/api/client/${CLIENT_ID}/custom-column/rename`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({table_type: tableType, old_name: oldName, new_name: newName})
+                }).then(r => r.json()).then(data => {
+                    if (data.success) {
+                        this.dataset.colName = newName;
+                        // Update data-field on cells
+                        const table = this.closest('table');
+                        table.querySelectorAll(`textarea[data-field="extra:${oldName}"]`).forEach(ta => {
+                            ta.dataset.field = `extra:${newName}`;
+                        });
+                    }
+                });
+            }
+        });
+    });
+}
+
+// --- Add/Delete custom columns ---
+function addCustomCol(tableType) {
+    const name = prompt('Nombre de la nueva columna:');
+    if (!name) return;
+    fetch(`${BASE}/api/client/${CLIENT_ID}/custom-column`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({table_type: tableType, name: name})
+    }).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+    });
+}
+
+function deleteCustomCol(tableType, colName, btn) {
+    if (!confirm(`¿Eliminar columna "${colName}"?`)) return;
+    fetch(`${BASE}/api/client/${CLIENT_ID}/custom-column`, {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({table_type: tableType, name: colName})
+    }).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
     });
 }
 
@@ -513,7 +632,7 @@ function toggleEstado() {
     });
 }
 
-// --- Redondeo de numeros ---
+// --- Rounding ---
 const NUMERIC_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit', 'final_rate', 'additional_costs_value', 'kg_availability', 'valor'];
 function roundIfNumeric(el) {
     const val = el.value.trim();
@@ -524,15 +643,25 @@ function roundIfNumeric(el) {
     }
 }
 
+// --- Save helper for extra fields ---
+function buildSaveBody(el) {
+    const field = el.dataset.field;
+    if (field.startsWith('extra:')) {
+        const colName = field.substring(6);
+        return {extra: {[colName]: el.value}};
+    }
+    if (NUMERIC_FIELDS.includes(field)) roundIfNumeric(el);
+    return {[field]: el.value};
+}
+
 // --- Airline Rates (Table 1) ---
 function guardarRate(el) {
-    if (NUMERIC_FIELDS.includes(el.dataset.field)) roundIfNumeric(el);
     const row = el.closest('tr');
     const id = row.dataset.id;
     fetch(`${BASE}/api/rate/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({[el.dataset.field]: el.value})
+        body: JSON.stringify(buildSaveBody(el))
     });
 }
 
@@ -555,6 +684,19 @@ function agregarRate() {
             td.appendChild(ta);
             tr.appendChild(td);
         });
+        // Custom columns
+        document.querySelectorAll('#rateTable thead .custom-col-name[data-table="rates"]').forEach(span => {
+            const td = document.createElement('td');
+            td.className = 'editable-cell col-custom';
+            const ta = document.createElement('textarea');
+            ta.dataset.field = 'extra:' + span.dataset.colName;
+            ta.setAttribute('onblur', 'guardarRate(this)');
+            ta.addEventListener('input', () => autoResize(ta));
+            td.appendChild(ta);
+            tr.appendChild(td);
+        });
+        // Add col placeholder
+        tr.appendChild(document.createElement('td'));
         const delTd = document.createElement('td');
         delTd.className = 'text-center col-del';
         delTd.style.verticalAlign = 'middle';
@@ -578,7 +720,7 @@ function guardarAirline(el) {
     fetch(`${BASE}/api/airline/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({[el.dataset.field]: el.value})
+        body: JSON.stringify(buildSaveBody(el))
     });
 }
 
@@ -600,6 +742,18 @@ function agregarAirline() {
             td.appendChild(ta);
             tr.appendChild(td);
         });
+        // Custom columns
+        document.querySelectorAll('#airlineTable thead .custom-col-name[data-table="airlines"]').forEach(span => {
+            const td = document.createElement('td');
+            td.className = 'editable-cell';
+            const ta = document.createElement('textarea');
+            ta.dataset.field = 'extra:' + span.dataset.colName;
+            ta.setAttribute('onblur', 'guardarAirline(this)');
+            ta.addEventListener('input', () => autoResize(ta));
+            td.appendChild(ta);
+            tr.appendChild(td);
+        });
+        tr.appendChild(document.createElement('td'));
         const delTd = document.createElement('td');
         delTd.className = 'text-center';
         delTd.style.verticalAlign = 'middle';
@@ -618,13 +772,12 @@ function eliminarAirline(btn, id) {
 
 // --- Payments (Table 3) ---
 function guardarPayment(el) {
-    if (NUMERIC_FIELDS.includes(el.dataset.field)) roundIfNumeric(el);
     const row = el.closest('tr');
     const id = row.dataset.id;
     fetch(`${BASE}/api/payment/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({[el.dataset.field]: el.value})
+        body: JSON.stringify(buildSaveBody(el))
     });
 }
 
@@ -632,7 +785,7 @@ function agregarPayment() {
     fetch(`${BASE}/api/client/${CLIENT_ID}/payment`, {method: 'POST'})
     .then(r => r.json()).then(data => {
         if (!data.success) return;
-        const tbody = document.querySelector('.payment-table tbody');
+        const tbody = document.querySelector('#paymentTable tbody');
         const fields = ['valor','fecha','credito'];
         const tr = document.createElement('tr');
         tr.dataset.id = data.id;
@@ -646,6 +799,18 @@ function agregarPayment() {
             td.appendChild(ta);
             tr.appendChild(td);
         });
+        // Custom columns
+        document.querySelectorAll('#paymentTable thead .custom-col-name[data-table="payments"]').forEach(span => {
+            const td = document.createElement('td');
+            td.className = 'editable-cell';
+            const ta = document.createElement('textarea');
+            ta.dataset.field = 'extra:' + span.dataset.colName;
+            ta.setAttribute('onblur', 'guardarPayment(this)');
+            ta.addEventListener('input', () => autoResize(ta));
+            td.appendChild(ta);
+            tr.appendChild(td);
+        });
+        tr.appendChild(document.createElement('td'));
         const delTd = document.createElement('td');
         delTd.className = 'text-center';
         delTd.style.verticalAlign = 'middle';

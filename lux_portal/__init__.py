@@ -49,6 +49,10 @@ def _migrate_db(app):
         ('airline_rates', 'net_ops', 'VARCHAR(100) DEFAULT \'\''),
         ('airline_rates', 'profit', 'VARCHAR(100) DEFAULT \'\''),
         ('airline_rates', 'additional_costs_value', 'VARCHAR(200) DEFAULT \'\''),
+        ('status_clients', 'custom_columns', "TEXT DEFAULT '{}'"),
+        ('airline_rates', 'extra_data', "TEXT DEFAULT '{}'"),
+        ('status_airlines', 'extra_data', "TEXT DEFAULT '{}'"),
+        ('status_payments', 'extra_data', "TEXT DEFAULT '{}'"),
     ]
     for table, column, col_type in migrations:
         try:
