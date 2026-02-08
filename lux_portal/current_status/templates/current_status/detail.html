@@ -130,7 +130,62 @@
     .rate-table .col-kg { width: 4%; }
     .rate-table .col-date { width: 7%; }
     .rate-table .col-number { width: 6%; }
-    .rate-table .col-addcost { width: 10%; }
+    .rate-table .col-addcost { width: 14%; }
+    /* Additional Costs mini-list */
+    .addcosts-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 2px;
+    }
+    .addcost-item {
+        display: flex;
+        gap: 2px;
+        align-items: center;
+    }
+    .addcost-name, .addcost-value {
+        border: 1px solid #e2e8f0;
+        border-radius: 3px;
+        font-size: 0.62rem;
+        padding: 2px 3px;
+        outline: none;
+        background: transparent;
+        text-align: center;
+        font-family: inherit;
+    }
+    .addcost-name { flex: 1; min-width: 0; }
+    .addcost-value { width: 55px; flex-shrink: 0; }
+    .addcost-name:focus, .addcost-value:focus {
+        background: rgba(124, 58, 237, 0.04);
+        border-color: #7c3aed;
+    }
+    .addcost-del {
+        background: none;
+        border: none;
+        color: #cbd5e1;
+        cursor: pointer;
+        padding: 0 1px;
+        font-size: 0.55rem;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+    .addcost-del:hover { color: #dc2626; }
+    .addcost-add {
+        background: none;
+        border: 1px dashed #cbd5e1;
+        border-radius: 3px;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 1px 6px;
+        font-size: 0.55rem;
+        margin-top: 1px;
+        align-self: center;
+        transition: all 0.2s;
+    }
+    .addcost-add:hover {
+        border-color: #7c3aed;
+        color: #7c3aed;
+    }
     .rate-table .col-notes { width: 12%; }
     .rate-table .col-del { width: 3%; }
     .rate-table .col-custom { width: 7%; }
@@ -309,13 +364,32 @@
                         <td class="editable-cell col-transit"><textarea data-field="transit_time" onblur="guardarRate(this)">{{ r.transit_time }}</textarea></td>
                         <td class="editable-cell col-kg"><textarea data-field="kg_availability" onblur="guardarRate(this)">{{ r.kg_availability }}</textarea></td>
                         <td class="editable-cell col-date"><textarea data-field="date" onblur="guardarRate(this)">{{ r.date }}</textarea></td>
-                        <td class="editable-cell col-internal col-number"><textarea data-field="net_rate" onblur="guardarRate(this)">{{ r.net_rate }}</textarea></td>
-                        <td class="editable-cell col-internal col-number"><textarea data-field="operative" onblur="guardarRate(this)">{{ r.operative }}</textarea></td>
-                        <td class="editable-cell col-internal col-number"><textarea data-field="net_ops" onblur="guardarRate(this)">{{ r.net_ops }}</textarea></td>
-                        <td class="editable-cell col-internal col-number"><textarea data-field="profit" onblur="guardarRate(this)">{{ r.profit }}</textarea></td>
-                        <td class="editable-cell col-number"><textarea data-field="final_rate" onblur="guardarRate(this)">{{ r.final_rate }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="additional_costs" onblur="guardarRate(this)">{{ r.additional_costs }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="additional_costs_value" onblur="guardarRate(this)">{{ r.additional_costs_value }}</textarea></td>
+                        <td class="editable-cell col-internal col-number"><textarea data-field="net_rate" onblur="autoCalcRate(this)">{{ r.net_rate }}</textarea></td>
+                        <td class="editable-cell col-internal col-number"><textarea data-field="operative" onblur="autoCalcRate(this)">{{ r.operative }}</textarea></td>
+                        <td class="editable-cell col-internal col-number"><textarea data-field="net_ops" readonly style="background:#f1f5f9;">{{ r.net_ops }}</textarea></td>
+                        <td class="editable-cell col-internal col-number"><textarea data-field="profit" onblur="autoCalcRate(this)">{{ r.profit }}</textarea></td>
+                        <td class="editable-cell col-number"><textarea data-field="final_rate" readonly style="background:#f1f5f9;">{{ r.final_rate }}</textarea></td>
+                        <td class="editable-cell" colspan="2" style="padding: 2px !important;">
+                            <div class="addcosts-container" data-rate-id="{{ r.id }}">
+                                {% set addcosts = r.get_extra().get('addcosts', []) %}
+                                {% if addcosts %}
+                                    {% for item in addcosts %}
+                                    <div class="addcost-item">
+                                        <input type="text" class="addcost-name" value="{{ item.name }}" placeholder="Cargo" onblur="guardarAddcosts(this)">
+                                        <input type="text" class="addcost-value" value="{{ item.value }}" placeholder="Valor" onblur="guardarAddcosts(this)">
+                                        <button class="addcost-del" onclick="removeAddcost(this)"><i class="bi bi-x"></i></button>
+                                    </div>
+                                    {% endfor %}
+                                {% elif r.additional_costs or r.additional_costs_value %}
+                                    <div class="addcost-item">
+                                        <input type="text" class="addcost-name" value="{{ r.additional_costs }}" placeholder="Cargo" onblur="guardarAddcosts(this)">
+                                        <input type="text" class="addcost-value" value="{{ r.additional_costs_value }}" placeholder="Valor" onblur="guardarAddcosts(this)">
+                                        <button class="addcost-del" onclick="removeAddcost(this)"><i class="bi bi-x"></i></button>
+                                    </div>
+                                {% endif %}
+                                <button class="addcost-add" onclick="addAddcostItem(this)" title="Agregar cargo"><i class="bi bi-plus"></i></button>
+                            </div>
+                        </td>
                         <td class="editable-cell col-notes"><textarea data-field="notes" onblur="guardarRate(this)">{{ r.notes }}</textarea></td>
                         {% for col in cliente.get_custom_cols('rates') %}
                         <td class="editable-cell col-custom"><textarea data-field="extra:{{ col }}" onblur="guardarRate(this)">{{ r.get_extra().get(col, '') }}</textarea></td>
@@ -665,12 +739,83 @@ function guardarRate(el) {
     });
 }
 
+// Auto-calculate Net+OPS and Final Rate
+function autoCalcRate(el) {
+    const row = el.closest('tr');
+    const netRate = parseFloat(row.querySelector('[data-field="net_rate"]').value.replace(/,/g, '')) || 0;
+    const operative = parseFloat(row.querySelector('[data-field="operative"]').value.replace(/,/g, '')) || 0;
+    const profit = parseFloat(row.querySelector('[data-field="profit"]').value.replace(/,/g, '')) || 0;
+
+    const netOps = netRate + operative;
+    const finalRate = netOps + profit;
+
+    const netOpsEl = row.querySelector('[data-field="net_ops"]');
+    const finalRateEl = row.querySelector('[data-field="final_rate"]');
+
+    netOpsEl.value = netOps.toFixed(2);
+    finalRateEl.value = finalRate.toFixed(2);
+
+    // Save all 3 fields
+    guardarRate(el);
+    guardarRate(netOpsEl);
+    guardarRate(finalRateEl);
+}
+
+// --- Additional Costs (multiple per row) ---
+function guardarAddcosts(el) {
+    const container = el.closest('.addcosts-container');
+    const rateId = container.dataset.rateId;
+    const items = [];
+    container.querySelectorAll('.addcost-item').forEach(item => {
+        items.push({
+            name: item.querySelector('.addcost-name').value.trim(),
+            value: item.querySelector('.addcost-value').value.trim()
+        });
+    });
+    fetch(`${BASE}/api/rate/${rateId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({extra: {addcosts: items}})
+    });
+}
+
+function addAddcostItem(btn) {
+    const container = btn.closest('.addcosts-container');
+    const item = document.createElement('div');
+    item.className = 'addcost-item';
+    item.innerHTML = `<input type="text" class="addcost-name" placeholder="Cargo" onblur="guardarAddcosts(this)">
+        <input type="text" class="addcost-value" placeholder="Valor" onblur="guardarAddcosts(this)">
+        <button class="addcost-del" onclick="removeAddcost(this)"><i class="bi bi-x"></i></button>`;
+    container.insertBefore(item, btn);
+    item.querySelector('.addcost-name').focus();
+}
+
+function removeAddcost(btn) {
+    const container = btn.closest('.addcosts-container');
+    const rateId = container.dataset.rateId;
+    btn.closest('.addcost-item').remove();
+    const items = [];
+    container.querySelectorAll('.addcost-item').forEach(item => {
+        items.push({
+            name: item.querySelector('.addcost-name').value.trim(),
+            value: item.querySelector('.addcost-value').value.trim()
+        });
+    });
+    fetch(`${BASE}/api/rate/${rateId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({extra: {addcosts: items}})
+    });
+}
+
 function agregarRate() {
     fetch(`${BASE}/api/client/${CLIENT_ID}/rate`, {method: 'POST'})
     .then(r => r.json()).then(data => {
         if (!data.success) return;
         const tbody = document.querySelector('#rateTable tbody');
-        const fields = ['airline','route','transit_time','kg_availability','date','net_rate','operative','net_ops','profit','final_rate','additional_costs','additional_costs_value','notes'];
+        const fields = ['airline','route','transit_time','kg_availability','date','net_rate','operative','net_ops','profit','final_rate'];
+        const calcFields = ['net_rate','operative','profit'];
+        const readonlyFields = ['net_ops','final_rate'];
         const tr = document.createElement('tr');
         tr.dataset.id = data.id;
         fields.forEach(f => {
@@ -679,11 +824,36 @@ function agregarRate() {
             td.className = cls;
             const ta = document.createElement('textarea');
             ta.dataset.field = f;
-            ta.setAttribute('onblur', 'guardarRate(this)');
+            if (calcFields.includes(f)) {
+                ta.setAttribute('onblur', 'autoCalcRate(this)');
+            } else if (readonlyFields.includes(f)) {
+                ta.readOnly = true;
+                ta.style.background = '#f1f5f9';
+            } else {
+                ta.setAttribute('onblur', 'guardarRate(this)');
+            }
             ta.addEventListener('input', () => autoResize(ta));
             td.appendChild(ta);
             tr.appendChild(td);
         });
+        // Additional Costs cell
+        const addcostTd = document.createElement('td');
+        addcostTd.className = 'editable-cell';
+        addcostTd.colSpan = 2;
+        addcostTd.style.padding = '2px';
+        addcostTd.innerHTML = `<div class="addcosts-container" data-rate-id="${data.id}">
+            <button class="addcost-add" onclick="addAddcostItem(this)" title="Agregar cargo"><i class="bi bi-plus"></i></button>
+        </div>`;
+        tr.appendChild(addcostTd);
+        // Notes
+        const notesTd = document.createElement('td');
+        notesTd.className = 'editable-cell col-notes';
+        const notesTa = document.createElement('textarea');
+        notesTa.dataset.field = 'notes';
+        notesTa.setAttribute('onblur', 'guardarRate(this)');
+        notesTa.addEventListener('input', () => autoResize(notesTa));
+        notesTd.appendChild(notesTa);
+        tr.appendChild(notesTd);
         // Custom columns
         document.querySelectorAll('#rateTable thead .custom-col-name[data-table="rates"]').forEach(span => {
             const td = document.createElement('td');
