@@ -100,11 +100,11 @@
     gap: 3px;
 }
 .cal-task-check {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.7);
-    background: none;
+    border: 2px solid rgba(255,255,255,0.8);
+    background: rgba(255,255,255,0.15);
     cursor: pointer;
     flex-shrink: 0;
     padding: 0;
@@ -112,13 +112,14 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
-    font-size: 0.5rem;
-    color: transparent;
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.7);
     line-height: 1;
 }
 .cal-task-check:hover {
-    background: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.4);
     color: #fff;
+    transform: scale(1.15);
 }
 .cal-task-label {
     display: block;
@@ -184,9 +185,9 @@
     line-height: 1.3;
 }
 .calendar-grid.week-view .cal-task-check {
-    width: 16px;
-    height: 16px;
-    font-size: 0.55rem;
+    width: 20px;
+    height: 20px;
+    font-size: 0.65rem;
 }
 .cal-task-time {
     font-size: 0.6rem;
@@ -239,8 +240,8 @@
 .week-task-dot.medium { background: #F59E0B; }
 .week-task-dot.low { background: #10B981; }
 .week-task-check {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     border: 2px solid #d1d5db;
     background: none;
@@ -251,13 +252,14 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
-    color: transparent;
-    font-size: 0.65rem;
+    color: #d1d5db;
+    font-size: 0.75rem;
 }
 .week-task-check:hover {
     border-color: #10B981;
-    background: rgba(16,185,129,0.1);
+    background: rgba(16,185,129,0.15);
     color: #10B981;
+    transform: scale(1.1);
 }
 .week-task-title {
     flex: 1;
