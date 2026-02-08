@@ -186,36 +186,26 @@
         border-color: #7c3aed;
         color: #7c3aed;
     }
-    /* Sub-route grouping */
+    /* Merged airline cell (rowspan) */
     .col-airline { position: relative; }
-    .sub-route-row td { border-top: none !important; }
-    .sub-route-row .col-airline textarea {
-        opacity: 0.3;
-        font-size: 0.5rem !important;
-        padding-left: 14px !important;
+    .col-airline[rowspan] {
+        background: linear-gradient(180deg, rgba(124,58,237,0.08), rgba(124,58,237,0.03)) !important;
+        border-left: 3px solid #7c3aed !important;
+        vertical-align: middle !important;
     }
-    .sub-route-row .col-airline::before {
-        content: '\21B3';
-        position: absolute;
-        left: 3px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #7c3aed;
-        font-size: 0.7rem;
-        font-weight: bold;
-        z-index: 1;
-        pointer-events: none;
+    .col-airline textarea {
+        font-weight: 700 !important;
+        text-transform: uppercase;
     }
-    .sub-route-row .col-airline .btn-add-subroute { display: none; }
     .btn-add-subroute {
         display: block;
-        margin: 2px auto 0;
+        margin: 4px auto 0;
         background: linear-gradient(135deg, #7c3aed, #6d28d9);
         border: none;
         color: #fff;
         cursor: pointer;
-        padding: 2px 8px;
-        font-size: 0.55rem;
+        padding: 3px 10px;
+        font-size: 0.58rem;
         font-weight: 600;
         line-height: 1.3;
         border-radius: 8px;
@@ -225,6 +215,43 @@
     .btn-add-subroute:hover {
         background: linear-gradient(135deg, #6d28d9, #5b21b6);
         transform: scale(1.05);
+    }
+    /* Context menu */
+    .ctx-menu {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        padding: 4px 0;
+        min-width: 180px;
+        font-size: 0.78rem;
+    }
+    .ctx-menu.show { display: block; }
+    .ctx-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 14px;
+        cursor: pointer;
+        color: #334155;
+        transition: background 0.1s;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+        font-size: inherit;
+        font-family: inherit;
+    }
+    .ctx-menu-item:hover { background: #f1f5f9; }
+    .ctx-menu-item.danger { color: #dc2626; }
+    .ctx-menu-item.danger:hover { background: #fef2f2; }
+    .ctx-menu-sep {
+        height: 1px;
+        background: #e2e8f0;
+        margin: 3px 8px;
     }
     /* Table formatting toolbar */
     .table-toolbar {
@@ -607,6 +634,15 @@
             <i class="bi bi-plus-lg me-1"></i> Agregar pago
         </button>
     </div>
+
+    <!-- Right-click context menu -->
+    <div class="ctx-menu" id="ctxMenu">
+        <button class="ctx-menu-item" onclick="ctxInsertAbove()"><i class="bi bi-arrow-bar-up"></i> Insertar fila arriba</button>
+        <button class="ctx-menu-item" onclick="ctxInsertBelow()"><i class="bi bi-arrow-bar-down"></i> Insertar fila abajo</button>
+        <button class="ctx-menu-item" onclick="ctxAddSubroute()"><i class="bi bi-plus-circle"></i> Agregar ruta (misma airline)</button>
+        <div class="ctx-menu-sep"></div>
+        <button class="ctx-menu-item danger" onclick="ctxDeleteRow()"><i class="bi bi-trash"></i> Eliminar fila</button>
+    </div>
 </div>
 {% endblock %}
 
@@ -671,6 +707,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCustomColRename();
     groupRouteRows();
     loadTableFormat();
+    initContextMenu();
 });
 
 // --- Table formatting (font size, alignment, bold) ---
@@ -973,21 +1010,48 @@ function autoCalcRate(el) {
     guardarRate(finalRateEl);
 }
 
-// --- Sub-route grouping ---
+// --- Sub-route grouping with ROWSPAN ---
 function groupRouteRows() {
     const rows = Array.from(document.querySelectorAll('#rateTable tbody tr'));
-    let prevAirline = '';
+
+    // 1. Reset all airline cells
     rows.forEach(row => {
-        const airlineEl = row.querySelector('[data-field="airline"]');
-        if (!airlineEl) return;
-        const airline = airlineEl.value.trim().toLowerCase();
-        if (airline && airline === prevAirline) {
-            row.classList.add('sub-route-row');
-        } else {
-            row.classList.remove('sub-route-row');
+        const cell = row.querySelector('.col-airline');
+        if (cell) {
+            cell.style.display = '';
+            cell.rowSpan = 1;
+            cell.removeAttribute('rowspan');
         }
-        prevAirline = airline;
+        row.classList.remove('sub-route-row');
     });
+
+    // 2. Group consecutive rows by airline and apply rowspan
+    let i = 0;
+    while (i < rows.length) {
+        const airlineEl = rows[i].querySelector('[data-field="airline"]');
+        if (!airlineEl) { i++; continue; }
+        const airline = airlineEl.value.trim().toLowerCase();
+        if (!airline) { i++; continue; }
+
+        let groupSize = 1;
+        while (i + groupSize < rows.length) {
+            const nextEl = rows[i + groupSize].querySelector('[data-field="airline"]');
+            if (nextEl && nextEl.value.trim().toLowerCase() === airline) {
+                groupSize++;
+            } else break;
+        }
+
+        if (groupSize > 1) {
+            const firstCell = rows[i].querySelector('.col-airline');
+            firstCell.rowSpan = groupSize;
+            for (let j = 1; j < groupSize; j++) {
+                const cell = rows[i + j].querySelector('.col-airline');
+                cell.style.display = 'none';
+                rows[i + j].classList.add('sub-route-row');
+            }
+        }
+        i += groupSize;
+    }
 }
 
 function agregarSubruta(btn) {
@@ -1003,9 +1067,7 @@ function agregarSubruta(btn) {
         if (nextAirline && nextAirline.value.trim().toLowerCase() === airlineName.toLowerCase()) {
             lastRow = next;
             next = lastRow.nextElementSibling;
-        } else {
-            break;
-        }
+        } else break;
     }
 
     fetch(`${BASE}/api/client/${CLIENT_ID}/rate`, {method: 'POST'})
@@ -1013,7 +1075,6 @@ function agregarSubruta(btn) {
         if (!data.success) return;
         const tr = buildRateRow(data.id, airlineName);
         lastRow.after(tr);
-        // Save airline name on the server
         fetch(`${BASE}/api/rate/${data.id}`, {
             method: 'PUT',
             headers: {'Content-Type': 'application/json'},
@@ -1022,6 +1083,119 @@ function agregarSubruta(btn) {
         groupRouteRows();
         tr.querySelector('[data-field="route"]').focus();
     });
+}
+
+// --- Context Menu ---
+let ctxTargetRow = null;
+function initContextMenu() {
+    const table = document.getElementById('rateTable');
+    const menu = document.getElementById('ctxMenu');
+    table.querySelector('tbody').addEventListener('contextmenu', function(e) {
+        const row = e.target.closest('tr');
+        if (!row) return;
+        e.preventDefault();
+        ctxTargetRow = row;
+        menu.style.left = e.clientX + 'px';
+        menu.style.top = e.clientY + 'px';
+        menu.classList.add('show');
+    });
+    document.addEventListener('click', () => menu.classList.remove('show'));
+    document.addEventListener('contextmenu', (e) => {
+        if (!e.target.closest('#rateTable tbody')) menu.classList.remove('show');
+    });
+}
+
+function ctxInsertAbove() {
+    if (!ctxTargetRow) return;
+    fetch(`${BASE}/api/client/${CLIENT_ID}/rate`, {method: 'POST'})
+    .then(r => r.json()).then(data => {
+        if (!data.success) return;
+        const tr = buildRateRow(data.id, '');
+        ctxTargetRow.before(tr);
+        groupRouteRows();
+        tr.querySelector('textarea').focus();
+    });
+    document.getElementById('ctxMenu').classList.remove('show');
+}
+
+function ctxInsertBelow() {
+    if (!ctxTargetRow) return;
+    fetch(`${BASE}/api/client/${CLIENT_ID}/rate`, {method: 'POST'})
+    .then(r => r.json()).then(data => {
+        if (!data.success) return;
+        const tr = buildRateRow(data.id, '');
+        ctxTargetRow.after(tr);
+        groupRouteRows();
+        tr.querySelector('textarea').focus();
+    });
+    document.getElementById('ctxMenu').classList.remove('show');
+}
+
+function ctxAddSubroute() {
+    if (!ctxTargetRow) return;
+    // Find airline name from this row or its group parent
+    let airlineName = '';
+    const ownAirline = ctxTargetRow.querySelector('[data-field="airline"]');
+    if (ownAirline && ownAirline.value.trim()) {
+        airlineName = ownAirline.value.trim();
+    } else {
+        // This row's airline cell is hidden (sub-row), find the group parent
+        let prev = ctxTargetRow.previousElementSibling;
+        while (prev) {
+            const cell = prev.querySelector('.col-airline');
+            if (cell && cell.style.display !== 'none') {
+                airlineName = prev.querySelector('[data-field="airline"]').value.trim();
+                break;
+            }
+            prev = prev.previousElementSibling;
+        }
+    }
+    if (!airlineName) { alert('No se encontro el nombre de aerolinea'); return; }
+
+    // Find last row of group
+    let lastRow = ctxTargetRow;
+    let next = lastRow.nextElementSibling;
+    while (next && next.classList.contains('sub-route-row')) {
+        lastRow = next;
+        next = lastRow.nextElementSibling;
+    }
+    // Also check if current row is the group parent
+    if (!ctxTargetRow.classList.contains('sub-route-row')) {
+        let n = ctxTargetRow.nextElementSibling;
+        while (n) {
+            const na = n.querySelector('[data-field="airline"]');
+            if (na && na.value.trim().toLowerCase() === airlineName.toLowerCase()) {
+                lastRow = n;
+                n = n.nextElementSibling;
+            } else break;
+        }
+    }
+
+    fetch(`${BASE}/api/client/${CLIENT_ID}/rate`, {method: 'POST'})
+    .then(r => r.json()).then(data => {
+        if (!data.success) return;
+        const tr = buildRateRow(data.id, airlineName);
+        lastRow.after(tr);
+        fetch(`${BASE}/api/rate/${data.id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({airline: airlineName})
+        });
+        groupRouteRows();
+        tr.querySelector('[data-field="route"]').focus();
+    });
+    document.getElementById('ctxMenu').classList.remove('show');
+}
+
+function ctxDeleteRow() {
+    if (!ctxTargetRow) return;
+    const id = ctxTargetRow.dataset.id;
+    if (!confirm('Eliminar esta fila?')) return;
+    fetch(`${BASE}/api/rate/${id}`, {method: 'DELETE'})
+    .then(r => r.json()).then(data => {
+        if (data.success) { ctxTargetRow.remove(); groupRouteRows(); }
+    });
+    document.getElementById('ctxMenu').classList.remove('show');
 }
 
 function buildRateRow(id, airlineName) {
