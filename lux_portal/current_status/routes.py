@@ -342,10 +342,11 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
     # Styles
     purple_fill = PatternFill(start_color='7C3AED', end_color='7C3AED', fill_type='solid')
     blue_fill = PatternFill(start_color='3B82F6', end_color='3B82F6', fill_type='solid')
-    green_fill = PatternFill(start_color='924A4A', end_color='924A4A', fill_type='solid')
+    green_fill = PatternFill(start_color='7C3AED', end_color='7C3AED', fill_type='solid')
     header_font = Font(bold=True, color='FFFFFF', size=10)
     data_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
     header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    gray_fill = PatternFill(start_color='F1F5F9', end_color='F1F5F9', fill_type='solid')
     thin_border = Border(
         left=Side(style='thin'), right=Side(style='thin'),
         top=Side(style='thin'), bottom=Side(style='thin')
@@ -376,7 +377,7 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
             cell.border = thin_border
         ws.merge_cells(start_row=row, start_column=add_costs_col, end_row=row, end_column=add_costs_col + 1)
         row += 1
-        for r in cliente.rates:
+        for idx, r in enumerate(cliente.rates):
             if hide_internal:
                 vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
                         r.final_rate, r.additional_costs, r.additional_costs_value, r.notes]
@@ -388,6 +389,8 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
                 cell = ws.cell(row=row, column=col, value=v)
                 cell.border = thin_border
                 cell.alignment = data_alignment
+                if idx % 2 == 1:
+                    cell.fill = gray_fill
             row += 1
         row += 1
 
@@ -401,12 +404,14 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
             cell.alignment = header_alignment
             cell.border = thin_border
         row += 1
-        for a in cliente.airlines:
+        for idx, a in enumerate(cliente.airlines):
             vals = [a.current_status, a.proximo_vuelo, a.entrega_fincas, a.hora_maxima, a.aerolinea]
             for col, v in enumerate(vals, 1):
                 cell = ws.cell(row=row, column=col, value=v)
                 cell.border = thin_border
                 cell.alignment = data_alignment
+                if idx % 2 == 1:
+                    cell.fill = gray_fill
             row += 1
         row += 1
 
@@ -420,12 +425,14 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
             cell.alignment = header_alignment
             cell.border = thin_border
         row += 1
-        for p in cliente.payments:
+        for idx, p in enumerate(cliente.payments):
             vals = ['', p.valor, p.fecha, p.credito]
             for col, v in enumerate(vals, 1):
                 cell = ws.cell(row=row, column=col, value=v)
                 cell.border = thin_border
                 cell.alignment = data_alignment
+                if idx % 2 == 1:
+                    cell.fill = gray_fill
             row += 1
 
     # Auto-width: increase cap to 50 and set minimum of 15
@@ -557,7 +564,7 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
 
     purple = colors.HexColor('#7C3AED')
     blue = colors.HexColor('#3B82F6')
-    burgundy = colors.HexColor('#924A4A')
+    burgundy = colors.HexColor('#7C3AED')
     white = colors.white
 
     common_style = [

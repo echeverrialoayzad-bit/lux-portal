@@ -14,16 +14,21 @@
 {% block extra_css %}
 <style>
     .rate-table th {
-        background: linear-gradient(135deg, #924A4A, #7c3535) !important;
+        background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
         color: #fff !important;
-        font-size: 0.72rem;
+        font-size: 0.62rem;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
-        padding: 10px 4px !important;
+        letter-spacing: 0.02em;
+        padding: 8px 3px !important;
         border: none !important;
         text-align: center !important;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
+        white-space: nowrap;
+    }
+    .rate-table tbody tr:nth-child(even) {
+        background-color: #f1f5f9;
+    }
+    .rate-table tbody tr:nth-child(odd) {
+        background-color: #ffffff;
     }
     .status-table th {
         background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
@@ -35,6 +40,12 @@
         border: none !important;
         text-align: center !important;
     }
+    .status-table tbody tr:nth-child(even) {
+        background-color: #f1f5f9;
+    }
+    .status-table tbody tr:nth-child(odd) {
+        background-color: #ffffff;
+    }
     .payment-table th {
         background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
         color: #fff !important;
@@ -44,6 +55,12 @@
         padding: 10px 6px !important;
         border: none !important;
         text-align: center !important;
+    }
+    .payment-table tbody tr:nth-child(even) {
+        background-color: #f1f5f9;
+    }
+    .payment-table tbody tr:nth-child(odd) {
+        background-color: #ffffff;
     }
     .rate-table, .status-table, .payment-table {
         width: 100%;
