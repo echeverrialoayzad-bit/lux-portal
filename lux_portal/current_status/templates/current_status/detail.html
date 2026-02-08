@@ -14,10 +14,15 @@
 {% block extra_css %}
 <style>
     /* Borders on all tables */
-    .rate-table, .status-table, .payment-table {
+    .status-table, .payment-table {
         width: 100%;
         table-layout: fixed;
         border: 1px solid #cbd5e1 !important;
+    }
+    .rate-table {
+        width: 100%;
+        border: 1px solid #cbd5e1 !important;
+        table-layout: fixed;
     }
     .rate-table th, .status-table th, .payment-table th,
     .rate-table td, .status-table td, .payment-table td {
@@ -27,14 +32,42 @@
     .rate-table th {
         background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
         color: #fff !important;
-        font-size: 0.55rem !important;
+        font-size: 0.65rem !important;
         text-transform: none !important;
         letter-spacing: 0 !important;
-        padding: 4px 1px !important;
+        padding: 6px 10px 6px 4px !important;
         text-align: center !important;
         white-space: normal;
         word-break: break-word;
-        line-height: 1.1;
+        line-height: 1.2;
+        position: relative;
+        overflow: hidden;
+        user-select: none;
+    }
+    .rate-table th .th-text {
+        display: block;
+        outline: none;
+        cursor: text;
+        min-height: 1em;
+    }
+    .rate-table th .th-text:focus {
+        background: rgba(255,255,255,0.15);
+        border-radius: 3px;
+    }
+    /* Resize handle */
+    .resize-handle {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        cursor: col-resize;
+        background: transparent;
+        z-index: 2;
+    }
+    .resize-handle:hover,
+    .resize-handle.active {
+        background: rgba(255,255,255,0.4);
     }
     .rate-table tbody tr:nth-child(even) td {
         background-color: #e2e8f0 !important;
@@ -235,18 +268,18 @@
             <table class="table rate-table mb-0" id="rateTable">
                 <thead>
                     <tr>
-                        <th class="col-airline">Airline</th>
-                        <th class="col-route">Route</th>
-                        <th class="col-transit">Transit</th>
-                        <th class="col-kg">KG</th>
-                        <th class="col-date">Date</th>
-                        <th class="col-internal col-number">Net Rate</th>
-                        <th class="col-internal col-number">Operative</th>
-                        <th class="col-internal col-number">Net+OPS</th>
-                        <th class="col-internal col-number">Profit</th>
-                        <th class="col-number">Final Rate</th>
-                        <th class="col-addcost" colspan="2">Additional Costs</th>
-                        <th class="col-notes">Notes</th>
+                        <th class="col-airline"><span contenteditable="true" class="th-text">Airline</span><div class="resize-handle"></div></th>
+                        <th class="col-route"><span contenteditable="true" class="th-text">Route</span><div class="resize-handle"></div></th>
+                        <th class="col-transit"><span contenteditable="true" class="th-text">Transit</span><div class="resize-handle"></div></th>
+                        <th class="col-kg"><span contenteditable="true" class="th-text">KG</span><div class="resize-handle"></div></th>
+                        <th class="col-date"><span contenteditable="true" class="th-text">Date</span><div class="resize-handle"></div></th>
+                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Net Rate</span><div class="resize-handle"></div></th>
+                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Operative</span><div class="resize-handle"></div></th>
+                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Net+OPS</span><div class="resize-handle"></div></th>
+                        <th class="col-internal col-number"><span contenteditable="true" class="th-text">Profit</span><div class="resize-handle"></div></th>
+                        <th class="col-number"><span contenteditable="true" class="th-text">Final Rate</span><div class="resize-handle"></div></th>
+                        <th class="col-addcost" colspan="2"><span contenteditable="true" class="th-text">Additional Costs</span><div class="resize-handle"></div></th>
+                        <th class="col-notes"><span contenteditable="true" class="th-text">Notes</span><div class="resize-handle"></div></th>
                         <th class="col-del"></th>
                     </tr>
                 </thead>
@@ -382,13 +415,50 @@ function autoResize(el) {
     el.style.height = 'auto';
     el.style.height = el.scrollHeight + 'px';
 }
-// Init all textareas on load
+// Init all textareas on load + column resize
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.editable-cell textarea').forEach(ta => {
         autoResize(ta);
         ta.addEventListener('input', () => autoResize(ta));
     });
+    initColumnResize();
 });
+
+// --- Column resize (like Excel) ---
+function initColumnResize() {
+    const table = document.getElementById('rateTable');
+    if (!table) return;
+    const handles = table.querySelectorAll('.resize-handle');
+
+    handles.forEach(handle => {
+        handle.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const th = this.parentElement;
+            const startX = e.pageX;
+            const startWidth = th.offsetWidth;
+            this.classList.add('active');
+
+            const onMouseMove = (e) => {
+                const diff = e.pageX - startX;
+                const newWidth = Math.max(30, startWidth + diff);
+                th.style.width = newWidth + 'px';
+                th.style.minWidth = newWidth + 'px';
+            };
+
+            const onMouseUp = () => {
+                handle.classList.remove('active');
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                // Re-adjust textareas after resize
+                table.querySelectorAll('.editable-cell textarea').forEach(ta => autoResize(ta));
+            };
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+    });
+}
 
 function toggleInternal() {
     const table = document.getElementById('rateTable');
