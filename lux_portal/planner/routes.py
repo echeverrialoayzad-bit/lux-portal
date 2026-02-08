@@ -400,6 +400,8 @@ def agenda():
             'status': t.status,
             'category': t.category,
             'time': time_str,
+            'start_hour': t.start_time.strftime('%H:%M') if t.start_time else None,
+            'end_hour': t.end_time.strftime('%H:%M') if t.end_time else None,
         })
 
     # Mes anterior y siguiente para navegacion

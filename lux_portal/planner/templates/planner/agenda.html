@@ -306,6 +306,181 @@
 .dot.high { background: #EF4444; }
 .dot.medium { background: #F59E0B; }
 .dot.low { background: #10B981; }
+
+/* ===== Day Detail Timeline ===== */
+.day-detail-panel {
+    display: none;
+    background: white;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    animation: slideDown 0.3s ease;
+}
+.day-detail-panel.show { display: block; }
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.day-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+.day-detail-header h6 {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+.day-detail-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+.day-detail-close:hover { background: rgba(0,0,0,0.05); }
+
+/* Timeline */
+.timeline {
+    position: relative;
+    padding-left: 55px;
+}
+.timeline-hour {
+    position: relative;
+    height: 50px;
+    border-top: 1px solid #f0f0f0;
+}
+.timeline-hour-label {
+    position: absolute;
+    left: -55px;
+    top: -8px;
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+    font-weight: 500;
+    width: 45px;
+    text-align: right;
+}
+.timeline-now {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #EF4444;
+    z-index: 5;
+}
+.timeline-now::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: -4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #EF4444;
+}
+.timeline-task {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    z-index: 3;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    text-decoration: none;
+    transition: opacity 0.2s, transform 0.1s;
+    overflow: hidden;
+    min-height: 28px;
+}
+.timeline-task:hover {
+    opacity: 0.9;
+    color: #fff;
+    transform: scale(1.01);
+}
+.timeline-task.high { background: #EF4444; }
+.timeline-task.medium { background: #F59E0B; }
+.timeline-task.low { background: #10B981; }
+.timeline-task-time {
+    font-size: 0.7rem;
+    opacity: 0.85;
+    font-weight: 400;
+    white-space: nowrap;
+}
+.timeline-task-title {
+    flex: 1;
+    line-height: 1.3;
+}
+.timeline-task-check {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.8);
+    background: rgba(255,255,255,0.15);
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.7);
+    transition: all 0.2s;
+}
+.timeline-task-check:hover {
+    background: rgba(255,255,255,0.4);
+    color: #fff;
+    transform: scale(1.15);
+}
+/* Tasks without time */
+.day-detail-notimed {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px dashed var(--border-color, #e5e7eb);
+}
+.day-detail-notimed-title {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+.notimed-task {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+.notimed-task:hover { opacity: 0.9; color: #fff; }
+.notimed-task.high { background: #EF4444; }
+.notimed-task.medium { background: #F59E0B; }
+.notimed-task.low { background: #10B981; }
+
+/* Clickable day cells in week view */
+.calendar-grid.week-view .cal-day {
+    cursor: pointer;
+}
+.calendar-grid.week-view .cal-day.day-selected {
+    outline: 2px solid var(--planner-lavender);
+    outline-offset: -2px;
+}
 </style>
 {% endblock %}
 
@@ -389,7 +564,9 @@
                 {% set is_current_month = (d.month == cal_month) %}
                 {% set is_today = (d == today) %}
                 {% set day_tasks = task_dates.get(d_iso, []) %}
-                <div class="cal-day {{ 'other-month' if not is_current_month and view == 'month' }} {{ 'today' if is_today }} {{ 'has-tasks' if day_tasks }}">
+                <div class="cal-day {{ 'other-month' if not is_current_month and view == 'month' }} {{ 'today' if is_today }} {{ 'has-tasks' if day_tasks }}"
+                     {% if view == 'week' %}onclick="showDayDetail('{{ d_iso }}', this, event)"{% endif %}
+                     data-date="{{ d_iso }}">
                     <div class="day-num">{{ d.day }}</div>
                     <div class="cal-tasks-container">
                         {% if view == 'week' %}
@@ -432,10 +609,28 @@
         <div class="legend-item"><span class="dot low"></span> Baja</div>
     </div>
 </div>
+
+{% if view == 'week' %}
+<!-- Day detail timeline panel -->
+<div id="dayDetailPanel" class="day-detail-panel">
+    <div class="day-detail-header">
+        <h6 id="dayDetailTitle"><i class="bi bi-clock me-2"></i>Detalle del dia</h6>
+        <button class="day-detail-close" onclick="closeDayDetail()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div id="dayDetailNoTimed"></div>
+    <div id="dayDetailTimeline" class="timeline"></div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Task data for timeline
+const taskDates = {{ task_dates|tojson }};
+const diasSemana = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+const mesesEs = {1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',
+                 7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'};
+
 function toggleMore(el, e) {
     e.stopPropagation();
     const hidden = el.nextElementSibling;
@@ -459,7 +654,6 @@ function completeTask(id, btn, e) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            // Remove from calendar
             document.querySelectorAll(`[data-task-id="${id}"]`).forEach(el => {
                 el.style.transition = 'opacity 0.3s, transform 0.3s';
                 el.style.opacity = '0';
@@ -468,6 +662,112 @@ function completeTask(id, btn, e) {
             });
         }
     });
+}
+
+function showDayDetail(dateIso, cell, e) {
+    // Don't trigger if clicking on a button or link inside the cell
+    if (e.target.closest('a') || e.target.closest('button')) return;
+
+    const panel = document.getElementById('dayDetailPanel');
+    const titleEl = document.getElementById('dayDetailTitle');
+    const timelineEl = document.getElementById('dayDetailTimeline');
+    const noTimedEl = document.getElementById('dayDetailNoTimed');
+
+    // Highlight selected day
+    document.querySelectorAll('.cal-day.day-selected').forEach(d => d.classList.remove('day-selected'));
+    cell.classList.add('day-selected');
+
+    // Format day title
+    const d = new Date(dateIso + 'T00:00:00');
+    const dayName = diasSemana[d.getDay()];
+    const dayNum = d.getDate();
+    const monthName = mesesEs[d.getMonth() + 1];
+    titleEl.innerHTML = `<i class="bi bi-clock me-2"></i>${dayName} ${dayNum} de ${monthName}`;
+
+    const tasks = taskDates[dateIso] || [];
+    const timedTasks = tasks.filter(t => t.start_hour);
+    const noTimedTasks = tasks.filter(t => !t.start_hour);
+
+    // Render no-timed tasks
+    if (noTimedTasks.length > 0) {
+        let html = '<div class="day-detail-notimed"><div class="day-detail-notimed-title">Sin hora asignada</div>';
+        noTimedTasks.forEach(t => {
+            html += `<div class="notimed-task ${t.priority}" data-task-id="${t.id}">
+                <button class="timeline-task-check" onclick="completeTask(${t.id}, this, event)"><i class="bi bi-check"></i></button>
+                <a href="/planner/task/${t.id}/edit" style="color:#fff; text-decoration:none; flex:1;">${t.title}</a>
+            </div>`;
+        });
+        html += '</div>';
+        noTimedEl.innerHTML = html;
+    } else {
+        noTimedEl.innerHTML = '';
+    }
+
+    // Determine time range
+    let startHour = 7, endHour = 20;
+    timedTasks.forEach(t => {
+        const sh = parseInt(t.start_hour.split(':')[0]);
+        const eh = t.end_hour ? parseInt(t.end_hour.split(':')[0]) + 1 : sh + 1;
+        if (sh < startHour) startHour = sh;
+        if (eh > endHour) endHour = eh;
+    });
+
+    // Render timeline hours
+    const hourHeight = 50;
+    const totalHours = endHour - startHour + 1;
+    let html = '';
+    for (let h = startHour; h <= endHour; h++) {
+        const label = String(h).padStart(2, '0') + ':00';
+        html += `<div class="timeline-hour"><span class="timeline-hour-label">${label}</span></div>`;
+    }
+
+    // Now indicator
+    const now = new Date();
+    const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+    if (dateIso === todayStr) {
+        const nowHour = now.getHours() + now.getMinutes() / 60;
+        if (nowHour >= startHour && nowHour <= endHour + 1) {
+            const top = (nowHour - startHour) * hourHeight;
+            html += `<div class="timeline-now" style="top:${top}px"></div>`;
+        }
+    }
+
+    // Render timed tasks as blocks
+    timedTasks.forEach(t => {
+        const [sh, sm] = t.start_hour.split(':').map(Number);
+        const startMin = sh + sm / 60;
+        let endMin;
+        if (t.end_hour) {
+            const [eh, em] = t.end_hour.split(':').map(Number);
+            endMin = eh + em / 60;
+        } else {
+            endMin = startMin + 0.5;
+        }
+        const top = (startMin - startHour) * hourHeight;
+        const height = Math.max((endMin - startMin) * hourHeight, 28);
+        const timeLabel = t.start_hour + (t.end_hour ? ' - ' + t.end_hour : '');
+
+        html += `<a href="/planner/task/${t.id}/edit" class="timeline-task ${t.priority}" data-task-id="${t.id}"
+                    style="top:${top}px; height:${height}px;">
+            <button class="timeline-task-check" onclick="completeTask(${t.id}, this, event)"><i class="bi bi-check"></i></button>
+            <div style="flex:1; min-width:0;">
+                <div class="timeline-task-time">${timeLabel}</div>
+                <div class="timeline-task-title">${t.title}</div>
+            </div>
+        </a>`;
+    });
+
+    timelineEl.innerHTML = html;
+    timelineEl.style.height = (totalHours * hourHeight) + 'px';
+
+    // Show panel
+    panel.classList.add('show');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeDayDetail() {
+    document.getElementById('dayDetailPanel').classList.remove('show');
+    document.querySelectorAll('.cal-day.day-selected').forEach(d => d.classList.remove('day-selected'));
 }
 </script>
 {% endblock %}
