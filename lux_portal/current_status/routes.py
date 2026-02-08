@@ -522,13 +522,27 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Spacer, Paragraph, Image as RLImage
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
 
     output = io.BytesIO()
     doc = SimpleDocTemplate(output, pagesize=landscape(A4), topMargin=15*mm, bottomMargin=15*mm,
                             leftMargin=10*mm, rightMargin=10*mm)
     elements = []
     styles = getSampleStyleSheet()
+
+    # Cell paragraph styles (wraps text automatically)
+    cell_style = ParagraphStyle('CellCenter', parent=styles['Normal'],
+                                fontSize=7, leading=9, alignment=TA_CENTER)
+    cell_header = ParagraphStyle('CellHeader', parent=styles['Normal'],
+                                 fontSize=7, leading=9, alignment=TA_CENTER,
+                                 textColor=colors.white)
+
+    def P(text, style=cell_style):
+        return Paragraph(str(text or ''), style)
+
+    def PH(text):
+        return Paragraph(str(text or ''), cell_header)
 
     # Logo
     logo_path = get_logo_path()
@@ -547,39 +561,38 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
     white = colors.white
 
     common_style = [
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
     ]
 
     # Table 1: Airline Rates
     if tabla in ('all', 'rates'):
         if hide_internal:
-            data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Final Rate', 'Additional Costs', '', 'Notes']]
+            data1 = [[PH('Airline'), PH('Route'), PH('Transit'), PH('KG'), PH('Date'),
+                       PH('Final Rate'), PH('Additional Costs'), PH(''), PH('Notes')]]
             add_span = (6, 0, 7, 0)
-            col_widths1 = [55*mm, 50*mm, 30*mm, 25*mm, 30*mm, 25*mm, 30*mm, 25*mm, 45*mm]
+            col_widths1 = [40*mm, 38*mm, 22*mm, 18*mm, 28*mm, 20*mm, 28*mm, 20*mm, 55*mm]
             for r in cliente.rates:
-                data1.append([r.airline, r.route, r.transit_time, r.kg_availability, r.date,
-                              r.final_rate, r.additional_costs, r.additional_costs_value, r.notes])
+                data1.append([P(r.airline), P(r.route), P(r.transit_time), P(r.kg_availability), P(r.date),
+                              P(r.final_rate), P(r.additional_costs), P(r.additional_costs_value), P(r.notes)])
         else:
-            data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate', 'Add. Costs', '', 'Notes']]
+            data1 = [[PH('Airline'), PH('Route'), PH('Transit'), PH('KG'), PH('Date'),
+                       PH('Net Rate'), PH('Operative'), PH('Net+OPS'), PH('Profit'), PH('Final Rate'),
+                       PH('Add. Costs'), PH(''), PH('Notes')]]
             add_span = (10, 0, 11, 0)
-            col_widths1 = [38*mm, 35*mm, 22*mm, 18*mm, 22*mm, 18*mm, 18*mm, 18*mm, 18*mm, 20*mm, 22*mm, 18*mm, 30*mm]
+            col_widths1 = [28*mm, 28*mm, 18*mm, 14*mm, 22*mm, 14*mm, 14*mm, 14*mm, 14*mm, 16*mm, 22*mm, 16*mm, 37*mm]
             for r in cliente.rates:
-                data1.append([r.airline, r.route, r.transit_time, r.kg_availability, r.date,
-                              r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
-                              r.additional_costs, r.additional_costs_value, r.notes])
+                data1.append([P(r.airline), P(r.route), P(r.transit_time), P(r.kg_availability), P(r.date),
+                              P(r.net_rate), P(r.operative), P(r.net_ops), P(r.profit), P(r.final_rate),
+                              P(r.additional_costs), P(r.additional_costs_value), P(r.notes)])
         if len(data1) > 1:
             t1 = Table(data1, repeatRows=1, colWidths=col_widths1)
             t1.setStyle(TableStyle([
                 ('SPAN', (add_span[0], add_span[1]), (add_span[2], add_span[3])),
                 ('BACKGROUND', (0, 0), (-1, 0), burgundy),
-                ('TEXTCOLOR', (0, 0), (-1, 0), white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 7),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F8F8')]),
             ] + common_style))
@@ -588,17 +601,14 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
 
     # Table 2: Current Status
     if tabla in ('all', 'status'):
-        data2 = [['Current Status', 'Proximo Vuelo', 'Entrega de Fincas', 'Hora Maxima', 'Aerolinea']]
+        data2 = [[PH('Current Status'), PH('Proximo Vuelo'), PH('Entrega de Fincas'), PH('Hora Maxima'), PH('Aerolinea')]]
         col_widths2 = [55*mm, 55*mm, 55*mm, 45*mm, 45*mm]
         for a in cliente.airlines:
-            data2.append([a.current_status, a.proximo_vuelo, a.entrega_fincas, a.hora_maxima, a.aerolinea])
+            data2.append([P(a.current_status), P(a.proximo_vuelo), P(a.entrega_fincas), P(a.hora_maxima), P(a.aerolinea)])
         if len(data2) > 1:
             t2 = Table(data2, repeatRows=1, colWidths=col_widths2)
             t2.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), purple),
-                ('TEXTCOLOR', (0, 0), (-1, 0), white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F3FF')]),
             ] + common_style))
@@ -607,17 +617,14 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
 
     # Table 3: Payment
     if tabla in ('all', 'payment'):
-        data3 = [[f'Payment {cliente.nombre}', 'Valor', 'Fecha', 'Credito']]
+        data3 = [[PH(f'Payment {cliente.nombre}'), PH('Valor'), PH('Fecha'), PH('Credito')]]
         col_widths3 = [65*mm, 65*mm, 65*mm, 65*mm]
         for p in cliente.payments:
-            data3.append(['', p.valor, p.fecha, p.credito])
+            data3.append([P(''), P(p.valor), P(p.fecha), P(p.credito)])
         if len(data3) > 1:
             t3 = Table(data3, repeatRows=1, colWidths=col_widths3)
             t3.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), blue),
-                ('TEXTCOLOR', (0, 0), (-1, 0), white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#EFF6FF')]),
             ] + common_style))
