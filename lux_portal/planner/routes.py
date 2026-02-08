@@ -350,29 +350,11 @@ def agenda():
         _, last_day = calendar.monthrange(cal_year, cal_month)
         end_date = date(cal_year, cal_month, last_day)
 
-    events = Event.query.filter(
-        Event.event_date >= start_date,
-        Event.event_date <= end_date
-    ).order_by(Event.event_date, Event.start_time).all()
-
-    # Generar dias para la lista
-    days = []
-    current = start_date
-    while current <= end_date:
-        day_events = [e for e in events if e.event_date == current]
-        days.append({
-            'date': current,
-            'events': day_events,
-            'is_today': current == today
-        })
-        current += timedelta(days=1)
-
-    # Calendario: obtener fechas con eventos (rango segun vista)
+    # Calendario: generar semanas
     cal = calendar.Calendar(firstweekday=0)  # Lunes primero
     cal_weeks_all = cal.monthdatescalendar(cal_year, cal_month)
 
     if view == 'week':
-        # Solo mostrar la semana seleccionada en el calendario
         cal_weeks = []
         for week in cal_weeks_all:
             if start_date in week:
@@ -380,7 +362,6 @@ def agenda():
                 break
         if not cal_weeks:
             cal_weeks = [cal_weeks_all[0]]
-        # Rango para query de eventos del calendario
         cal_range_start = cal_weeks[0][0]
         cal_range_end = cal_weeks[0][-1]
     else:
@@ -389,26 +370,23 @@ def agenda():
         _, cal_last_day = calendar.monthrange(cal_year, cal_month)
         cal_range_end = date(cal_year, cal_month, cal_last_day)
 
-    cal_events = Event.query.filter(
-        Event.event_date >= cal_range_start,
-        Event.event_date <= cal_range_end
-    ).order_by(Event.start_time).all()
+    # Obtener tareas con due_date en el rango del calendario
+    tasks = Task.query.filter(
+        Task.due_date >= cal_range_start,
+        Task.due_date <= cal_range_end
+    ).order_by(Task.due_date, Task.priority).all()
 
-    # Mapeo de fechas con detalles de eventos
-    event_dates = {}
-    for e in cal_events:
-        d = e.event_date.isoformat()
-        if d not in event_dates:
-            event_dates[d] = []
-        time_str = ''
-        if e.all_day:
-            time_str = 'Todo el dia'
-        elif e.start_time:
-            time_str = e.start_time.strftime('%H:%M')
-        event_dates[d].append({
-            'title': e.title,
-            'type': e.event_type,
-            'time': time_str,
+    # Mapeo de fechas con detalles de tareas
+    task_dates = {}
+    for t in tasks:
+        d = t.due_date.isoformat()
+        if d not in task_dates:
+            task_dates[d] = []
+        task_dates[d].append({
+            'title': t.title,
+            'priority': t.priority,
+            'status': t.status,
+            'category': t.category,
         })
 
     # Mes anterior y siguiente para navegacion
@@ -424,19 +402,20 @@ def agenda():
     meses_es = {1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',
                 7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'}
 
+    # Lista de tareas de la semana (para resumen en vista semanal)
+    week_tasks = tasks if view == 'week' else []
+
     return render_template(
         'planner/agenda.html',
-        days=days,
         view=view,
-        start_date=start_date,
-        end_date=end_date,
         today=today,
         cal_weeks=cal_weeks,
         cal_year=cal_year,
         cal_month=cal_month,
         cal_month_name=meses_es[cal_month],
         meses_es=meses_es,
-        event_dates=event_dates,
+        task_dates=task_dates,
+        week_tasks=week_tasks,
         prev_year=prev_year,
         prev_month=prev_month,
         next_year=next_year,

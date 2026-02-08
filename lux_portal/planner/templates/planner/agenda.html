@@ -37,7 +37,6 @@
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 2px;
     text-align: center;
 }
 .calendar-grid .cal-header {
@@ -46,19 +45,25 @@
     color: var(--text-tertiary);
     text-transform: uppercase;
     padding: 6px 0;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
 }
 
-/* Monthly view: compact cells */
+/* Cells with grid lines */
 .calendar-grid .cal-day {
     position: relative;
     padding: 6px 4px 4px;
-    border-radius: 10px;
     font-size: 0.9rem;
     color: var(--text-secondary);
     cursor: default;
     transition: background 0.2s;
     min-height: 70px;
     vertical-align: top;
+    border-right: 1px solid var(--border-color, #e5e7eb);
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+/* Remove right border on last column */
+.calendar-grid .cal-day:nth-child(7n+7) {
+    border-right: none;
 }
 .calendar-grid .cal-day .day-num {
     font-weight: 600;
@@ -66,42 +71,31 @@
 }
 .calendar-grid .cal-day.other-month {
     color: #ccc;
+    background: rgba(0,0,0,0.015);
 }
-.calendar-grid .cal-day.other-month .cal-event-label {
+.calendar-grid .cal-day.other-month .cal-task-label {
     opacity: 0.4;
 }
 .calendar-grid .cal-day.today {
     background: var(--gradient-primary);
     color: #fff;
     font-weight: 700;
-    border-radius: 10px;
 }
-.calendar-grid .cal-day.has-events {
-    cursor: pointer;
-}
-.calendar-grid .cal-day.has-events:hover {
+.calendar-grid .cal-day.has-tasks:hover {
     background: rgba(139,92,246,0.08);
 }
-.calendar-grid .cal-day.today.has-events:hover {
+.calendar-grid .cal-day.today.has-tasks:hover {
     background: var(--gradient-primary);
 }
 
-/* Week row separators (monthly view) */
-.cal-week-separator {
-    grid-column: 1 / -1;
-    height: 1px;
-    background: var(--border-color, #e5e7eb);
-    margin: 2px 0;
-}
-
-/* Event labels inside calendar cells */
-.cal-events-container {
+/* Task labels inside calendar cells */
+.cal-tasks-container {
     display: flex;
     flex-direction: column;
     gap: 2px;
     margin-top: 2px;
 }
-.cal-event-label {
+.cal-task-label {
     font-size: 0.6rem;
     font-weight: 600;
     padding: 1px 4px;
@@ -111,18 +105,22 @@
     text-overflow: ellipsis;
     line-height: 1.4;
     color: #fff;
+    text-align: left;
 }
-.cal-event-label.work { background: #F59E0B; }
-.cal-event-label.meeting { background: #8B5CF6; }
-.cal-event-label.personal { background: #10B981; }
-.cal-event-label.reminder { background: #3B82F6; }
-.cal-event-label.urgent { background: #EF4444; }
-.cal-event-more {
+.cal-task-label.high { background: #EF4444; }
+.cal-task-label.medium { background: #F59E0B; }
+.cal-task-label.low { background: #10B981; }
+.cal-task-label.completed {
+    background: #9CA3AF;
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+.cal-task-more {
     font-size: 0.6rem;
     color: var(--text-tertiary);
     font-weight: 600;
 }
-.calendar-grid .cal-day.today .cal-event-more {
+.calendar-grid .cal-day.today .cal-task-more {
     color: rgba(255,255,255,0.8);
 }
 
@@ -131,15 +129,62 @@
     min-height: 120px;
     padding: 8px 6px 6px;
 }
-.calendar-grid.week-view .cal-event-label {
+.calendar-grid.week-view .cal-task-label {
     font-size: 0.7rem;
     padding: 2px 6px;
     white-space: normal;
     line-height: 1.3;
 }
-.calendar-grid.week-view .cal-event-time {
-    font-size: 0.6rem;
-    opacity: 0.85;
+
+/* ===== Week task summary ===== */
+.week-summary {
+    background: white;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.week-summary h6 {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+}
+.week-task-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+    font-size: 0.85rem;
+}
+.week-task-item:last-child { border-bottom: none; }
+.week-task-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.week-task-dot.high { background: #EF4444; }
+.week-task-dot.medium { background: #F59E0B; }
+.week-task-dot.low { background: #10B981; }
+.week-task-dot.completed { background: #9CA3AF; }
+.week-task-title {
+    flex: 1;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.week-task-title.completed {
+    text-decoration: line-through;
+    color: var(--text-tertiary);
+}
+.week-task-date {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+.week-no-tasks {
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: 0.5rem 0;
 }
 
 /* Legend */
@@ -163,70 +208,15 @@
     height: 8px;
     border-radius: 50%;
 }
-.dot.work { background: #F59E0B; }
-.dot.meeting { background: #8B5CF6; }
-.dot.personal { background: #10B981; }
-.dot.reminder { background: #3B82F6; }
-.dot.urgent { background: #EF4444; }
-
-/* ===== Agenda list ===== */
-.agenda-day {
-    background: white;
-    border-radius: 16px;
-    margin-bottom: 1rem;
-    overflow: hidden;
-}
-.agenda-day.today { border: 2px solid var(--planner-lavender); }
-.day-header {
-    background: rgba(139,92,246,0.05);
-    padding: 1rem 1.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.day-header.today { background: var(--gradient-primary); color: white; }
-.day-name { font-weight: 700; font-size: 1.1rem; }
-.day-date { color: var(--text-tertiary); }
-.day-header.today .day-date { color: rgba(255,255,255,0.8); }
-.events-list { padding: 1rem 1.5rem; }
-.event-row {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border-color);
-}
-.event-row:last-child { border-bottom: none; }
-.event-time {
-    width: 60px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-.event-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-.event-dot.work { background: #F59E0B; }
-.event-dot.meeting { background: #8B5CF6; }
-.event-dot.personal { background: #10B981; }
-.event-dot.reminder { background: #3B82F6; }
-.event-dot.urgent { background: #EF4444; }
-.event-info { flex: 1; }
-.event-title { font-weight: 600; }
-.event-location { font-size: 0.8rem; color: var(--text-tertiary); }
-.no-events { color: var(--text-tertiary); padding: 1rem 0; text-align: center; }
+.dot.high { background: #EF4444; }
+.dot.medium { background: #F59E0B; }
+.dot.low { background: #10B981; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-calendar3 me-2" style="color: var(--planner-lavender)"></i>Agenda</h2>
-    <a href="{{ url_for('planner.event_form') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-2"></i>Nuevo Evento
-    </a>
 </div>
 
 <!-- View toggle -->
@@ -240,6 +230,27 @@
         <i class="bi bi-calendar-month me-1"></i>Mes
     </a>
 </div>
+
+{% if view == 'week' %}
+<!-- Week task summary -->
+<div class="week-summary">
+    <h6><i class="bi bi-list-check me-2"></i>Tareas de la semana</h6>
+    {% if week_tasks %}
+        {% for task in week_tasks %}
+        <div class="week-task-item">
+            <span class="week-task-dot {{ 'completed' if task.status == 'completed' else task.priority }}"></span>
+            <span class="week-task-title {{ 'completed' if task.status == 'completed' }}">{{ task.title }}</span>
+            <span class="week-task-date">
+                {{ ['Lun','Mar','Mie','Jue','Vie','Sab','Dom'][task.due_date.weekday()] }}
+                {{ task.due_date.strftime('%d') }}
+            </span>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="week-no-tasks">Sin tareas esta semana</div>
+    {% endif %}
+</div>
+{% endif %}
 
 <!-- Calendar -->
 <div class="calendar-card">
@@ -272,32 +283,26 @@
         <div class="cal-header">Dom</div>
 
         {% for week in cal_weeks %}
-            {% if not loop.first and view == 'month' %}
-            <div class="cal-week-separator"></div>
-            {% endif %}
             {% for d in week %}
                 {% set d_iso = d.isoformat() %}
                 {% set is_current_month = (d.month == cal_month) %}
                 {% set is_today = (d == today) %}
-                {% set day_events = event_dates.get(d_iso, []) %}
-                <div class="cal-day {{ 'other-month' if not is_current_month and view == 'month' }} {{ 'today' if is_today }} {{ 'has-events' if day_events }}"
-                     {% if day_events %}onclick="scrollToDate('{{ d_iso }}')"{% endif %}>
+                {% set day_tasks = task_dates.get(d_iso, []) %}
+                <div class="cal-day {{ 'other-month' if not is_current_month and view == 'month' }} {{ 'today' if is_today }} {{ 'has-tasks' if day_tasks }}">
                     <div class="day-num">{{ d.day }}</div>
-                    <div class="cal-events-container">
+                    <div class="cal-tasks-container">
                         {% if view == 'week' %}
-                            {# Week view: show all events with time #}
-                            {% for ev in day_events %}
-                            <div class="cal-event-label {{ ev.type }}" title="{{ ev.title }}">
-                                {% if ev.time %}<span class="cal-event-time">{{ ev.time }}</span> {% endif %}{{ ev.title }}
+                            {% for task in day_tasks %}
+                            <div class="cal-task-label {{ 'completed' if task.status == 'completed' else task.priority }}" title="{{ task.title }}">
+                                {{ task.title }}
                             </div>
                             {% endfor %}
                         {% else %}
-                            {# Month view: show up to 2 events, then "+N more" #}
-                            {% for ev in day_events[:2] %}
-                            <div class="cal-event-label {{ ev.type }}" title="{{ ev.title }}">{{ ev.title }}</div>
+                            {% for task in day_tasks[:2] %}
+                            <div class="cal-task-label {{ 'completed' if task.status == 'completed' else task.priority }}" title="{{ task.title }}">{{ task.title }}</div>
                             {% endfor %}
-                            {% if day_events|length > 2 %}
-                            <div class="cal-event-more">+{{ day_events|length - 2 }} mas</div>
+                            {% if day_tasks|length > 2 %}
+                            <div class="cal-task-more">+{{ day_tasks|length - 2 }} mas</div>
                             {% endif %}
                         {% endif %}
                     </div>
@@ -306,60 +311,9 @@
         {% endfor %}
     </div>
     <div class="calendar-legend">
-        <div class="legend-item"><span class="dot work"></span> Trabajo</div>
-        <div class="legend-item"><span class="dot meeting"></span> Reunion</div>
-        <div class="legend-item"><span class="dot personal"></span> Personal</div>
-        <div class="legend-item"><span class="dot reminder"></span> Recordatorio</div>
-        <div class="legend-item"><span class="dot urgent"></span> Urgente</div>
+        <div class="legend-item"><span class="dot high"></span> Alta</div>
+        <div class="legend-item"><span class="dot medium"></span> Media</div>
+        <div class="legend-item"><span class="dot low"></span> Baja</div>
     </div>
 </div>
-
-<!-- Events list -->
-{% for day in days %}
-<div class="agenda-day {% if day.is_today %}today{% endif %}" id="day-{{ day.date.isoformat() }}">
-    <div class="day-header {% if day.is_today %}today{% endif %}">
-        <span class="day-name">{{ ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo'][day.date.weekday()] }}</span>
-        <span class="day-date">{{ day.date.strftime('%d') }} de {{ meses_es[day.date.month] }}</span>
-    </div>
-    <div class="events-list">
-        {% if day.events %}
-            {% for event in day.events %}
-            <div class="event-row">
-                <span class="event-time">
-                    {% if event.all_day %}Todo el dia{% elif event.start_time %}{{ event.start_time.strftime('%H:%M') }}{% endif %}
-                </span>
-                <span class="event-dot {{ event.event_type }}"></span>
-                <div class="event-info">
-                    <div class="event-title">{{ event.title }}</div>
-                    {% if event.location %}<div class="event-location"><i class="bi bi-geo-alt"></i> {{ event.location }}</div>{% endif %}
-                </div>
-                <a href="{{ url_for('planner.event_form', id=event.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteEvent({{ event.id }})"><i class="bi bi-trash"></i></button>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="no-events">Sin eventos</div>
-        {% endif %}
-    </div>
-</div>
-{% endfor %}
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function deleteEvent(id) {
-    if (!confirm('Eliminar este evento?')) return;
-    fetch(`/planner/api/event/${id}`, { method: 'DELETE' }).then(() => location.reload());
-}
-
-function scrollToDate(dateStr) {
-    const el = document.getElementById('day-' + dateStr);
-    if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.style.transition = 'box-shadow 0.3s';
-        el.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.4)';
-        setTimeout(() => { el.style.boxShadow = ''; }, 2000);
-    }
-}
-</script>
 {% endblock %}
