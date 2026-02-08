@@ -193,9 +193,10 @@ def descargar_cliente(id):
     cliente = StatusClient.query.get_or_404(id)
     formato = request.args.get('formato', 'excel')
     hide_internal = request.args.get('hide_internal', '0') == '1'
+    tabla = request.args.get('table', 'all')  # all, rates, status, payment
     if formato == 'pdf':
-        return _generar_pdf_cliente(cliente, hide_internal=hide_internal)
-    return _generar_excel_cliente(cliente, hide_internal=hide_internal)
+        return _generar_pdf_cliente(cliente, hide_internal=hide_internal, tabla=tabla)
+    return _generar_excel_cliente(cliente, hide_internal=hide_internal, tabla=tabla)
 
 
 @current_status_bp.route('/descargar-todos')
@@ -321,7 +322,7 @@ def upload_excel(id):
 
 # ===================== EXCEL GENERATORS =====================
 
-def _generar_excel_cliente(cliente, hide_internal=False):
+def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.drawing.image import Image
@@ -343,6 +344,8 @@ def _generar_excel_cliente(cliente, hide_internal=False):
     blue_fill = PatternFill(start_color='3B82F6', end_color='3B82F6', fill_type='solid')
     green_fill = PatternFill(start_color='924A4A', end_color='924A4A', fill_type='solid')
     header_font = Font(bold=True, color='FFFFFF', size=10)
+    data_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
     thin_border = Border(
         left=Side(style='thin'), right=Side(style='thin'),
         top=Side(style='thin'), bottom=Side(style='thin')
@@ -355,83 +358,90 @@ def _generar_excel_cliente(cliente, hide_internal=False):
     row += 2
 
     # Table 1: Airline Rates
-    if hide_internal:
-        headers1 = ['Airline', 'Route', 'Transit Time', 'KG Availability', 'Date',
-                    'Final Rate', 'Additional Costs', '', 'Notes']
-        add_costs_col = 7  # column index for Additional Costs merge
-    else:
-        headers1 = ['Airline', 'Route', 'Transit Time', 'KG Availability', 'Date',
-                    'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate',
-                    'Additional Costs', '', 'Notes']
-        add_costs_col = 11
-    for col, h in enumerate(headers1, 1):
-        cell = ws.cell(row=row, column=col, value=h)
-        cell.fill = green_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal='center')
-        cell.border = thin_border
-    # Merge "Additional Costs" header across 2 columns
-    ws.merge_cells(start_row=row, start_column=add_costs_col, end_row=row, end_column=add_costs_col + 1)
-    row += 1
-    for r in cliente.rates:
+    if tabla in ('all', 'rates'):
         if hide_internal:
-            vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
-                    r.final_rate, r.additional_costs, r.additional_costs_value, r.notes]
+            headers1 = ['Airline', 'Route', 'Transit Time', 'KG Availability', 'Date',
+                        'Final Rate', 'Additional Costs', '', 'Notes']
+            add_costs_col = 7
         else:
-            vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
-                    r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
-                    r.additional_costs, r.additional_costs_value, r.notes]
-        for col, v in enumerate(vals, 1):
-            cell = ws.cell(row=row, column=col, value=v)
+            headers1 = ['Airline', 'Route', 'Transit Time', 'KG Availability', 'Date',
+                        'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate',
+                        'Additional Costs', '', 'Notes']
+            add_costs_col = 11
+        for col, h in enumerate(headers1, 1):
+            cell = ws.cell(row=row, column=col, value=h)
+            cell.fill = green_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
             cell.border = thin_border
+        ws.merge_cells(start_row=row, start_column=add_costs_col, end_row=row, end_column=add_costs_col + 1)
+        row += 1
+        for r in cliente.rates:
+            if hide_internal:
+                vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
+                        r.final_rate, r.additional_costs, r.additional_costs_value, r.notes]
+            else:
+                vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
+                        r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
+                        r.additional_costs, r.additional_costs_value, r.notes]
+            for col, v in enumerate(vals, 1):
+                cell = ws.cell(row=row, column=col, value=v)
+                cell.border = thin_border
+                cell.alignment = data_alignment
+            row += 1
         row += 1
 
-    row += 1
     # Table 2: Current Status
-    headers2 = ['Current Status', 'Proximo Vuelo', 'Entrega de Fincas', 'Hora Maxima', 'Aerolinea']
-    for col, h in enumerate(headers2, 1):
-        cell = ws.cell(row=row, column=col, value=h)
-        cell.fill = purple_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal='center')
-        cell.border = thin_border
-    row += 1
-    for a in cliente.airlines:
-        vals = [a.current_status, a.proximo_vuelo, a.entrega_fincas, a.hora_maxima, a.aerolinea]
-        for col, v in enumerate(vals, 1):
-            cell = ws.cell(row=row, column=col, value=v)
+    if tabla in ('all', 'status'):
+        headers2 = ['Current Status', 'Proximo Vuelo', 'Entrega de Fincas', 'Hora Maxima', 'Aerolinea']
+        for col, h in enumerate(headers2, 1):
+            cell = ws.cell(row=row, column=col, value=h)
+            cell.fill = purple_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
             cell.border = thin_border
         row += 1
+        for a in cliente.airlines:
+            vals = [a.current_status, a.proximo_vuelo, a.entrega_fincas, a.hora_maxima, a.aerolinea]
+            for col, v in enumerate(vals, 1):
+                cell = ws.cell(row=row, column=col, value=v)
+                cell.border = thin_border
+                cell.alignment = data_alignment
+            row += 1
+        row += 1
 
-    row += 1
     # Table 3: Payment
-    headers3 = [f'Payment {cliente.nombre}', 'Valor', 'Fecha', 'Credito']
-    for col, h in enumerate(headers3, 1):
-        cell = ws.cell(row=row, column=col, value=h)
-        cell.fill = blue_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal='center')
-        cell.border = thin_border
-    row += 1
-    for p in cliente.payments:
-        vals = ['', p.valor, p.fecha, p.credito]
-        for col, v in enumerate(vals, 1):
-            cell = ws.cell(row=row, column=col, value=v)
+    if tabla in ('all', 'payment'):
+        headers3 = [f'Payment {cliente.nombre}', 'Valor', 'Fecha', 'Credito']
+        for col, h in enumerate(headers3, 1):
+            cell = ws.cell(row=row, column=col, value=h)
+            cell.fill = blue_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
             cell.border = thin_border
         row += 1
+        for p in cliente.payments:
+            vals = ['', p.valor, p.fecha, p.credito]
+            for col, v in enumerate(vals, 1):
+                cell = ws.cell(row=row, column=col, value=v)
+                cell.border = thin_border
+                cell.alignment = data_alignment
+            row += 1
 
-    # Auto-width
+    # Auto-width: increase cap to 50 and set minimum of 15
     for col in ws.columns:
         max_len = 0
         for cell in col:
             if cell.value:
                 max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 35)
+        width = max(max_len + 4, 15)
+        ws.column_dimensions[col[0].column_letter].width = min(width, 50)
 
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
-    filename = f"current_status_{cliente.nombre}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    suffix = f"_{tabla}" if tabla != 'all' else ''
+    filename = f"current_status_{cliente.nombre}{suffix}_{datetime.now().strftime('%Y%m%d')}.xlsx"
     return send_file(output, as_attachment=True, download_name=filename,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
@@ -494,7 +504,8 @@ def _generar_excel_todos(clientes):
         for cell in col:
             if cell.value:
                 max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 35)
+        width = max(max_len + 4, 15)
+        ws.column_dimensions[col[0].column_letter].width = min(width, 50)
 
     output = io.BytesIO()
     wb.save(output)
@@ -506,7 +517,7 @@ def _generar_excel_todos(clientes):
 
 # ===================== PDF GENERATORS =====================
 
-def _generar_pdf_cliente(cliente, hide_internal=False):
+def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.units import mm
@@ -515,7 +526,7 @@ def _generar_pdf_cliente(cliente, hide_internal=False):
 
     output = io.BytesIO()
     doc = SimpleDocTemplate(output, pagesize=landscape(A4), topMargin=15*mm, bottomMargin=15*mm,
-                            leftMargin=15*mm, rightMargin=15*mm)
+                            leftMargin=10*mm, rightMargin=10*mm)
     elements = []
     styles = getSampleStyleSheet()
 
@@ -535,79 +546,87 @@ def _generar_pdf_cliente(cliente, hide_internal=False):
     burgundy = colors.HexColor('#924A4A')
     white = colors.white
 
+    common_style = [
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]
+
     # Table 1: Airline Rates
-    if hide_internal:
-        data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Final Rate', 'Additional Costs', '', 'Notes']]
-        add_span = (6, 0, 7, 0)  # merge cols 6-7 row 0
-        for r in cliente.rates:
-            data1.append([r.airline, r.route, r.transit_time, r.kg_availability, r.date,
-                          r.final_rate, r.additional_costs, r.additional_costs_value, r.notes])
-    else:
-        data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate', 'Additional Costs', '', 'Notes']]
-        add_span = (10, 0, 11, 0)  # merge cols 10-11 row 0
-        for r in cliente.rates:
-            data1.append([r.airline, r.route, r.transit_time, r.kg_availability, r.date,
-                          r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
-                          r.additional_costs, r.additional_costs_value, r.notes])
-    if len(data1) > 1:
-        t1 = Table(data1, repeatRows=1)
-        t1.setStyle(TableStyle([
-            ('SPAN', (add_span[0], add_span[1]), (add_span[2], add_span[3])),
-            ('BACKGROUND', (0, 0), (-1, 0), burgundy),
-            ('TEXTCOLOR', (0, 0), (-1, 0), white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F8F8')]),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        elements.append(t1)
-        elements.append(Spacer(1, 15))
+    if tabla in ('all', 'rates'):
+        if hide_internal:
+            data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Final Rate', 'Additional Costs', '', 'Notes']]
+            add_span = (6, 0, 7, 0)
+            col_widths1 = [55*mm, 50*mm, 30*mm, 25*mm, 30*mm, 25*mm, 30*mm, 25*mm, 45*mm]
+            for r in cliente.rates:
+                data1.append([r.airline, r.route, r.transit_time, r.kg_availability, r.date,
+                              r.final_rate, r.additional_costs, r.additional_costs_value, r.notes])
+        else:
+            data1 = [['Airline', 'Route', 'Transit', 'KG', 'Date', 'Net Rate', 'Operative', 'Net+OPS', 'Profit', 'Final Rate', 'Add. Costs', '', 'Notes']]
+            add_span = (10, 0, 11, 0)
+            col_widths1 = [38*mm, 35*mm, 22*mm, 18*mm, 22*mm, 18*mm, 18*mm, 18*mm, 18*mm, 20*mm, 22*mm, 18*mm, 30*mm]
+            for r in cliente.rates:
+                data1.append([r.airline, r.route, r.transit_time, r.kg_availability, r.date,
+                              r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
+                              r.additional_costs, r.additional_costs_value, r.notes])
+        if len(data1) > 1:
+            t1 = Table(data1, repeatRows=1, colWidths=col_widths1)
+            t1.setStyle(TableStyle([
+                ('SPAN', (add_span[0], add_span[1]), (add_span[2], add_span[3])),
+                ('BACKGROUND', (0, 0), (-1, 0), burgundy),
+                ('TEXTCOLOR', (0, 0), (-1, 0), white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F8F8')]),
+            ] + common_style))
+            elements.append(t1)
+            elements.append(Spacer(1, 15))
 
     # Table 2: Current Status
-    data2 = [['Current Status', 'Proximo Vuelo', 'Entrega de Fincas', 'Hora Maxima', 'Aerolinea']]
-    for a in cliente.airlines:
-        data2.append([a.current_status, a.proximo_vuelo, a.entrega_fincas, a.hora_maxima, a.aerolinea])
-    if len(data2) > 1:
-        t2 = Table(data2, repeatRows=1)
-        t2.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), purple),
-            ('TEXTCOLOR', (0, 0), (-1, 0), white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F3FF')]),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        elements.append(t2)
-        elements.append(Spacer(1, 15))
+    if tabla in ('all', 'status'):
+        data2 = [['Current Status', 'Proximo Vuelo', 'Entrega de Fincas', 'Hora Maxima', 'Aerolinea']]
+        col_widths2 = [55*mm, 55*mm, 55*mm, 45*mm, 45*mm]
+        for a in cliente.airlines:
+            data2.append([a.current_status, a.proximo_vuelo, a.entrega_fincas, a.hora_maxima, a.aerolinea])
+        if len(data2) > 1:
+            t2 = Table(data2, repeatRows=1, colWidths=col_widths2)
+            t2.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), purple),
+                ('TEXTCOLOR', (0, 0), (-1, 0), white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F3FF')]),
+            ] + common_style))
+            elements.append(t2)
+            elements.append(Spacer(1, 15))
 
     # Table 3: Payment
-    data3 = [[f'Payment {cliente.nombre}', 'Valor', 'Fecha', 'Credito']]
-    for p in cliente.payments:
-        data3.append(['', p.valor, p.fecha, p.credito])
-    if len(data3) > 1:
-        t3 = Table(data3, repeatRows=1)
-        t3.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), blue),
-            ('TEXTCOLOR', (0, 0), (-1, 0), white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#EFF6FF')]),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        elements.append(t3)
+    if tabla in ('all', 'payment'):
+        data3 = [[f'Payment {cliente.nombre}', 'Valor', 'Fecha', 'Credito']]
+        col_widths3 = [65*mm, 65*mm, 65*mm, 65*mm]
+        for p in cliente.payments:
+            data3.append(['', p.valor, p.fecha, p.credito])
+        if len(data3) > 1:
+            t3 = Table(data3, repeatRows=1, colWidths=col_widths3)
+            t3.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), blue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#EFF6FF')]),
+            ] + common_style))
+            elements.append(t3)
 
     doc.build(elements)
     output.seek(0)
-    filename = f"current_status_{cliente.nombre}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    suffix = f"_{tabla}" if tabla != 'all' else ''
+    filename = f"current_status_{cliente.nombre}{suffix}_{datetime.now().strftime('%Y%m%d')}.pdf"
     return send_file(output, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
 
