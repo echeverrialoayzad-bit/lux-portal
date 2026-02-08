@@ -332,18 +332,23 @@ def agenda():
     today = date.today()
     view = request.args.get('view', 'week')
 
-    # Mes del calendario (puede navegar entre meses)
-    cal_year = request.args.get('cal_year', today.year, type=int)
-    cal_month = request.args.get('cal_month', today.month, type=int)
+    # Navegacion semanal
+    week_offset = request.args.get('week_offset', 0, type=int)
 
     # Calcular rango de fechas para la lista de eventos
     if view == 'week':
-        start_date = today - timedelta(days=today.weekday())
+        base_monday = today - timedelta(days=today.weekday())
+        start_date = base_monday + timedelta(weeks=week_offset)
         end_date = start_date + timedelta(days=6)
+        # Mes del calendario basado en la semana seleccionada
+        cal_year = start_date.year
+        cal_month = start_date.month
     else:  # month
-        start_date = today.replace(day=1)
-        _, last_day = calendar.monthrange(today.year, today.month)
-        end_date = today.replace(day=last_day)
+        cal_year = request.args.get('cal_year', today.year, type=int)
+        cal_month = request.args.get('cal_month', today.month, type=int)
+        start_date = date(cal_year, cal_month, 1)
+        _, last_day = calendar.monthrange(cal_year, cal_month)
+        end_date = date(cal_year, cal_month, last_day)
 
     events = Event.query.filter(
         Event.event_date >= start_date,
@@ -367,10 +372,10 @@ def agenda():
     cal_weeks_all = cal.monthdatescalendar(cal_year, cal_month)
 
     if view == 'week':
-        # Solo mostrar la semana actual en el calendario
+        # Solo mostrar la semana seleccionada en el calendario
         cal_weeks = []
         for week in cal_weeks_all:
-            if today in week:
+            if start_date in week:
                 cal_weeks = [week]
                 break
         if not cal_weeks:
@@ -433,6 +438,7 @@ def agenda():
         prev_month=prev_month,
         next_year=next_year,
         next_month=next_month,
+        week_offset=week_offset,
     )
 
 

@@ -245,9 +245,13 @@
             <i class="bi bi-chevron-right"></i>
         </a>
         {% else %}
-        <span></span>
+        <a href="{{ url_for('planner.agenda', view='week', week_offset=week_offset - 1) }}" class="btn-cal" title="Semana anterior">
+            <i class="bi bi-chevron-left"></i>
+        </a>
         <span class="month-title">Semana del {{ cal_weeks[0][0].strftime('%d') }} al {{ cal_weeks[0][-1].strftime('%d de %B %Y') }}</span>
-        <span></span>
+        <a href="{{ url_for('planner.agenda', view='week', week_offset=week_offset + 1) }}" class="btn-cal" title="Semana siguiente">
+            <i class="bi bi-chevron-right"></i>
+        </a>
         {% endif %}
     </div>
     <div class="calendar-grid {{ 'week-view' if view == 'week' }}">
