@@ -328,11 +328,15 @@ def delete_task(id):
 @planner_bp.route('/agenda')
 @login_required
 def agenda():
-    """Vista de agenda"""
+    """Vista de agenda con calendario"""
     today = date.today()
     view = request.args.get('view', 'week')
 
-    # Calcular rango de fechas
+    # Mes del calendario (puede navegar entre meses)
+    cal_year = request.args.get('cal_year', today.year, type=int)
+    cal_month = request.args.get('cal_month', today.month, type=int)
+
+    # Calcular rango de fechas para la lista de eventos
     if view == 'week':
         start_date = today - timedelta(days=today.weekday())
         end_date = start_date + timedelta(days=6)
@@ -346,7 +350,7 @@ def agenda():
         Event.event_date <= end_date
     ).order_by(Event.event_date, Event.start_time).all()
 
-    # Generar dias
+    # Generar dias para la lista
     days = []
     current = start_date
     while current <= end_date:
@@ -358,13 +362,56 @@ def agenda():
         })
         current += timedelta(days=1)
 
+    # Calendario mensual: obtener fechas con eventos
+    cal_start = date(cal_year, cal_month, 1)
+    _, cal_last_day = calendar.monthrange(cal_year, cal_month)
+    cal_end = date(cal_year, cal_month, cal_last_day)
+
+    cal_events = Event.query.filter(
+        Event.event_date >= cal_start,
+        Event.event_date <= cal_end
+    ).all()
+
+    # Set de fechas con eventos y mapeo de tipos
+    event_dates = {}
+    for e in cal_events:
+        d = e.event_date.isoformat()
+        if d not in event_dates:
+            event_dates[d] = []
+        if e.event_type not in event_dates[d]:
+            event_dates[d].append(e.event_type)
+
+    # Generar semanas del calendario
+    cal = calendar.Calendar(firstweekday=0)  # Lunes primero
+    cal_weeks = cal.monthdatescalendar(cal_year, cal_month)
+
+    # Mes anterior y siguiente para navegacion
+    if cal_month == 1:
+        prev_year, prev_month = cal_year - 1, 12
+    else:
+        prev_year, prev_month = cal_year, cal_month - 1
+    if cal_month == 12:
+        next_year, next_month = cal_year + 1, 1
+    else:
+        next_year, next_month = cal_year, cal_month + 1
+
     return render_template(
         'planner/agenda.html',
         days=days,
         view=view,
         start_date=start_date,
         end_date=end_date,
-        today=today
+        today=today,
+        cal_weeks=cal_weeks,
+        cal_year=cal_year,
+        cal_month=cal_month,
+        cal_month_name=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][cal_month - 1],
+        event_dates=event_dates,
+        prev_year=prev_year,
+        prev_month=prev_month,
+        next_year=next_year,
+        next_month=next_month,
     )
 
 

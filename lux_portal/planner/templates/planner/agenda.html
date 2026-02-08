@@ -3,6 +3,122 @@
 
 {% block extra_css %}
 <style>
+/* ===== Calendar ===== */
+.calendar-card {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.calendar-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+.calendar-nav .month-title {
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--text-primary);
+}
+.calendar-nav .btn-cal {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: var(--planner-lavender);
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+.calendar-nav .btn-cal:hover { background: rgba(139,92,246,0.1); }
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    text-align: center;
+}
+.calendar-grid .cal-header {
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    padding: 6px 0;
+}
+.calendar-grid .cal-day {
+    position: relative;
+    padding: 8px 4px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    cursor: default;
+    transition: background 0.2s;
+}
+.calendar-grid .cal-day.other-month {
+    color: #ccc;
+}
+.calendar-grid .cal-day.today {
+    background: var(--gradient-primary);
+    color: #fff;
+    font-weight: 700;
+    border-radius: 10px;
+}
+.calendar-grid .cal-day.has-events {
+    cursor: pointer;
+    font-weight: 600;
+}
+.calendar-grid .cal-day.has-events:hover {
+    background: rgba(139,92,246,0.1);
+}
+.calendar-grid .cal-day.today.has-events:hover {
+    background: var(--gradient-primary);
+}
+.event-dots {
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+    margin-top: 3px;
+    min-height: 7px;
+}
+.event-dots .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+.dot.work { background: #F59E0B; }
+.dot.meeting { background: #8B5CF6; }
+.dot.personal { background: #10B981; }
+.dot.reminder { background: #3B82F6; }
+.dot.urgent { background: #EF4444; }
+.calendar-grid .cal-day.today .dot {
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.6);
+}
+
+/* Legend */
+.calendar-legend {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+.legend-item .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+/* ===== Agenda list ===== */
 .agenda-day {
     background: white;
     border-radius: 16px;
@@ -62,8 +178,68 @@
     </a>
 </div>
 
+<!-- Calendar -->
+<div class="calendar-card">
+    <div class="calendar-nav">
+        <a href="{{ url_for('planner.agenda', view=view, cal_year=prev_year, cal_month=prev_month) }}" class="btn-cal" title="Mes anterior">
+            <i class="bi bi-chevron-left"></i>
+        </a>
+        <span class="month-title">{{ cal_month_name }} {{ cal_year }}</span>
+        <a href="{{ url_for('planner.agenda', view=view, cal_year=next_year, cal_month=next_month) }}" class="btn-cal" title="Mes siguiente">
+            <i class="bi bi-chevron-right"></i>
+        </a>
+    </div>
+    <div class="calendar-grid">
+        <div class="cal-header">Lun</div>
+        <div class="cal-header">Mar</div>
+        <div class="cal-header">Mie</div>
+        <div class="cal-header">Jue</div>
+        <div class="cal-header">Vie</div>
+        <div class="cal-header">Sab</div>
+        <div class="cal-header">Dom</div>
+
+        {% for week in cal_weeks %}
+            {% for d in week %}
+                {% set d_iso = d.isoformat() %}
+                {% set is_current_month = (d.month == cal_month) %}
+                {% set is_today = (d == today) %}
+                {% set types = event_dates.get(d_iso, []) %}
+                <div class="cal-day {{ 'other-month' if not is_current_month }} {{ 'today' if is_today }} {{ 'has-events' if types }}"
+                     {% if types %}onclick="scrollToDate('{{ d_iso }}')" title="{{ types|length }} evento(s)"{% endif %}>
+                    {{ d.day }}
+                    <div class="event-dots">
+                        {% for t in types[:4] %}
+                        <span class="dot {{ t }}"></span>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+    <div class="calendar-legend">
+        <div class="legend-item"><span class="dot work"></span> Trabajo</div>
+        <div class="legend-item"><span class="dot meeting"></span> Reunion</div>
+        <div class="legend-item"><span class="dot personal"></span> Personal</div>
+        <div class="legend-item"><span class="dot reminder"></span> Recordatorio</div>
+        <div class="legend-item"><span class="dot urgent"></span> Urgente</div>
+    </div>
+</div>
+
+<!-- View toggle -->
+<div class="d-flex justify-content-center gap-2 mb-3">
+    <a href="{{ url_for('planner.agenda', view='week', cal_year=cal_year, cal_month=cal_month) }}"
+       class="btn btn-sm {{ 'btn-primary' if view == 'week' else 'btn-outline-secondary' }}">
+        <i class="bi bi-calendar-week me-1"></i>Semana
+    </a>
+    <a href="{{ url_for('planner.agenda', view='month', cal_year=cal_year, cal_month=cal_month) }}"
+       class="btn btn-sm {{ 'btn-primary' if view == 'month' else 'btn-outline-secondary' }}">
+        <i class="bi bi-calendar-month me-1"></i>Mes
+    </a>
+</div>
+
+<!-- Events list -->
 {% for day in days %}
-<div class="agenda-day {% if day.is_today %}today{% endif %}">
+<div class="agenda-day {% if day.is_today %}today{% endif %}" id="day-{{ day.date.isoformat() }}">
     <div class="day-header {% if day.is_today %}today{% endif %}">
         <span class="day-name">{{ ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo'][day.date.weekday()] }}</span>
         <span class="day-date">{{ day.date.strftime('%d de %B') }}</span>
@@ -97,6 +273,16 @@
 function deleteEvent(id) {
     if (!confirm('Eliminar este evento?')) return;
     fetch(`/planner/api/event/${id}`, { method: 'DELETE' }).then(() => location.reload());
+}
+
+function scrollToDate(dateStr) {
+    const el = document.getElementById('day-' + dateStr);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.transition = 'box-shadow 0.3s';
+        el.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.4)';
+        setTimeout(() => { el.style.boxShadow = ''; }, 2000);
+    }
 }
 </script>
 {% endblock %}
