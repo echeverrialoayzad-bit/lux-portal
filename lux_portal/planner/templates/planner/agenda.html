@@ -86,6 +86,14 @@
     background: var(--gradient-primary);
 }
 
+/* Week row separators (monthly view) */
+.cal-week-separator {
+    grid-column: 1 / -1;
+    height: 1px;
+    background: var(--border-color, #e5e7eb);
+    margin: 2px 0;
+}
+
 /* Event labels inside calendar cells */
 .cal-events-container {
     display: flex;
@@ -264,6 +272,9 @@
         <div class="cal-header">Dom</div>
 
         {% for week in cal_weeks %}
+            {% if not loop.first and view == 'month' %}
+            <div class="cal-week-separator"></div>
+            {% endif %}
             {% for d in week %}
                 {% set d_iso = d.isoformat() %}
                 {% set is_current_month = (d.month == cal_month) %}
