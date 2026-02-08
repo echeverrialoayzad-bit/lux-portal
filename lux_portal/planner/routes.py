@@ -362,28 +362,49 @@ def agenda():
         })
         current += timedelta(days=1)
 
-    # Calendario mensual: obtener fechas con eventos
-    cal_start = date(cal_year, cal_month, 1)
-    _, cal_last_day = calendar.monthrange(cal_year, cal_month)
-    cal_end = date(cal_year, cal_month, cal_last_day)
+    # Calendario: obtener fechas con eventos (rango segun vista)
+    cal = calendar.Calendar(firstweekday=0)  # Lunes primero
+    cal_weeks_all = cal.monthdatescalendar(cal_year, cal_month)
+
+    if view == 'week':
+        # Solo mostrar la semana actual en el calendario
+        cal_weeks = []
+        for week in cal_weeks_all:
+            if today in week:
+                cal_weeks = [week]
+                break
+        if not cal_weeks:
+            cal_weeks = [cal_weeks_all[0]]
+        # Rango para query de eventos del calendario
+        cal_range_start = cal_weeks[0][0]
+        cal_range_end = cal_weeks[0][-1]
+    else:
+        cal_weeks = cal_weeks_all
+        cal_range_start = date(cal_year, cal_month, 1)
+        _, cal_last_day = calendar.monthrange(cal_year, cal_month)
+        cal_range_end = date(cal_year, cal_month, cal_last_day)
 
     cal_events = Event.query.filter(
-        Event.event_date >= cal_start,
-        Event.event_date <= cal_end
-    ).all()
+        Event.event_date >= cal_range_start,
+        Event.event_date <= cal_range_end
+    ).order_by(Event.start_time).all()
 
-    # Set de fechas con eventos y mapeo de tipos
+    # Mapeo de fechas con detalles de eventos
     event_dates = {}
     for e in cal_events:
         d = e.event_date.isoformat()
         if d not in event_dates:
             event_dates[d] = []
-        if e.event_type not in event_dates[d]:
-            event_dates[d].append(e.event_type)
-
-    # Generar semanas del calendario
-    cal = calendar.Calendar(firstweekday=0)  # Lunes primero
-    cal_weeks = cal.monthdatescalendar(cal_year, cal_month)
+        time_str = ''
+        if e.all_day:
+            time_str = 'Todo el dia'
+        elif e.start_time:
+            time_str = e.start_time.strftime('%H:%M')
+        event_dates[d].append({
+            'title': e.title,
+            'type': e.event_type,
+            'time': time_str,
+        })
 
     # Mes anterior y siguiente para navegacion
     if cal_month == 1:

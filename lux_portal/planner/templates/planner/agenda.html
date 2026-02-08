@@ -47,17 +47,28 @@
     text-transform: uppercase;
     padding: 6px 0;
 }
+
+/* Monthly view: compact cells */
 .calendar-grid .cal-day {
     position: relative;
-    padding: 8px 4px;
+    padding: 6px 4px 4px;
     border-radius: 10px;
     font-size: 0.9rem;
     color: var(--text-secondary);
     cursor: default;
     transition: background 0.2s;
+    min-height: 70px;
+    vertical-align: top;
+}
+.calendar-grid .cal-day .day-num {
+    font-weight: 600;
+    margin-bottom: 2px;
 }
 .calendar-grid .cal-day.other-month {
     color: #ccc;
+}
+.calendar-grid .cal-day.other-month .cal-event-label {
+    opacity: 0.4;
 }
 .calendar-grid .cal-day.today {
     background: var(--gradient-primary);
@@ -67,33 +78,60 @@
 }
 .calendar-grid .cal-day.has-events {
     cursor: pointer;
-    font-weight: 600;
 }
 .calendar-grid .cal-day.has-events:hover {
-    background: rgba(139,92,246,0.1);
+    background: rgba(139,92,246,0.08);
 }
 .calendar-grid .cal-day.today.has-events:hover {
     background: var(--gradient-primary);
 }
-.event-dots {
+
+/* Event labels inside calendar cells */
+.cal-events-container {
     display: flex;
-    justify-content: center;
-    gap: 3px;
-    margin-top: 3px;
-    min-height: 7px;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 2px;
 }
-.event-dots .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
+.cal-event-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+    color: #fff;
 }
-.dot.work { background: #F59E0B; }
-.dot.meeting { background: #8B5CF6; }
-.dot.personal { background: #10B981; }
-.dot.reminder { background: #3B82F6; }
-.dot.urgent { background: #EF4444; }
-.calendar-grid .cal-day.today .dot {
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.6);
+.cal-event-label.work { background: #F59E0B; }
+.cal-event-label.meeting { background: #8B5CF6; }
+.cal-event-label.personal { background: #10B981; }
+.cal-event-label.reminder { background: #3B82F6; }
+.cal-event-label.urgent { background: #EF4444; }
+.cal-event-more {
+    font-size: 0.6rem;
+    color: var(--text-tertiary);
+    font-weight: 600;
+}
+.calendar-grid .cal-day.today .cal-event-more {
+    color: rgba(255,255,255,0.8);
+}
+
+/* ===== Week view: larger cells ===== */
+.calendar-grid.week-view .cal-day {
+    min-height: 120px;
+    padding: 8px 6px 6px;
+}
+.calendar-grid.week-view .cal-event-label {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    white-space: normal;
+    line-height: 1.3;
+}
+.calendar-grid.week-view .cal-event-time {
+    font-size: 0.6rem;
+    opacity: 0.85;
 }
 
 /* Legend */
@@ -117,6 +155,11 @@
     height: 8px;
     border-radius: 50%;
 }
+.dot.work { background: #F59E0B; }
+.dot.meeting { background: #8B5CF6; }
+.dot.personal { background: #10B981; }
+.dot.reminder { background: #3B82F6; }
+.dot.urgent { background: #EF4444; }
 
 /* ===== Agenda list ===== */
 .agenda-day {
@@ -178,9 +221,22 @@
     </a>
 </div>
 
+<!-- View toggle -->
+<div class="d-flex justify-content-center gap-2 mb-3">
+    <a href="{{ url_for('planner.agenda', view='week', cal_year=cal_year, cal_month=cal_month) }}"
+       class="btn btn-sm {{ 'btn-primary' if view == 'week' else 'btn-outline-secondary' }}">
+        <i class="bi bi-calendar-week me-1"></i>Semana
+    </a>
+    <a href="{{ url_for('planner.agenda', view='month', cal_year=cal_year, cal_month=cal_month) }}"
+       class="btn btn-sm {{ 'btn-primary' if view == 'month' else 'btn-outline-secondary' }}">
+        <i class="bi bi-calendar-month me-1"></i>Mes
+    </a>
+</div>
+
 <!-- Calendar -->
 <div class="calendar-card">
     <div class="calendar-nav">
+        {% if view == 'month' %}
         <a href="{{ url_for('planner.agenda', view=view, cal_year=prev_year, cal_month=prev_month) }}" class="btn-cal" title="Mes anterior">
             <i class="bi bi-chevron-left"></i>
         </a>
@@ -188,8 +244,13 @@
         <a href="{{ url_for('planner.agenda', view=view, cal_year=next_year, cal_month=next_month) }}" class="btn-cal" title="Mes siguiente">
             <i class="bi bi-chevron-right"></i>
         </a>
+        {% else %}
+        <span></span>
+        <span class="month-title">Semana del {{ cal_weeks[0][0].strftime('%d') }} al {{ cal_weeks[0][-1].strftime('%d de %B %Y') }}</span>
+        <span></span>
+        {% endif %}
     </div>
-    <div class="calendar-grid">
+    <div class="calendar-grid {{ 'week-view' if view == 'week' }}">
         <div class="cal-header">Lun</div>
         <div class="cal-header">Mar</div>
         <div class="cal-header">Mie</div>
@@ -203,14 +264,27 @@
                 {% set d_iso = d.isoformat() %}
                 {% set is_current_month = (d.month == cal_month) %}
                 {% set is_today = (d == today) %}
-                {% set types = event_dates.get(d_iso, []) %}
-                <div class="cal-day {{ 'other-month' if not is_current_month }} {{ 'today' if is_today }} {{ 'has-events' if types }}"
-                     {% if types %}onclick="scrollToDate('{{ d_iso }}')" title="{{ types|length }} evento(s)"{% endif %}>
-                    {{ d.day }}
-                    <div class="event-dots">
-                        {% for t in types[:4] %}
-                        <span class="dot {{ t }}"></span>
-                        {% endfor %}
+                {% set day_events = event_dates.get(d_iso, []) %}
+                <div class="cal-day {{ 'other-month' if not is_current_month and view == 'month' }} {{ 'today' if is_today }} {{ 'has-events' if day_events }}"
+                     {% if day_events %}onclick="scrollToDate('{{ d_iso }}')"{% endif %}>
+                    <div class="day-num">{{ d.day }}</div>
+                    <div class="cal-events-container">
+                        {% if view == 'week' %}
+                            {# Week view: show all events with time #}
+                            {% for ev in day_events %}
+                            <div class="cal-event-label {{ ev.type }}" title="{{ ev.title }}">
+                                {% if ev.time %}<span class="cal-event-time">{{ ev.time }}</span> {% endif %}{{ ev.title }}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            {# Month view: show up to 2 events, then "+N more" #}
+                            {% for ev in day_events[:2] %}
+                            <div class="cal-event-label {{ ev.type }}" title="{{ ev.title }}">{{ ev.title }}</div>
+                            {% endfor %}
+                            {% if day_events|length > 2 %}
+                            <div class="cal-event-more">+{{ day_events|length - 2 }} mas</div>
+                            {% endif %}
+                        {% endif %}
                     </div>
                 </div>
             {% endfor %}
@@ -223,18 +297,6 @@
         <div class="legend-item"><span class="dot reminder"></span> Recordatorio</div>
         <div class="legend-item"><span class="dot urgent"></span> Urgente</div>
     </div>
-</div>
-
-<!-- View toggle -->
-<div class="d-flex justify-content-center gap-2 mb-3">
-    <a href="{{ url_for('planner.agenda', view='week', cal_year=cal_year, cal_month=cal_month) }}"
-       class="btn btn-sm {{ 'btn-primary' if view == 'week' else 'btn-outline-secondary' }}">
-        <i class="bi bi-calendar-week me-1"></i>Semana
-    </a>
-    <a href="{{ url_for('planner.agenda', view='month', cal_year=cal_year, cal_month=cal_month) }}"
-       class="btn btn-sm {{ 'btn-primary' if view == 'month' else 'btn-outline-secondary' }}">
-        <i class="bi bi-calendar-month me-1"></i>Mes
-    </a>
 </div>
 
 <!-- Events list -->
