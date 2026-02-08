@@ -186,6 +186,40 @@
         border-color: #7c3aed;
         color: #7c3aed;
     }
+    /* Sub-route grouping */
+    .col-airline { position: relative; }
+    .sub-route-row td { border-top: none !important; }
+    .sub-route-row .col-airline textarea {
+        opacity: 0.3;
+        font-size: 0.5rem !important;
+        padding-left: 14px !important;
+    }
+    .sub-route-row .col-airline::before {
+        content: '\21B3';
+        position: absolute;
+        left: 3px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #7c3aed;
+        font-size: 0.7rem;
+        font-weight: bold;
+        z-index: 1;
+        pointer-events: none;
+    }
+    .sub-route-row .col-airline .btn-add-subroute { display: none; }
+    .btn-add-subroute {
+        position: absolute;
+        bottom: 1px;
+        right: 1px;
+        background: none;
+        border: none;
+        color: #cbd5e1;
+        cursor: pointer;
+        padding: 0 2px;
+        font-size: 0.6rem;
+        line-height: 1;
+    }
+    .btn-add-subroute:hover { color: #7c3aed; }
     .rate-table .col-notes { width: 12%; }
     .rate-table .col-del { width: 3%; }
     .rate-table .col-custom { width: 7%; }
@@ -357,9 +391,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for r in cliente.rates %}
+                    {% for r in cliente.rates|sort(attribute='airline') %}
                     <tr data-id="{{ r.id }}">
-                        <td class="editable-cell col-airline"><textarea data-field="airline" onblur="guardarRate(this)">{{ r.airline }}</textarea></td>
+                        <td class="editable-cell col-airline"><textarea data-field="airline" onblur="guardarRate(this); groupRouteRows();">{{ r.airline }}</textarea><button class="btn-add-subroute" onclick="agregarSubruta(this)" title="Agregar ruta"><i class="bi bi-plus-circle"></i></button></td>
                         <td class="editable-cell col-route"><textarea data-field="route" onblur="guardarRate(this)">{{ r.route }}</textarea></td>
                         <td class="editable-cell col-transit"><textarea data-field="transit_time" onblur="guardarRate(this)">{{ r.transit_time }}</textarea></td>
                         <td class="editable-cell col-kg"><textarea data-field="kg_availability" onblur="guardarRate(this)">{{ r.kg_availability }}</textarea></td>
@@ -568,6 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initColumnResize();
     initRowResize();
     initCustomColRename();
+    groupRouteRows();
 });
 
 // --- Column resize (like Excel) ---
@@ -813,6 +848,123 @@ function autoCalcRate(el) {
     guardarRate(finalRateEl);
 }
 
+// --- Sub-route grouping ---
+function groupRouteRows() {
+    const rows = Array.from(document.querySelectorAll('#rateTable tbody tr'));
+    let prevAirline = '';
+    rows.forEach(row => {
+        const airlineEl = row.querySelector('[data-field="airline"]');
+        if (!airlineEl) return;
+        const airline = airlineEl.value.trim().toLowerCase();
+        if (airline && airline === prevAirline) {
+            row.classList.add('sub-route-row');
+        } else {
+            row.classList.remove('sub-route-row');
+        }
+        prevAirline = airline;
+    });
+}
+
+function agregarSubruta(btn) {
+    const currentRow = btn.closest('tr');
+    const airlineName = currentRow.querySelector('[data-field="airline"]').value.trim();
+    if (!airlineName) { alert('Escribe el nombre de la aerolinea primero'); return; }
+
+    fetch(`${BASE}/api/client/${CLIENT_ID}/rate`, {method: 'POST'})
+    .then(r => r.json()).then(data => {
+        if (!data.success) return;
+        const tr = buildRateRow(data.id, airlineName);
+        currentRow.after(tr);
+        // Save airline name on the server
+        fetch(`${BASE}/api/rate/${data.id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({airline: airlineName})
+        });
+        groupRouteRows();
+        tr.querySelector('[data-field="route"]').focus();
+    });
+}
+
+function buildRateRow(id, airlineName) {
+    const fields = ['airline','route','transit_time','kg_availability','date','net_rate','operative','net_ops','profit','final_rate'];
+    const calcFields = ['net_rate','operative','profit'];
+    const readonlyFields = ['net_ops','final_rate'];
+    const tr = document.createElement('tr');
+    tr.dataset.id = id;
+    fields.forEach(f => {
+        const cls = INTERNAL_FIELDS.includes(f) ? 'editable-cell col-internal' : 'editable-cell';
+        const td = document.createElement('td');
+        td.className = cls;
+        if (f === 'airline') td.classList.add('col-airline');
+        const ta = document.createElement('textarea');
+        ta.dataset.field = f;
+        if (f === 'airline') {
+            ta.value = airlineName || '';
+            ta.setAttribute('onblur', 'guardarRate(this); groupRouteRows();');
+        } else if (calcFields.includes(f)) {
+            ta.setAttribute('onblur', 'autoCalcRate(this)');
+        } else if (readonlyFields.includes(f)) {
+            ta.readOnly = true;
+            ta.style.background = '#f1f5f9';
+        } else {
+            ta.setAttribute('onblur', 'guardarRate(this)');
+        }
+        if (DOLLAR_FIELDS.includes(f)) {
+            ta.addEventListener('focus', () => { const r = stripDollar(ta.value); if (r) ta.value = r; });
+        }
+        ta.addEventListener('input', () => autoResize(ta));
+        td.appendChild(ta);
+        // Add sub-route button to airline cell
+        if (f === 'airline') {
+            const addBtn = document.createElement('button');
+            addBtn.className = 'btn-add-subroute';
+            addBtn.title = 'Agregar ruta';
+            addBtn.onclick = function() { agregarSubruta(this); };
+            addBtn.innerHTML = '<i class="bi bi-plus-circle"></i>';
+            td.appendChild(addBtn);
+        }
+        tr.appendChild(td);
+    });
+    // Additional Costs cell
+    const addcostTd = document.createElement('td');
+    addcostTd.className = 'editable-cell';
+    addcostTd.colSpan = 2;
+    addcostTd.style.padding = '2px';
+    addcostTd.innerHTML = `<div class="addcosts-container" data-rate-id="${id}">
+        <button class="addcost-add" onclick="addAddcostItem(this)" title="Agregar cargo"><i class="bi bi-plus"></i></button>
+    </div>`;
+    tr.appendChild(addcostTd);
+    // Notes
+    const notesTd = document.createElement('td');
+    notesTd.className = 'editable-cell col-notes';
+    const notesTa = document.createElement('textarea');
+    notesTa.dataset.field = 'notes';
+    notesTa.setAttribute('onblur', 'guardarRate(this)');
+    notesTa.addEventListener('input', () => autoResize(notesTa));
+    notesTd.appendChild(notesTa);
+    tr.appendChild(notesTd);
+    // Custom columns
+    document.querySelectorAll('#rateTable thead .custom-col-name[data-table="rates"]').forEach(span => {
+        const td = document.createElement('td');
+        td.className = 'editable-cell col-custom';
+        const ta = document.createElement('textarea');
+        ta.dataset.field = 'extra:' + span.dataset.colName;
+        ta.setAttribute('onblur', 'guardarRate(this)');
+        ta.addEventListener('input', () => autoResize(ta));
+        td.appendChild(ta);
+        tr.appendChild(td);
+    });
+    // Add col placeholder + delete button
+    tr.appendChild(document.createElement('td'));
+    const delTd = document.createElement('td');
+    delTd.className = 'text-center col-del';
+    delTd.style.verticalAlign = 'middle';
+    delTd.innerHTML = `<button class="btn-delete-row" onclick="eliminarRate(this,${id})"><i class="bi bi-x-lg"></i></button>`;
+    tr.appendChild(delTd);
+    return tr;
+}
+
 // --- Additional Costs (multiple per row) ---
 function guardarAddcosts(el) {
     const container = el.closest('.addcosts-container');
@@ -877,66 +1029,9 @@ function agregarRate() {
     .then(r => r.json()).then(data => {
         if (!data.success) return;
         const tbody = document.querySelector('#rateTable tbody');
-        const fields = ['airline','route','transit_time','kg_availability','date','net_rate','operative','net_ops','profit','final_rate'];
-        const calcFields = ['net_rate','operative','profit'];
-        const readonlyFields = ['net_ops','final_rate'];
-        const tr = document.createElement('tr');
-        tr.dataset.id = data.id;
-        fields.forEach(f => {
-            const cls = INTERNAL_FIELDS.includes(f) ? 'editable-cell col-internal' : 'editable-cell';
-            const td = document.createElement('td');
-            td.className = cls;
-            const ta = document.createElement('textarea');
-            ta.dataset.field = f;
-            if (calcFields.includes(f)) {
-                ta.setAttribute('onblur', 'autoCalcRate(this)');
-            } else if (readonlyFields.includes(f)) {
-                ta.readOnly = true;
-                ta.style.background = '#f1f5f9';
-            } else {
-                ta.setAttribute('onblur', 'guardarRate(this)');
-            }
-            ta.addEventListener('input', () => autoResize(ta));
-            td.appendChild(ta);
-            tr.appendChild(td);
-        });
-        // Additional Costs cell
-        const addcostTd = document.createElement('td');
-        addcostTd.className = 'editable-cell';
-        addcostTd.colSpan = 2;
-        addcostTd.style.padding = '2px';
-        addcostTd.innerHTML = `<div class="addcosts-container" data-rate-id="${data.id}">
-            <button class="addcost-add" onclick="addAddcostItem(this)" title="Agregar cargo"><i class="bi bi-plus"></i></button>
-        </div>`;
-        tr.appendChild(addcostTd);
-        // Notes
-        const notesTd = document.createElement('td');
-        notesTd.className = 'editable-cell col-notes';
-        const notesTa = document.createElement('textarea');
-        notesTa.dataset.field = 'notes';
-        notesTa.setAttribute('onblur', 'guardarRate(this)');
-        notesTa.addEventListener('input', () => autoResize(notesTa));
-        notesTd.appendChild(notesTa);
-        tr.appendChild(notesTd);
-        // Custom columns
-        document.querySelectorAll('#rateTable thead .custom-col-name[data-table="rates"]').forEach(span => {
-            const td = document.createElement('td');
-            td.className = 'editable-cell col-custom';
-            const ta = document.createElement('textarea');
-            ta.dataset.field = 'extra:' + span.dataset.colName;
-            ta.setAttribute('onblur', 'guardarRate(this)');
-            ta.addEventListener('input', () => autoResize(ta));
-            td.appendChild(ta);
-            tr.appendChild(td);
-        });
-        // Add col placeholder
-        tr.appendChild(document.createElement('td'));
-        const delTd = document.createElement('td');
-        delTd.className = 'text-center col-del';
-        delTd.style.verticalAlign = 'middle';
-        delTd.innerHTML = `<button class="btn-delete-row" onclick="eliminarRate(this,${data.id})"><i class="bi bi-x-lg"></i></button>`;
-        tr.appendChild(delTd);
+        const tr = buildRateRow(data.id, '');
         tbody.appendChild(tr);
+        groupRouteRows();
         tr.querySelector('textarea').focus();
     });
 }
@@ -944,7 +1039,7 @@ function agregarRate() {
 function eliminarRate(btn, id) {
     if (!confirm('¿Eliminar esta fila?')) return;
     fetch(`${BASE}/api/rate/${id}`, {method: 'DELETE'})
-    .then(r => r.json()).then(data => { if (data.success) btn.closest('tr').remove(); });
+    .then(r => r.json()).then(data => { if (data.success) { btn.closest('tr').remove(); groupRouteRows(); } });
 }
 
 // --- Status Airlines (Table 2) ---
