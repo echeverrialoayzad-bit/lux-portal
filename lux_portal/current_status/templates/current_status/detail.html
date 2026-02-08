@@ -208,18 +208,66 @@
     }
     .sub-route-row .col-airline .btn-add-subroute { display: none; }
     .btn-add-subroute {
-        position: absolute;
-        bottom: 1px;
-        right: 1px;
-        background: none;
+        display: block;
+        margin: 2px auto 0;
+        background: linear-gradient(135deg, #7c3aed, #6d28d9);
         border: none;
-        color: #cbd5e1;
+        color: #fff;
         cursor: pointer;
-        padding: 0 2px;
-        font-size: 0.6rem;
-        line-height: 1;
+        padding: 2px 8px;
+        font-size: 0.55rem;
+        font-weight: 600;
+        line-height: 1.3;
+        border-radius: 8px;
+        white-space: nowrap;
+        transition: all 0.2s;
     }
-    .btn-add-subroute:hover { color: #7c3aed; }
+    .btn-add-subroute:hover {
+        background: linear-gradient(135deg, #6d28d9, #5b21b6);
+        transform: scale(1.05);
+    }
+    /* Table formatting toolbar */
+    .table-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
+    .table-toolbar .tb-sep {
+        width: 1px;
+        height: 18px;
+        background: #cbd5e1;
+        margin: 0 2px;
+    }
+    .table-toolbar .tb-btn {
+        background: none;
+        border: 1px solid transparent;
+        color: #64748b;
+        cursor: pointer;
+        padding: 3px 7px;
+        border-radius: 5px;
+        font-size: 0.78rem;
+        line-height: 1;
+        transition: all 0.15s;
+    }
+    .table-toolbar .tb-btn:hover {
+        background: #e2e8f0;
+        color: #1e293b;
+    }
+    .table-toolbar .tb-btn.active {
+        background: #7c3aed;
+        color: #fff;
+        border-color: #7c3aed;
+    }
+    .table-toolbar .tb-label {
+        font-size: 0.7rem;
+        color: #94a3b8;
+        font-weight: 600;
+        user-select: none;
+    }
     .rate-table .col-notes { width: 12%; }
     .rate-table .col-del { width: 3%; }
     .rate-table .col-custom { width: 7%; }
@@ -351,7 +399,7 @@
     </div>
 
     <!-- TABLE 1: Airline Rates -->
-    <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <div class="d-flex gap-1">
             <a href="{{ url_for('current_status.descargar_cliente', id=cliente.id, formato='excel', table='rates') }}"
                class="btn btn-sm btn-outline-secondary export-table-btn" data-table="rates">
@@ -361,6 +409,19 @@
                class="btn btn-sm btn-outline-secondary export-table-btn" data-table="rates">
                 <i class="bi bi-file-earmark-pdf me-1"></i>PDF
             </a>
+        </div>
+        <!-- Excel-like formatting toolbar -->
+        <div class="table-toolbar" id="fmtToolbar">
+            <span class="tb-label">Fuente</span>
+            <button class="tb-btn" onclick="changeFontSize(-1)" title="Reducir letra"><i class="bi bi-type" style="font-size:0.65rem;"></i><i class="bi bi-dash" style="font-size:0.6rem;"></i></button>
+            <span class="tb-label" id="fontSizeLabel" style="min-width:32px; text-align:center;">8</span>
+            <button class="tb-btn" onclick="changeFontSize(1)" title="Agrandar letra"><i class="bi bi-type"></i><i class="bi bi-plus" style="font-size:0.6rem;"></i></button>
+            <div class="tb-sep"></div>
+            <button class="tb-btn" onclick="toggleBold()" id="btnBold" title="Negrita"><i class="bi bi-type-bold"></i></button>
+            <div class="tb-sep"></div>
+            <button class="tb-btn" onclick="setAlign('left')" id="btnAlignL" title="Izquierda"><i class="bi bi-text-left"></i></button>
+            <button class="tb-btn active" onclick="setAlign('center')" id="btnAlignC" title="Centro"><i class="bi bi-text-center"></i></button>
+            <button class="tb-btn" onclick="setAlign('right')" id="btnAlignR" title="Derecha"><i class="bi bi-text-right"></i></button>
         </div>
         <button class="btn btn-sm btn-outline-secondary" id="toggleInternalBtn" onclick="toggleInternal()">
             <i class="bi bi-eye-slash me-1"></i>Ocultar Net Rate &rarr; Profit
@@ -393,7 +454,7 @@
                 <tbody>
                     {% for r in cliente.rates|sort(attribute='airline') %}
                     <tr data-id="{{ r.id }}">
-                        <td class="editable-cell col-airline"><textarea data-field="airline" onblur="guardarRate(this); groupRouteRows();">{{ r.airline }}</textarea><button class="btn-add-subroute" onclick="agregarSubruta(this)" title="Agregar ruta"><i class="bi bi-plus-circle"></i></button></td>
+                        <td class="editable-cell col-airline"><textarea data-field="airline" onblur="guardarRate(this); groupRouteRows();">{{ r.airline }}</textarea><button class="btn-add-subroute" onclick="agregarSubruta(this)" title="Agregar ruta"><i class="bi bi-plus-circle me-1"></i>Ruta</button></td>
                         <td class="editable-cell col-route"><textarea data-field="route" onblur="guardarRate(this)">{{ r.route }}</textarea></td>
                         <td class="editable-cell col-transit"><textarea data-field="transit_time" onblur="guardarRate(this)">{{ r.transit_time }}</textarea></td>
                         <td class="editable-cell col-kg"><textarea data-field="kg_availability" onblur="guardarRate(this)">{{ r.kg_availability }}</textarea></td>
@@ -556,6 +617,12 @@ const BASE = '/current-status';
 let internalHidden = false;
 const INTERNAL_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit'];
 
+// --- Table formatting state ---
+const FONT_SIZES = [6, 7, 8, 9, 10, 11, 12, 14, 16, 18];
+let currentFontIdx = 2; // default 8pt
+let currentAlign = 'center';
+let currentBold = false;
+
 // --- Auto-resize textareas ---
 function autoResize(el) {
     el.style.height = 'auto';
@@ -603,7 +670,65 @@ document.addEventListener('DOMContentLoaded', () => {
     initRowResize();
     initCustomColRename();
     groupRouteRows();
+    loadTableFormat();
 });
+
+// --- Table formatting (font size, alignment, bold) ---
+function loadTableFormat() {
+    try {
+        const saved = JSON.parse(localStorage.getItem('cs_table_fmt_' + CLIENT_ID) || '{}');
+        if (saved.fontIdx !== undefined) currentFontIdx = saved.fontIdx;
+        if (saved.align) currentAlign = saved.align;
+        if (saved.bold !== undefined) currentBold = saved.bold;
+    } catch(e) {}
+    applyTableFormat();
+}
+
+function saveTableFormat() {
+    localStorage.setItem('cs_table_fmt_' + CLIENT_ID, JSON.stringify({
+        fontIdx: currentFontIdx, align: currentAlign, bold: currentBold
+    }));
+}
+
+function applyTableFormat() {
+    const size = FONT_SIZES[currentFontIdx];
+    const sizeRem = (size / 16).toFixed(4) + 'rem';
+    // Apply to rate table cells
+    document.querySelectorAll('#rateTable .editable-cell textarea').forEach(ta => {
+        ta.style.fontSize = sizeRem;
+        ta.style.textAlign = currentAlign;
+        ta.style.fontWeight = currentBold ? 'bold' : 'normal';
+        autoResize(ta);
+    });
+    // Apply to addcost inputs too
+    document.querySelectorAll('#rateTable .addcost-name, #rateTable .addcost-value').forEach(inp => {
+        inp.style.fontSize = (Math.max(size - 1, 6) / 16).toFixed(4) + 'rem';
+    });
+    // Update toolbar UI
+    document.getElementById('fontSizeLabel').textContent = size;
+    document.getElementById('btnBold').classList.toggle('active', currentBold);
+    document.getElementById('btnAlignL').classList.toggle('active', currentAlign === 'left');
+    document.getElementById('btnAlignC').classList.toggle('active', currentAlign === 'center');
+    document.getElementById('btnAlignR').classList.toggle('active', currentAlign === 'right');
+}
+
+function changeFontSize(dir) {
+    currentFontIdx = Math.max(0, Math.min(FONT_SIZES.length - 1, currentFontIdx + dir));
+    applyTableFormat();
+    saveTableFormat();
+}
+
+function toggleBold() {
+    currentBold = !currentBold;
+    applyTableFormat();
+    saveTableFormat();
+}
+
+function setAlign(align) {
+    currentAlign = align;
+    applyTableFormat();
+    saveTableFormat();
+}
 
 // --- Column resize (like Excel) ---
 function initColumnResize() {
@@ -870,11 +995,24 @@ function agregarSubruta(btn) {
     const airlineName = currentRow.querySelector('[data-field="airline"]').value.trim();
     if (!airlineName) { alert('Escribe el nombre de la aerolinea primero'); return; }
 
+    // Find last row of this airline group
+    let lastRow = currentRow;
+    let next = lastRow.nextElementSibling;
+    while (next) {
+        const nextAirline = next.querySelector('[data-field="airline"]');
+        if (nextAirline && nextAirline.value.trim().toLowerCase() === airlineName.toLowerCase()) {
+            lastRow = next;
+            next = lastRow.nextElementSibling;
+        } else {
+            break;
+        }
+    }
+
     fetch(`${BASE}/api/client/${CLIENT_ID}/rate`, {method: 'POST'})
     .then(r => r.json()).then(data => {
         if (!data.success) return;
         const tr = buildRateRow(data.id, airlineName);
-        currentRow.after(tr);
+        lastRow.after(tr);
         // Save airline name on the server
         fetch(`${BASE}/api/rate/${data.id}`, {
             method: 'PUT',
@@ -921,10 +1059,18 @@ function buildRateRow(id, airlineName) {
             addBtn.className = 'btn-add-subroute';
             addBtn.title = 'Agregar ruta';
             addBtn.onclick = function() { agregarSubruta(this); };
-            addBtn.innerHTML = '<i class="bi bi-plus-circle"></i>';
+            addBtn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Ruta';
             td.appendChild(addBtn);
         }
         tr.appendChild(td);
+    });
+    // Apply current formatting to new row
+    const size = FONT_SIZES[currentFontIdx];
+    const sizeRem = (size / 16).toFixed(4) + 'rem';
+    tr.querySelectorAll('.editable-cell textarea').forEach(ta => {
+        ta.style.fontSize = sizeRem;
+        ta.style.textAlign = currentAlign;
+        ta.style.fontWeight = currentBold ? 'bold' : 'normal';
     });
     // Additional Costs cell
     const addcostTd = document.createElement('td');
