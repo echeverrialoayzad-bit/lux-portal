@@ -61,7 +61,6 @@
     border-right: 1px solid var(--border-color, #e5e7eb);
     border-bottom: 1px solid var(--border-color, #e5e7eb);
 }
-/* Remove right border on last column */
 .calendar-grid .cal-day:nth-child(7n+7) {
     border-right: none;
 }
@@ -96,6 +95,7 @@
     margin-top: 2px;
 }
 .cal-task-label {
+    display: block;
     font-size: 0.6rem;
     font-weight: 600;
     padding: 1px 4px;
@@ -106,22 +106,39 @@
     line-height: 1.4;
     color: #fff;
     text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.cal-task-label:hover {
+    opacity: 0.85;
+    color: #fff;
 }
 .cal-task-label.high { background: #EF4444; }
 .cal-task-label.medium { background: #F59E0B; }
 .cal-task-label.low { background: #10B981; }
-.cal-task-label.completed {
-    background: #9CA3AF;
-    text-decoration: line-through;
-    opacity: 0.7;
-}
+
+/* Expandable "+N mas" */
 .cal-task-more {
     font-size: 0.6rem;
-    color: var(--text-tertiary);
-    font-weight: 600;
+    color: var(--planner-lavender);
+    font-weight: 700;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.cal-task-more:hover {
+    color: var(--text-primary);
 }
 .calendar-grid .cal-day.today .cal-task-more {
-    color: rgba(255,255,255,0.8);
+    color: rgba(255,255,255,0.9);
+}
+.cal-tasks-hidden {
+    display: none;
+}
+.cal-tasks-hidden.show {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 /* ===== Week view: larger cells ===== */
@@ -153,11 +170,19 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 6px 0;
+    padding: 6px;
     border-bottom: 1px solid var(--border-color, #e5e7eb);
     font-size: 0.85rem;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s;
+    border-radius: 6px;
 }
 .week-task-item:last-child { border-bottom: none; }
+.week-task-item:hover {
+    background: rgba(139,92,246,0.06);
+    color: inherit;
+}
 .week-task-dot {
     width: 10px;
     height: 10px;
@@ -167,15 +192,10 @@
 .week-task-dot.high { background: #EF4444; }
 .week-task-dot.medium { background: #F59E0B; }
 .week-task-dot.low { background: #10B981; }
-.week-task-dot.completed { background: #9CA3AF; }
 .week-task-title {
     flex: 1;
     font-weight: 600;
     color: var(--text-primary);
-}
-.week-task-title.completed {
-    text-decoration: line-through;
-    color: var(--text-tertiary);
 }
 .week-task-date {
     font-size: 0.75rem;
@@ -237,14 +257,14 @@
     <h6><i class="bi bi-list-check me-2"></i>Tareas de la semana</h6>
     {% if week_tasks %}
         {% for task in week_tasks %}
-        <div class="week-task-item">
-            <span class="week-task-dot {{ 'completed' if task.status == 'completed' else task.priority }}"></span>
-            <span class="week-task-title {{ 'completed' if task.status == 'completed' }}">{{ task.title }}</span>
+        <a href="{{ url_for('planner.task_form', id=task.id) }}" class="week-task-item">
+            <span class="week-task-dot {{ task.priority }}"></span>
+            <span class="week-task-title">{{ task.title }}</span>
             <span class="week-task-date">
                 {{ ['Lun','Mar','Mie','Jue','Vie','Sab','Dom'][task.due_date.weekday()] }}
                 {{ task.due_date.strftime('%d') }}
             </span>
-        </div>
+        </a>
         {% endfor %}
     {% else %}
         <div class="week-no-tasks">Sin tareas esta semana</div>
@@ -293,16 +313,21 @@
                     <div class="cal-tasks-container">
                         {% if view == 'week' %}
                             {% for task in day_tasks %}
-                            <div class="cal-task-label {{ 'completed' if task.status == 'completed' else task.priority }}" title="{{ task.title }}">
+                            <a href="{{ url_for('planner.task_form', id=task.id) }}" class="cal-task-label {{ task.priority }}" title="{{ task.title }}">
                                 {{ task.title }}
-                            </div>
+                            </a>
                             {% endfor %}
                         {% else %}
                             {% for task in day_tasks[:2] %}
-                            <div class="cal-task-label {{ 'completed' if task.status == 'completed' else task.priority }}" title="{{ task.title }}">{{ task.title }}</div>
+                            <a href="{{ url_for('planner.task_form', id=task.id) }}" class="cal-task-label {{ task.priority }}" title="{{ task.title }}">{{ task.title }}</a>
                             {% endfor %}
                             {% if day_tasks|length > 2 %}
-                            <div class="cal-task-more">+{{ day_tasks|length - 2 }} mas</div>
+                            <div class="cal-task-more" onclick="toggleMore(this, event)">+{{ day_tasks|length - 2 }} mas</div>
+                            <div class="cal-tasks-hidden">
+                                {% for task in day_tasks[2:] %}
+                                <a href="{{ url_for('planner.task_form', id=task.id) }}" class="cal-task-label {{ task.priority }}" title="{{ task.title }}">{{ task.title }}</a>
+                                {% endfor %}
+                            </div>
                             {% endif %}
                         {% endif %}
                     </div>
@@ -316,4 +341,20 @@
         <div class="legend-item"><span class="dot low"></span> Baja</div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleMore(el, e) {
+    e.stopPropagation();
+    const hidden = el.nextElementSibling;
+    if (hidden.classList.contains('show')) {
+        hidden.classList.remove('show');
+        el.textContent = '+' + hidden.children.length + ' mas';
+    } else {
+        hidden.classList.add('show');
+        el.textContent = 'menos';
+    }
+}
+</script>
 {% endblock %}

@@ -370,10 +370,11 @@ def agenda():
         _, cal_last_day = calendar.monthrange(cal_year, cal_month)
         cal_range_end = date(cal_year, cal_month, cal_last_day)
 
-    # Obtener tareas con due_date en el rango del calendario
+    # Obtener tareas pendientes con due_date en el rango del calendario
     tasks = Task.query.filter(
         Task.due_date >= cal_range_start,
-        Task.due_date <= cal_range_end
+        Task.due_date <= cal_range_end,
+        Task.status != 'completed'
     ).order_by(Task.due_date, Task.priority).all()
 
     # Mapeo de fechas con detalles de tareas
@@ -383,6 +384,7 @@ def agenda():
         if d not in task_dates:
             task_dates[d] = []
         task_dates[d].append({
+            'id': t.id,
             'title': t.title,
             'priority': t.priority,
             'status': t.status,
