@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Facturacion - Lux Portal{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.dashboard') }}">
+        <i class="bi bi-speedometer2"></i>
+        <span>Dashboard</span>
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.nuevo_cliente') }}">
+        <i class="bi bi-plus-circle"></i>
+        <span>Nuevo Cliente</span>
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link active" href="{{ url_for('current_status.facturacion') }}">
+        <i class="bi bi-receipt"></i>
+        <span>Facturacion</span>
+    </a>
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="section-title">
+                <i class="bi bi-receipt me-2"></i>Facturacion
+            </h1>
+            <p class="text-muted mt-1">Informacion de pagos por cliente</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if clientes %}
+            <a href="{{ url_for('current_status.descargar_todos', formato='excel') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-file-earmark-excel"></i> Excel
+            </a>
+            <a href="{{ url_for('current_status.descargar_todos', formato='pdf') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-file-earmark-pdf"></i> PDF
+            </a>
+            {% endif %}
+            <a href="{{ url_for('current_status.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Search -->
+    <div class="card mb-4">
+        <div class="card-body py-3">
+            <form method="GET" class="d-flex gap-2">
+                <input type="text" name="q" class="form-control" placeholder="Buscar cliente..."
+                       value="{{ busqueda }}">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i>
+                </button>
+                {% if busqueda %}
+                <a href="{{ url_for('current_status.facturacion') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Clients Payment Table -->
+    {% if clientes %}
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Valor</th>
+                        <th>Fecha</th>
+                        <th>Credito</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cliente in clientes %}
+                        {% if cliente.payments %}
+                            {% for payment in cliente.payments %}
+                            <tr>
+                                {% if loop.first %}
+                                <td rowspan="{{ cliente.payments|length }}" style="vertical-align: middle;">
+                                    <a href="{{ url_for('current_status.detalle_cliente', id=cliente.id) }}"
+                                       style="color: var(--lux-rose); font-weight: 600; text-decoration: none;">
+                                        {{ cliente.nombre }}
+                                    </a>
+                                </td>
+                                {% endif %}
+                                <td>{{ payment.valor }}</td>
+                                <td>{{ payment.fecha }}</td>
+                                <td>{{ payment.credito }}</td>
+                                {% if loop.first %}
+                                <td rowspan="{{ cliente.payments|length }}" style="vertical-align: middle;">
+                                    <span class="badge estado-badge"
+                                          style="padding: 8px 16px; font-size: 0.8rem;
+                                                 background: {{ 'linear-gradient(135deg, #10b981, #059669)' if cliente.estado == 'finalizado' else 'linear-gradient(135deg, #f59e0b, #d97706)' }};
+                                                 color: #fff;">
+                                        {{ cliente.estado|capitalize }}
+                                    </span>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('current_status.detalle_cliente', id=cliente.id) }}"
+                                       style="color: var(--lux-rose); font-weight: 600; text-decoration: none;">
+                                        {{ cliente.nombre }}
+                                    </a>
+                                </td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td>
+                                    <span class="badge estado-badge"
+                                          style="padding: 8px 16px; font-size: 0.8rem;
+                                                 background: {{ 'linear-gradient(135deg, #10b981, #059669)' if cliente.estado == 'finalizado' else 'linear-gradient(135deg, #f59e0b, #d97706)' }};
+                                                 color: #fff;">
+                                        {{ cliente.estado|capitalize }}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="bi bi-receipt"></i>
+        <h5>No hay clientes registrados</h5>
+        <p>Crea tu primer cliente para ver su informacion de pago</p>
+        <a href="{{ url_for('current_status.nuevo_cliente') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Nuevo Cliente
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

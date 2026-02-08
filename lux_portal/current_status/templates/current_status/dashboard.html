@@ -15,6 +15,12 @@
         <span>Nuevo Cliente</span>
     </a>
 </li>
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.facturacion') }}">
+        <i class="bi bi-receipt"></i>
+        <span>Facturacion</span>
+    </a>
+</li>
 {% endblock %}
 
 {% block content %}
@@ -36,6 +42,9 @@
                 <i class="bi bi-file-earmark-pdf"></i> PDF
             </a>
             {% endif %}
+            <a href="{{ url_for('current_status.facturacion') }}" class="btn btn-outline-primary">
+                <i class="bi bi-receipt"></i> Facturacion
+            </a>
             <a href="{{ url_for('current_status.nuevo_cliente') }}" class="btn btn-primary">
                 <i class="bi bi-plus-lg"></i> Nuevo Cliente
             </a>
@@ -68,9 +77,6 @@
                 <thead>
                     <tr>
                         <th>Cliente</th>
-                        <th>Valor</th>
-                        <th>Fecha</th>
-                        <th>Credito</th>
                         <th>Estado</th>
                         <th class="text-end">Acciones</th>
                     </tr>
@@ -85,27 +91,6 @@
                             </a>
                         </td>
                         <td>
-                            {% if cliente.payments %}
-                                {{ cliente.payments[-1].valor }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if cliente.payments %}
-                                {{ cliente.payments[-1].fecha }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if cliente.payments %}
-                                {{ cliente.payments[-1].credito }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </td>
-                        <td>
                             <span class="badge estado-badge"
                                   data-client-id="{{ cliente.id }}"
                                   style="cursor: pointer; padding: 8px 16px; font-size: 0.8rem;
@@ -117,11 +102,11 @@
                         </td>
                         <td class="text-end">
                             <a href="{{ url_for('current_status.detalle_cliente', id=cliente.id) }}"
-                               class="btn btn-sm btn-outline-secondary">
-                                <i class="bi bi-eye"></i>
+                               class="btn btn-sm btn-outline-secondary" title="Ver / Editar">
+                                <i class="bi bi-pencil"></i>
                             </a>
                             <button class="btn btn-sm btn-outline-secondary" style="color: #dc2626; border-color: #dc2626;"
-                                    onclick="eliminarCliente({{ cliente.id }}, '{{ cliente.nombre }}')">
+                                    onclick="eliminarCliente({{ cliente.id }}, '{{ cliente.nombre }}')" title="Eliminar">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>

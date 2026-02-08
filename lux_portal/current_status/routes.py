@@ -28,6 +28,18 @@ def dashboard():
     return render_template('current_status/dashboard.html', clientes=clientes, busqueda=busqueda)
 
 
+@current_status_bp.route('/facturacion')
+@login_required
+def facturacion():
+    """Vista de facturacion con informacion de pagos por cliente"""
+    busqueda = request.args.get('q', '').strip()
+    query = StatusClient.query.filter_by(activo=True)
+    if busqueda:
+        query = query.filter(StatusClient.nombre.ilike(f'%{busqueda}%'))
+    clientes = query.order_by(StatusClient.nombre).all()
+    return render_template('current_status/facturacion.html', clientes=clientes, busqueda=busqueda)
+
+
 @current_status_bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
 def nuevo_cliente():
