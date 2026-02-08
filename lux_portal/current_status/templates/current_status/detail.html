@@ -376,14 +376,14 @@
                                     {% for item in addcosts %}
                                     <div class="addcost-item">
                                         <input type="text" class="addcost-name" value="{{ item.name }}" placeholder="Cargo" onblur="guardarAddcosts(this)">
-                                        <input type="text" class="addcost-value" value="{{ item.value }}" placeholder="Valor" onblur="guardarAddcosts(this)">
+                                        <input type="text" class="addcost-value" value="{{ item.value }}" placeholder="Valor" onblur="formatAddcostAndSave(this)">
                                         <button class="addcost-del" onclick="removeAddcost(this)"><i class="bi bi-x"></i></button>
                                     </div>
                                     {% endfor %}
                                 {% elif r.additional_costs or r.additional_costs_value %}
                                     <div class="addcost-item">
                                         <input type="text" class="addcost-name" value="{{ r.additional_costs }}" placeholder="Cargo" onblur="guardarAddcosts(this)">
-                                        <input type="text" class="addcost-value" value="{{ r.additional_costs_value }}" placeholder="Valor" onblur="guardarAddcosts(this)">
+                                        <input type="text" class="addcost-value" value="{{ r.additional_costs_value }}" placeholder="Valor" onblur="formatAddcostAndSave(this)">
                                         <button class="addcost-del" onclick="removeAddcost(this)"><i class="bi bi-x"></i></button>
                                     </div>
                                 {% endif %}
@@ -532,6 +532,38 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.editable-cell textarea').forEach(ta => {
         autoResize(ta);
         ta.addEventListener('input', () => autoResize(ta));
+        // Format dollar fields on load
+        if (DOLLAR_FIELDS.includes(ta.dataset.field)) {
+            const val = stripDollar(ta.value.trim());
+            if (val !== '') {
+                const num = parseFloat(val);
+                if (!isNaN(num)) ta.value = formatDollar(num);
+            }
+            // On focus: strip to raw number for editing
+            ta.addEventListener('focus', () => {
+                const raw = stripDollar(ta.value);
+                if (raw) ta.value = raw;
+            });
+        }
+    });
+    // Format addcost values on load
+    document.querySelectorAll('.addcost-value').forEach(inp => {
+        const val = stripDollar(inp.value.trim());
+        if (val !== '') {
+            const num = parseFloat(val);
+            if (!isNaN(num)) inp.value = formatDollar(num);
+        }
+        inp.addEventListener('focus', () => {
+            const raw = stripDollar(inp.value);
+            if (raw) inp.value = raw;
+        });
+        inp.addEventListener('blur', () => {
+            const val = stripDollar(inp.value.trim());
+            if (val !== '') {
+                const num = parseFloat(val);
+                if (!isNaN(num)) inp.value = formatDollar(num);
+            }
+        });
     });
     initColumnResize();
     initRowResize();
@@ -706,14 +738,28 @@ function toggleEstado() {
     });
 }
 
-// --- Rounding ---
+// --- Dollar formatting ---
+const DOLLAR_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit', 'final_rate'];
 const NUMERIC_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit', 'final_rate', 'additional_costs_value', 'kg_availability', 'valor'];
+
+function stripDollar(str) {
+    return str.replace(/[$,\s]/g, '');
+}
+
+function formatDollar(num) {
+    return '$' + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 function roundIfNumeric(el) {
-    const val = el.value.trim();
+    const val = stripDollar(el.value.trim());
     if (val === '') return;
-    const num = parseFloat(val.replace(/,/g, ''));
+    const num = parseFloat(val);
     if (!isNaN(num)) {
-        el.value = num.toFixed(2);
+        if (DOLLAR_FIELDS.includes(el.dataset.field)) {
+            el.value = formatDollar(num);
+        } else {
+            el.value = num.toFixed(2);
+        }
     }
 }
 
@@ -725,6 +771,10 @@ function buildSaveBody(el) {
         return {extra: {[colName]: el.value}};
     }
     if (NUMERIC_FIELDS.includes(field)) roundIfNumeric(el);
+    // Strip dollar formatting before saving to DB
+    if (DOLLAR_FIELDS.includes(field)) {
+        return {[field]: stripDollar(el.value)};
+    }
     return {[field]: el.value};
 }
 
@@ -742,9 +792,9 @@ function guardarRate(el) {
 // Auto-calculate Net+OPS and Final Rate
 function autoCalcRate(el) {
     const row = el.closest('tr');
-    const netRate = parseFloat(row.querySelector('[data-field="net_rate"]').value.replace(/,/g, '')) || 0;
-    const operative = parseFloat(row.querySelector('[data-field="operative"]').value.replace(/,/g, '')) || 0;
-    const profit = parseFloat(row.querySelector('[data-field="profit"]').value.replace(/,/g, '')) || 0;
+    const netRate = parseFloat(stripDollar(row.querySelector('[data-field="net_rate"]').value)) || 0;
+    const operative = parseFloat(stripDollar(row.querySelector('[data-field="operative"]').value)) || 0;
+    const profit = parseFloat(stripDollar(row.querySelector('[data-field="profit"]').value)) || 0;
 
     const netOps = netRate + operative;
     const finalRate = netOps + profit;
@@ -752,8 +802,10 @@ function autoCalcRate(el) {
     const netOpsEl = row.querySelector('[data-field="net_ops"]');
     const finalRateEl = row.querySelector('[data-field="final_rate"]');
 
-    netOpsEl.value = netOps.toFixed(2);
-    finalRateEl.value = finalRate.toFixed(2);
+    // Format with dollar
+    roundIfNumeric(el);
+    netOpsEl.value = formatDollar(netOps);
+    finalRateEl.value = formatDollar(finalRate);
 
     // Save all 3 fields
     guardarRate(el);
@@ -767,9 +819,10 @@ function guardarAddcosts(el) {
     const rateId = container.dataset.rateId;
     const items = [];
     container.querySelectorAll('.addcost-item').forEach(item => {
+        const rawVal = stripDollar(item.querySelector('.addcost-value').value.trim());
         items.push({
             name: item.querySelector('.addcost-name').value.trim(),
-            value: item.querySelector('.addcost-value').value.trim()
+            value: rawVal
         });
     });
     fetch(`${BASE}/api/rate/${rateId}`, {
@@ -784,10 +837,21 @@ function addAddcostItem(btn) {
     const item = document.createElement('div');
     item.className = 'addcost-item';
     item.innerHTML = `<input type="text" class="addcost-name" placeholder="Cargo" onblur="guardarAddcosts(this)">
-        <input type="text" class="addcost-value" placeholder="Valor" onblur="guardarAddcosts(this)">
+        <input type="text" class="addcost-value" placeholder="Valor" onblur="formatAddcostAndSave(this)">
         <button class="addcost-del" onclick="removeAddcost(this)"><i class="bi bi-x"></i></button>`;
+    const valInp = item.querySelector('.addcost-value');
+    valInp.addEventListener('focus', () => { const r = stripDollar(valInp.value); if (r) valInp.value = r; });
     container.insertBefore(item, btn);
     item.querySelector('.addcost-name').focus();
+}
+
+function formatAddcostAndSave(el) {
+    const val = stripDollar(el.value.trim());
+    if (val !== '') {
+        const num = parseFloat(val);
+        if (!isNaN(num)) el.value = formatDollar(num);
+    }
+    guardarAddcosts(el);
 }
 
 function removeAddcost(btn) {
@@ -798,7 +862,7 @@ function removeAddcost(btn) {
     container.querySelectorAll('.addcost-item').forEach(item => {
         items.push({
             name: item.querySelector('.addcost-name').value.trim(),
-            value: item.querySelector('.addcost-value').value.trim()
+            value: stripDollar(item.querySelector('.addcost-value').value.trim())
         });
     });
     fetch(`${BASE}/api/rate/${rateId}`, {
