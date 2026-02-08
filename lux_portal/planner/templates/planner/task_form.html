@@ -34,6 +34,17 @@
                         </div>
                     </div>
 
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Hora inicio</label>
+                            <input type="time" class="form-control" name="start_time" value="{{ task.start_time.strftime('%H:%M') if task and task.start_time else '' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Hora fin</label>
+                            <input type="time" class="form-control" name="end_time" value="{{ task.end_time.strftime('%H:%M') if task and task.end_time else '' }}">
+                        </div>
+                    </div>
+
                     <div class="mb-4">
                         <label class="form-label">Categoria</label>
                         <select class="form-select" name="category">

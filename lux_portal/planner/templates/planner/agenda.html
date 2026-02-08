@@ -94,6 +94,32 @@
     gap: 2px;
     margin-top: 2px;
 }
+.cal-task-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.cal-task-check {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.7);
+    background: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 0.5rem;
+    color: transparent;
+    line-height: 1;
+}
+.cal-task-check:hover {
+    background: rgba(255,255,255,0.3);
+    color: #fff;
+}
 .cal-task-label {
     display: block;
     font-size: 0.6rem;
@@ -109,14 +135,16 @@
     text-decoration: none;
     cursor: pointer;
     transition: opacity 0.2s;
+    flex: 1;
+    min-width: 0;
 }
 .cal-task-label:hover {
     opacity: 0.85;
     color: #fff;
 }
-.cal-task-label.high { background: #EF4444; }
-.cal-task-label.medium { background: #F59E0B; }
-.cal-task-label.low { background: #10B981; }
+.cal-task-row.high { background: #EF4444; border-radius: 4px; }
+.cal-task-row.medium { background: #F59E0B; border-radius: 4px; }
+.cal-task-row.low { background: #10B981; border-radius: 4px; }
 
 /* Expandable "+N mas" */
 .cal-task-more {
@@ -146,11 +174,29 @@
     min-height: 120px;
     padding: 8px 6px 6px;
 }
+.calendar-grid.week-view .cal-task-row {
+    gap: 4px;
+}
 .calendar-grid.week-view .cal-task-label {
     font-size: 0.7rem;
-    padding: 2px 6px;
+    padding: 2px 4px;
     white-space: normal;
     line-height: 1.3;
+}
+.calendar-grid.week-view .cal-task-check {
+    width: 16px;
+    height: 16px;
+    font-size: 0.55rem;
+}
+.cal-task-time {
+    font-size: 0.6rem;
+    opacity: 0.9;
+    font-weight: 400;
+}
+.calendar-grid.week-view .cal-task-time {
+    display: block;
+    font-size: 0.6rem;
+    margin-bottom: 1px;
 }
 
 /* ===== Week task summary ===== */
@@ -192,10 +238,37 @@
 .week-task-dot.high { background: #EF4444; }
 .week-task-dot.medium { background: #F59E0B; }
 .week-task-dot.low { background: #10B981; }
+.week-task-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #d1d5db;
+    background: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    color: transparent;
+    font-size: 0.65rem;
+}
+.week-task-check:hover {
+    border-color: #10B981;
+    background: rgba(16,185,129,0.1);
+    color: #10B981;
+}
 .week-task-title {
     flex: 1;
     font-weight: 600;
     color: var(--text-primary);
+}
+.week-task-time {
+    font-size: 0.75rem;
+    color: var(--planner-lavender);
+    font-weight: 600;
+    white-space: nowrap;
 }
 .week-task-date {
     font-size: 0.75rem;
@@ -257,14 +330,20 @@
     <h6><i class="bi bi-list-check me-2"></i>Tareas de la semana</h6>
     {% if week_tasks %}
         {% for task in week_tasks %}
-        <a href="{{ url_for('planner.task_form', id=task.id) }}" class="week-task-item">
+        <div class="week-task-item" data-task-id="{{ task.id }}">
+            <button class="week-task-check" onclick="completeTask({{ task.id }}, this, event)" title="Completar"><i class="bi bi-check"></i></button>
             <span class="week-task-dot {{ task.priority }}"></span>
-            <span class="week-task-title">{{ task.title }}</span>
+            <a href="{{ url_for('planner.task_form', id=task.id) }}" class="week-task-title" style="text-decoration:none; color:inherit;">{{ task.title }}</a>
+            {% if task.start_time %}
+            <span class="week-task-time">
+                {{ task.start_time.strftime('%H:%M') }}{% if task.end_time %} - {{ task.end_time.strftime('%H:%M') }}{% endif %}
+            </span>
+            {% endif %}
             <span class="week-task-date">
                 {{ ['Lun','Mar','Mie','Jue','Vie','Sab','Dom'][task.due_date.weekday()] }}
                 {{ task.due_date.strftime('%d') }}
             </span>
-        </a>
+        </div>
         {% endfor %}
     {% else %}
         <div class="week-no-tasks">Sin tareas esta semana</div>
@@ -313,19 +392,29 @@
                     <div class="cal-tasks-container">
                         {% if view == 'week' %}
                             {% for task in day_tasks %}
-                            <a href="{{ url_for('planner.task_form', id=task.id) }}" class="cal-task-label {{ task.priority }}" title="{{ task.title }}">
-                                {{ task.title }}
-                            </a>
+                            <div class="cal-task-row {{ task.priority }}" data-task-id="{{ task.id }}">
+                                <button class="cal-task-check" onclick="completeTask({{ task.id }}, this, event)" title="Completar"><i class="bi bi-check"></i></button>
+                                <a href="{{ url_for('planner.task_form', id=task.id) }}" class="cal-task-label" title="{{ task.title }}">
+                                    {% if task.time %}<span class="cal-task-time">{{ task.time }}</span>{% endif %}
+                                    {{ task.title }}
+                                </a>
+                            </div>
                             {% endfor %}
                         {% else %}
                             {% for task in day_tasks[:2] %}
-                            <a href="{{ url_for('planner.task_form', id=task.id) }}" class="cal-task-label {{ task.priority }}" title="{{ task.title }}">{{ task.title }}</a>
+                            <div class="cal-task-row {{ task.priority }}" data-task-id="{{ task.id }}">
+                                <button class="cal-task-check" onclick="completeTask({{ task.id }}, this, event)" title="Completar"><i class="bi bi-check"></i></button>
+                                <a href="{{ url_for('planner.task_form', id=task.id) }}" class="cal-task-label" title="{{ task.title }}">{{ task.title }}</a>
+                            </div>
                             {% endfor %}
                             {% if day_tasks|length > 2 %}
                             <div class="cal-task-more" onclick="toggleMore(this, event)">+{{ day_tasks|length - 2 }} mas</div>
                             <div class="cal-tasks-hidden">
                                 {% for task in day_tasks[2:] %}
-                                <a href="{{ url_for('planner.task_form', id=task.id) }}" class="cal-task-label {{ task.priority }}" title="{{ task.title }}">{{ task.title }}</a>
+                                <div class="cal-task-row {{ task.priority }}" data-task-id="{{ task.id }}">
+                                    <button class="cal-task-check" onclick="completeTask({{ task.id }}, this, event)" title="Completar"><i class="bi bi-check"></i></button>
+                                    <a href="{{ url_for('planner.task_form', id=task.id) }}" class="cal-task-label" title="{{ task.title }}">{{ task.title }}</a>
+                                </div>
                                 {% endfor %}
                             </div>
                             {% endif %}
@@ -355,6 +444,28 @@ function toggleMore(el, e) {
         hidden.classList.add('show');
         el.textContent = 'menos';
     }
+}
+
+function completeTask(id, btn, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    fetch(`/planner/api/task/${id}/status`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status: 'completed'})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Remove from calendar
+            document.querySelectorAll(`[data-task-id="${id}"]`).forEach(el => {
+                el.style.transition = 'opacity 0.3s, transform 0.3s';
+                el.style.opacity = '0';
+                el.style.transform = 'scale(0.8)';
+                setTimeout(() => el.remove(), 300);
+            });
+        }
+    });
 }
 </script>
 {% endblock %}

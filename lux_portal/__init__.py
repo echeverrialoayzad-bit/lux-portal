@@ -53,6 +53,8 @@ def _migrate_db(app):
         ('airline_rates', 'extra_data', "TEXT DEFAULT '{}'"),
         ('status_airlines', 'extra_data', "TEXT DEFAULT '{}'"),
         ('status_payments', 'extra_data', "TEXT DEFAULT '{}'"),
+        ('planner_tasks', 'start_time', 'TIME'),
+        ('planner_tasks', 'end_time', 'TIME'),
     ]
     for table, column, col_type in migrations:
         try:

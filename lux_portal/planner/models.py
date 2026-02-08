@@ -69,6 +69,8 @@ class Task(db.Model):
     status = db.Column(db.String(20), default='pending')   # pending, in_progress, completed
     category = db.Column(db.String(50), default='general') # trabajo, personal, urgente, etc
     due_date = db.Column(db.Date, nullable=True)
+    start_time = db.Column(db.Time, nullable=True)
+    end_time = db.Column(db.Time, nullable=True)
     completed_at = db.Column(db.DateTime, nullable=True)
     order = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

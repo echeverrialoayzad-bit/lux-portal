@@ -248,6 +248,11 @@ def task_form(id=None):
             due_date_str = request.form.get('due_date', '')
             task.due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date() if due_date_str else None
 
+            start_time_str = request.form.get('start_time', '')
+            end_time_str = request.form.get('end_time', '')
+            task.start_time = datetime.strptime(start_time_str, '%H:%M').time() if start_time_str else None
+            task.end_time = datetime.strptime(end_time_str, '%H:%M').time() if end_time_str else None
+
             if not task.id:
                 db.session.add(task)
 
@@ -375,7 +380,7 @@ def agenda():
         Task.due_date >= cal_range_start,
         Task.due_date <= cal_range_end,
         Task.status != 'completed'
-    ).order_by(Task.due_date, Task.priority).all()
+    ).order_by(Task.due_date, Task.start_time, Task.priority).all()
 
     # Mapeo de fechas con detalles de tareas
     task_dates = {}
@@ -383,12 +388,18 @@ def agenda():
         d = t.due_date.isoformat()
         if d not in task_dates:
             task_dates[d] = []
+        time_str = ''
+        if t.start_time:
+            time_str = t.start_time.strftime('%H:%M')
+            if t.end_time:
+                time_str += ' - ' + t.end_time.strftime('%H:%M')
         task_dates[d].append({
             'id': t.id,
             'title': t.title,
             'priority': t.priority,
             'status': t.status,
             'category': t.category,
+            'time': time_str,
         })
 
     # Mes anterior y siguiente para navegacion
