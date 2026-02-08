@@ -369,13 +369,15 @@
     .btn-delete-row {
         background: none;
         border: none;
-        color: #cbd5e1;
+        color: #94a3b8;
         cursor: pointer;
         padding: 4px 6px;
-        transition: color 0.2s;
+        transition: all 0.2s;
+        font-size: 0.85rem;
     }
     .btn-delete-row:hover {
         color: #dc2626;
+        transform: scale(1.2);
     }
     .estado-detail {
         cursor: pointer;
@@ -484,7 +486,7 @@
                         <td class="editable-cell col-airline"><textarea data-field="airline" onblur="guardarRate(this); groupRouteRows();">{{ r.airline }}</textarea><button class="btn-add-subroute" onclick="agregarSubruta(this)" title="Agregar ruta"><i class="bi bi-plus-circle me-1"></i>Ruta</button></td>
                         <td class="editable-cell col-route"><textarea data-field="route" onblur="guardarRate(this)">{{ r.route }}</textarea></td>
                         <td class="editable-cell col-transit"><textarea data-field="transit_time" onblur="guardarRate(this)">{{ r.transit_time }}</textarea></td>
-                        <td class="editable-cell col-kg"><textarea data-field="kg_availability" onblur="guardarRate(this)">{{ r.kg_availability }}</textarea></td>
+                        <td class="editable-cell col-kg"><textarea data-field="kg_availability" onblur="roundIfNumeric(this); guardarRate(this)">{{ r.kg_availability }}</textarea></td>
                         <td class="editable-cell col-date"><textarea data-field="date" onblur="guardarRate(this)">{{ r.date }}</textarea></td>
                         <td class="editable-cell col-internal col-number"><textarea data-field="net_rate" onblur="autoCalcRate(this)">{{ r.net_rate }}</textarea></td>
                         <td class="editable-cell col-internal col-number"><textarea data-field="operative" onblur="autoCalcRate(this)">{{ r.operative }}</textarea></td>
@@ -681,6 +683,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const raw = stripDollar(ta.value);
                 if (raw) ta.value = raw;
             });
+        }
+        // Format integer fields on load (KG)
+        if (INTEGER_FIELDS.includes(ta.dataset.field)) {
+            const val = ta.value.trim();
+            if (val !== '') {
+                const num = parseFloat(val);
+                if (!isNaN(num)) ta.value = Math.round(num).toString();
+            }
         }
     });
     // Format addcost values on load
@@ -937,6 +947,7 @@ function toggleEstado() {
 
 // --- Dollar formatting ---
 const DOLLAR_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit', 'final_rate'];
+const INTEGER_FIELDS = ['kg_availability'];
 const NUMERIC_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit', 'final_rate', 'additional_costs_value', 'kg_availability', 'valor'];
 
 function stripDollar(str) {
@@ -954,6 +965,8 @@ function roundIfNumeric(el) {
     if (!isNaN(num)) {
         if (DOLLAR_FIELDS.includes(el.dataset.field)) {
             el.value = formatDollar(num);
+        } else if (INTEGER_FIELDS.includes(el.dataset.field)) {
+            el.value = Math.round(num).toString();
         } else {
             el.value = num.toFixed(2);
         }
@@ -1191,6 +1204,15 @@ function ctxDeleteRow() {
     if (!ctxTargetRow) return;
     const id = ctxTargetRow.dataset.id;
     if (!confirm('Eliminar esta fila?')) return;
+    // Before removing, reset rowspan so sub-rows recover their airline cell
+    const airlineCell = ctxTargetRow.querySelector('.col-airline');
+    if (airlineCell && airlineCell.rowSpan > 1) {
+        const nextRow = ctxTargetRow.nextElementSibling;
+        if (nextRow) {
+            const nextCell = nextRow.querySelector('.col-airline');
+            if (nextCell) nextCell.style.display = '';
+        }
+    }
     fetch(`${BASE}/api/rate/${id}`, {method: 'DELETE'})
     .then(r => r.json()).then(data => {
         if (data.success) { ctxTargetRow.remove(); groupRouteRows(); }
@@ -1219,6 +1241,8 @@ function buildRateRow(id, airlineName) {
         } else if (readonlyFields.includes(f)) {
             ta.readOnly = true;
             ta.style.background = '#f1f5f9';
+        } else if (INTEGER_FIELDS.includes(f)) {
+            ta.setAttribute('onblur', 'roundIfNumeric(this); guardarRate(this)');
         } else {
             ta.setAttribute('onblur', 'guardarRate(this)');
         }
@@ -1358,8 +1382,19 @@ function agregarRate() {
 
 function eliminarRate(btn, id) {
     if (!confirm('¿Eliminar esta fila?')) return;
+    const row = btn.closest('tr');
+    // Before removing, reset rowspan so sub-rows recover their airline cell
+    const airlineCell = row.querySelector('.col-airline');
+    if (airlineCell && airlineCell.rowSpan > 1) {
+        // This is the group parent - restore next row's airline cell before removal
+        const nextRow = row.nextElementSibling;
+        if (nextRow) {
+            const nextCell = nextRow.querySelector('.col-airline');
+            if (nextCell) nextCell.style.display = '';
+        }
+    }
     fetch(`${BASE}/api/rate/${id}`, {method: 'DELETE'})
-    .then(r => r.json()).then(data => { if (data.success) { btn.closest('tr').remove(); groupRouteRows(); } });
+    .then(r => r.json()).then(data => { if (data.success) { row.remove(); groupRouteRows(); } });
 }
 
 // --- Status Airlines (Table 2) ---
