@@ -687,10 +687,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const num = parseFloat(val);
                 if (!isNaN(num)) ta.value = formatDollar(num);
             }
-            // On focus: strip to raw number for editing
+            // On focus: show formula or strip dollar
             ta.addEventListener('focus', () => {
+                if (ta.dataset.formula) { ta.value = ta.dataset.formula; return; }
                 const raw = stripDollar(ta.value);
                 if (raw) ta.value = raw;
+            });
+        } else {
+            // Non-dollar fields: show formula on focus
+            ta.addEventListener('focus', () => {
+                if (ta.dataset.formula) ta.value = ta.dataset.formula;
             });
         }
         // Format integer fields on load (KG)
@@ -710,10 +716,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isNaN(num)) inp.value = formatDollar(num);
         }
         inp.addEventListener('focus', () => {
+            if (inp.dataset.formula) { inp.value = inp.dataset.formula; return; }
             const raw = stripDollar(inp.value);
             if (raw) inp.value = raw;
         });
         inp.addEventListener('blur', () => {
+            applyFormula(inp);
             const val = stripDollar(inp.value.trim());
             if (val !== '') {
                 const num = parseFloat(val);
@@ -985,6 +993,37 @@ function roundIfNumeric(el) {
     }
 }
 
+// --- Formula evaluation (Excel-like: type 9+2, shows 11, click back shows 9+2) ---
+function isFormula(str) {
+    str = str.replace(/[$,]/g, '').trim();
+    if (!str) return false;
+    if (!/[+\-*/]/.test(str)) return false;
+    if (/^-?\d+\.?\d*$/.test(str)) return false;
+    if (/[^0-9+\-*/().\s]/.test(str)) return false;
+    return true;
+}
+
+function evalFormula(str) {
+    str = str.replace(/[$,]/g, '').trim();
+    if (!isFormula(str)) return null;
+    try {
+        const result = new Function('return (' + str + ')')();
+        if (typeof result === 'number' && isFinite(result)) return result;
+        return null;
+    } catch(e) { return null; }
+}
+
+function applyFormula(el) {
+    const raw = stripDollar(el.value.trim());
+    const result = evalFormula(raw);
+    if (result !== null) {
+        el.dataset.formula = raw;
+        el.value = result.toString();
+    } else if (!isFormula(raw)) {
+        delete el.dataset.formula;
+    }
+}
+
 // --- Save helper for extra fields ---
 function buildSaveBody(el) {
     const field = el.dataset.field;
@@ -1002,6 +1041,7 @@ function buildSaveBody(el) {
 
 // --- Airline Rates (Table 1) ---
 function guardarRate(el) {
+    applyFormula(el);
     const row = el.closest('tr');
     const id = row.dataset.id;
     fetch(`${BASE}/api/rate/${id}`, {
@@ -1013,6 +1053,7 @@ function guardarRate(el) {
 
 // Auto-calculate Net+OPS and Final Rate
 function autoCalcRate(el) {
+    applyFormula(el);
     const row = el.closest('tr');
     const netRate = parseFloat(stripDollar(row.querySelector('[data-field="net_rate"]').value)) || 0;
     const operative = parseFloat(stripDollar(row.querySelector('[data-field="operative"]').value)) || 0;
@@ -1410,7 +1451,14 @@ function buildRateRow(id, airlineName) {
             ta.setAttribute('onblur', 'guardarRate(this)');
         }
         if (DOLLAR_FIELDS.includes(f)) {
-            ta.addEventListener('focus', () => { const r = stripDollar(ta.value); if (r) ta.value = r; });
+            ta.addEventListener('focus', () => {
+                if (ta.dataset.formula) { ta.value = ta.dataset.formula; return; }
+                const r = stripDollar(ta.value); if (r) ta.value = r;
+            });
+        } else {
+            ta.addEventListener('focus', () => {
+                if (ta.dataset.formula) ta.value = ta.dataset.formula;
+            });
         }
         ta.addEventListener('input', () => autoResize(ta));
         td.appendChild(ta);
@@ -1507,12 +1555,16 @@ function addAddcostItem(btn) {
         <input type="text" class="addcost-value" placeholder="Valor" onblur="formatAddcostAndSave(this)">
         <button class="addcost-del" onclick="removeAddcost(this)"><i class="bi bi-x"></i></button>`;
     const valInp = item.querySelector('.addcost-value');
-    valInp.addEventListener('focus', () => { const r = stripDollar(valInp.value); if (r) valInp.value = r; });
+    valInp.addEventListener('focus', () => {
+        if (valInp.dataset.formula) { valInp.value = valInp.dataset.formula; return; }
+        const r = stripDollar(valInp.value); if (r) valInp.value = r;
+    });
     container.insertBefore(item, btn);
     item.querySelector('.addcost-name').focus();
 }
 
 function formatAddcostAndSave(el) {
+    applyFormula(el);
     const val = stripDollar(el.value.trim());
     if (val !== '') {
         const num = parseFloat(val);
@@ -1570,6 +1622,7 @@ function eliminarRate(btn, id) {
 
 // --- Status Airlines (Table 2) ---
 function guardarAirline(el) {
+    applyFormula(el);
     const row = el.closest('tr');
     const id = row.dataset.id;
     fetch(`${BASE}/api/airline/${id}`, {
@@ -1593,6 +1646,7 @@ function agregarAirline() {
             const ta = document.createElement('textarea');
             ta.dataset.field = f;
             ta.setAttribute('onblur', 'guardarAirline(this)');
+            ta.addEventListener('focus', () => { if (ta.dataset.formula) ta.value = ta.dataset.formula; });
             ta.addEventListener('input', () => autoResize(ta));
             td.appendChild(ta);
             tr.appendChild(td);
@@ -1604,6 +1658,7 @@ function agregarAirline() {
             const ta = document.createElement('textarea');
             ta.dataset.field = 'extra:' + span.dataset.colName;
             ta.setAttribute('onblur', 'guardarAirline(this)');
+            ta.addEventListener('focus', () => { if (ta.dataset.formula) ta.value = ta.dataset.formula; });
             ta.addEventListener('input', () => autoResize(ta));
             td.appendChild(ta);
             tr.appendChild(td);
@@ -1627,6 +1682,7 @@ function eliminarAirline(btn, id) {
 
 // --- Payments (Table 3) ---
 function guardarPayment(el) {
+    applyFormula(el);
     const row = el.closest('tr');
     const id = row.dataset.id;
     fetch(`${BASE}/api/payment/${id}`, {
@@ -1650,6 +1706,7 @@ function agregarPayment() {
             const ta = document.createElement('textarea');
             ta.dataset.field = f;
             ta.setAttribute('onblur', 'guardarPayment(this)');
+            ta.addEventListener('focus', () => { if (ta.dataset.formula) ta.value = ta.dataset.formula; });
             ta.addEventListener('input', () => autoResize(ta));
             td.appendChild(ta);
             tr.appendChild(td);
@@ -1661,6 +1718,7 @@ function agregarPayment() {
             const ta = document.createElement('textarea');
             ta.dataset.field = 'extra:' + span.dataset.colName;
             ta.setAttribute('onblur', 'guardarPayment(this)');
+            ta.addEventListener('focus', () => { if (ta.dataset.formula) ta.value = ta.dataset.formula; });
             ta.addEventListener('input', () => autoResize(ta));
             td.appendChild(ta);
             tr.appendChild(td);
