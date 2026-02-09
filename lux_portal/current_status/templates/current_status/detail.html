@@ -198,23 +198,26 @@
         text-transform: uppercase;
     }
     .btn-add-subroute {
-        display: block;
-        margin: 4px auto 0;
-        background: linear-gradient(135deg, #7c3aed, #6d28d9);
+        background: none;
         border: none;
-        color: #fff;
+        color: #7c3aed;
         cursor: pointer;
-        padding: 3px 10px;
-        font-size: 0.58rem;
-        font-weight: 600;
-        line-height: 1.3;
-        border-radius: 8px;
-        white-space: nowrap;
+        padding: 2px 4px;
+        font-size: 0.72rem;
+        line-height: 1;
         transition: all 0.2s;
+        opacity: 0.5;
     }
     .btn-add-subroute:hover {
-        background: linear-gradient(135deg, #6d28d9, #5b21b6);
-        transform: scale(1.05);
+        opacity: 1;
+        transform: scale(1.15);
+    }
+    /* Delete column actions */
+    .col-del-actions {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
     }
     /* Context menu */
     .ctx-menu {
@@ -295,23 +298,22 @@
         font-weight: 600;
         user-select: none;
     }
-    /* Column selection for alignment */
-    .rate-table th.col-selected {
+    /* Column selection for alignment (all tables) */
+    th.col-selected {
         box-shadow: inset 0 -3px 0 0 #fff !important;
     }
-    /* Column drag-and-drop */
-    .rate-table th[data-col] { cursor: grab; }
-    .rate-table th[data-col="__addcol"],
-    .rate-table th[data-col="__del"] { cursor: default; }
-    .rate-table th.dragging { opacity: 0.4; }
-    .rate-table th.drag-over {
+    /* Column drag-and-drop (all tables) */
+    .rate-table th[data-col], .status-table th[data-col], .payment-table th[data-col] { cursor: grab; }
+    th[data-col="__addcol"], th[data-col="__del"] { cursor: default; }
+    th.dragging { opacity: 0.4; }
+    th.drag-over {
         background: rgba(255,255,255,0.25) !important;
         box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7);
     }
     .rate-table .col-notes { width: 12%; }
-    .rate-table .col-del { width: 3%; }
+    .col-del { width: 50px; }
     .rate-table .col-custom { width: 7%; }
-    .rate-table .col-add-col { width: 28px; }
+    .col-add-col { width: 28px; }
     .rate-table .col-route textarea {
         white-space: nowrap;
         overflow: hidden;
@@ -533,9 +535,11 @@
                         <td class="editable-cell col-custom"><textarea data-field="extra:{{ col }}" onblur="guardarRate(this)">{{ r.get_extra().get(col, '') }}</textarea></td>
                         {% endfor %}
                         <td></td>
-                        <td class="text-center col-del" style="vertical-align: middle;">
-                            <button class="btn-delete-row" onclick="eliminarRate(this, {{ r.id }})"><i class="bi bi-x-lg"></i></button>
-                            <button class="btn-add-subroute" onclick="agregarSubruta(this)" title="Agregar ruta"><i class="bi bi-plus-circle me-1"></i>Ruta</button>
+                        <td class="col-del" style="vertical-align: middle;">
+                            <div class="col-del-actions">
+                                <button class="btn-delete-row" onclick="eliminarRate(this, {{ r.id }})" title="Eliminar fila"><i class="bi bi-x-lg"></i></button>
+                                <button class="btn-add-subroute" onclick="agregarSubruta(this)" title="Agregar ruta"><i class="bi bi-plus-circle"></i></button>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -563,36 +567,38 @@
             <table class="table status-table mb-0" id="airlineTable">
                 <thead>
                     <tr>
-                        <th><span contenteditable="true" class="th-text">Current Status</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">Next Flight</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">KG</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">Farms Deliver</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">Farm Maximum Delivery Time</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">Airline</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">All in Rate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="current_status"><span contenteditable="true" class="th-text" draggable="false">Current Status</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="proximo_vuelo"><span contenteditable="true" class="th-text" draggable="false">Next Flight</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="kg"><span contenteditable="true" class="th-text" draggable="false">KG</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="entrega_fincas"><span contenteditable="true" class="th-text" draggable="false">Farms Deliver</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="hora_maxima"><span contenteditable="true" class="th-text" draggable="false">Farm Maximum Delivery Time</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="aerolinea"><span contenteditable="true" class="th-text" draggable="false">Airline</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="all_in_rate"><span contenteditable="true" class="th-text" draggable="false">All in Rate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         {% for col in cliente.get_custom_cols('airlines') %}
-                        <th><span contenteditable="true" class="th-text custom-col-name" data-table="airlines" data-col-name="{{ col }}">{{ col }}</span><button class="btn-del-col" onclick="deleteCustomCol('airlines','{{ col }}',this)" title="Eliminar columna">&times;</button><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="custom_{{ col }}"><span contenteditable="true" class="th-text custom-col-name" draggable="false" data-table="airlines" data-col-name="{{ col }}">{{ col }}</span><button class="btn-del-col" onclick="deleteCustomCol('airlines','{{ col }}',this)" title="Eliminar columna">&times;</button><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         {% endfor %}
-                        <th style="width: 28px;"><button class="btn-add-col" onclick="addCustomCol('airlines')" title="Agregar columna"><i class="bi bi-plus"></i></button></th>
-                        <th style="width: 36px;"></th>
+                        <th class="col-add-col" data-col="__addcol"><button class="btn-add-col" onclick="addCustomCol('airlines')" title="Agregar columna"><i class="bi bi-plus"></i></button></th>
+                        <th class="col-del" data-col="__del"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for a in cliente.airlines %}
                     <tr data-id="{{ a.id }}">
-                        <td class="editable-cell"><textarea data-field="current_status" onblur="guardarAirline(this)">{{ a.current_status }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="proximo_vuelo" onblur="guardarAirline(this)">{{ a.proximo_vuelo }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="kg" onblur="guardarAirline(this)">{{ a.kg }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="entrega_fincas" onblur="guardarAirline(this)">{{ a.entrega_fincas }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="hora_maxima" onblur="guardarAirline(this)">{{ a.hora_maxima }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="aerolinea" onblur="guardarAirline(this)">{{ a.aerolinea }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="all_in_rate" onblur="guardarAirline(this)">{{ a.all_in_rate }}</textarea></td>
+                        <td class="editable-cell" data-col="current_status"><textarea data-field="current_status" onblur="guardarAirline(this)">{{ a.current_status }}</textarea></td>
+                        <td class="editable-cell" data-col="proximo_vuelo"><textarea data-field="proximo_vuelo" onblur="guardarAirline(this)">{{ a.proximo_vuelo }}</textarea></td>
+                        <td class="editable-cell" data-col="kg"><textarea data-field="kg" onblur="guardarAirline(this)">{{ a.kg }}</textarea></td>
+                        <td class="editable-cell" data-col="entrega_fincas"><textarea data-field="entrega_fincas" onblur="guardarAirline(this)">{{ a.entrega_fincas }}</textarea></td>
+                        <td class="editable-cell" data-col="hora_maxima"><textarea data-field="hora_maxima" onblur="guardarAirline(this)">{{ a.hora_maxima }}</textarea></td>
+                        <td class="editable-cell" data-col="aerolinea"><textarea data-field="aerolinea" onblur="guardarAirline(this)">{{ a.aerolinea }}</textarea></td>
+                        <td class="editable-cell" data-col="all_in_rate"><textarea data-field="all_in_rate" onblur="guardarAirline(this)">{{ a.all_in_rate }}</textarea></td>
                         {% for col in cliente.get_custom_cols('airlines') %}
-                        <td class="editable-cell"><textarea data-field="extra:{{ col }}" onblur="guardarAirline(this)">{{ a.get_extra().get(col, '') }}</textarea></td>
+                        <td class="editable-cell" data-col="custom_{{ col }}"><textarea data-field="extra:{{ col }}" onblur="guardarAirline(this)">{{ a.get_extra().get(col, '') }}</textarea></td>
                         {% endfor %}
-                        <td></td>
-                        <td class="text-center" style="vertical-align: middle;">
-                            <button class="btn-delete-row" onclick="eliminarAirline(this, {{ a.id }})"><i class="bi bi-x-lg"></i></button>
+                        <td data-col="__addcol"></td>
+                        <td class="col-del" data-col="__del" style="vertical-align: middle;">
+                            <div class="col-del-actions">
+                                <button class="btn-delete-row" onclick="eliminarAirline(this, {{ a.id }})" title="Eliminar fila"><i class="bi bi-x-lg"></i></button>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -623,28 +629,30 @@
             <table class="table payment-table mb-0" id="paymentTable">
                 <thead>
                     <tr>
-                        <th><span contenteditable="true" class="th-text">Valor</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">Fecha</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">Credito</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="valor"><span contenteditable="true" class="th-text" draggable="false">Valor</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="fecha"><span contenteditable="true" class="th-text" draggable="false">Fecha</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="credito"><span contenteditable="true" class="th-text" draggable="false">Credito</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         {% for col in cliente.get_custom_cols('payments') %}
-                        <th><span contenteditable="true" class="th-text custom-col-name" data-table="payments" data-col-name="{{ col }}">{{ col }}</span><button class="btn-del-col" onclick="deleteCustomCol('payments','{{ col }}',this)" title="Eliminar columna">&times;</button><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="custom_{{ col }}"><span contenteditable="true" class="th-text custom-col-name" draggable="false" data-table="payments" data-col-name="{{ col }}">{{ col }}</span><button class="btn-del-col" onclick="deleteCustomCol('payments','{{ col }}',this)" title="Eliminar columna">&times;</button><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         {% endfor %}
-                        <th style="width: 28px;"><button class="btn-add-col" onclick="addCustomCol('payments')" title="Agregar columna"><i class="bi bi-plus"></i></button></th>
-                        <th style="width: 36px;"></th>
+                        <th class="col-add-col" data-col="__addcol"><button class="btn-add-col" onclick="addCustomCol('payments')" title="Agregar columna"><i class="bi bi-plus"></i></button></th>
+                        <th class="col-del" data-col="__del"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in cliente.payments %}
                     <tr data-id="{{ p.id }}">
-                        <td class="editable-cell"><textarea data-field="valor" onblur="guardarPayment(this)">{{ p.valor }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="fecha" onblur="guardarPayment(this)">{{ p.fecha }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="credito" onblur="guardarPayment(this)">{{ p.credito }}</textarea></td>
+                        <td class="editable-cell" data-col="valor"><textarea data-field="valor" onblur="guardarPayment(this)">{{ p.valor }}</textarea></td>
+                        <td class="editable-cell" data-col="fecha"><textarea data-field="fecha" onblur="guardarPayment(this)">{{ p.fecha }}</textarea></td>
+                        <td class="editable-cell" data-col="credito"><textarea data-field="credito" onblur="guardarPayment(this)">{{ p.credito }}</textarea></td>
                         {% for col in cliente.get_custom_cols('payments') %}
-                        <td class="editable-cell"><textarea data-field="extra:{{ col }}" onblur="guardarPayment(this)">{{ p.get_extra().get(col, '') }}</textarea></td>
+                        <td class="editable-cell" data-col="custom_{{ col }}"><textarea data-field="extra:{{ col }}" onblur="guardarPayment(this)">{{ p.get_extra().get(col, '') }}</textarea></td>
                         {% endfor %}
-                        <td></td>
-                        <td class="text-center" style="vertical-align: middle;">
-                            <button class="btn-delete-row" onclick="eliminarPayment(this, {{ p.id }})"><i class="bi bi-x-lg"></i></button>
+                        <td data-col="__addcol"></td>
+                        <td class="col-del" data-col="__del" style="vertical-align: middle;">
+                            <div class="col-del-actions">
+                                <button class="btn-delete-row" onclick="eliminarPayment(this, {{ p.id }})" title="Eliminar fila"><i class="bi bi-x-lg"></i></button>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -656,14 +664,14 @@
         </button>
     </div>
 
-    <!-- Right-click context menu -->
+    <!-- Right-click context menu (all tables) -->
     <div class="ctx-menu" id="ctxMenu">
         <button class="ctx-menu-item" onclick="ctxInsertAbove()"><i class="bi bi-arrow-bar-up"></i> Insertar fila arriba</button>
         <button class="ctx-menu-item" onclick="ctxInsertBelow()"><i class="bi bi-arrow-bar-down"></i> Insertar fila abajo</button>
         <div class="ctx-menu-sep"></div>
         <button class="ctx-menu-item danger" onclick="ctxDeleteRow()"><i class="bi bi-trash"></i> Eliminar fila</button>
-        <div class="ctx-menu-sep"></div>
-        <button class="ctx-menu-item" onclick="ctxAddSubroute()"><i class="bi bi-plus-circle"></i> Agregar ruta (misma airline)</button>
+        <div class="ctx-menu-sep ctx-rate-only"></div>
+        <button class="ctx-menu-item ctx-rate-only" onclick="ctxAddSubroute()"><i class="bi bi-plus-circle"></i> Agregar ruta (misma airline)</button>
     </div>
 </div>
 {% endblock %}
@@ -678,9 +686,11 @@ const INTERNAL_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit'];
 // --- Table formatting state ---
 const FONT_SIZES = [6, 7, 8, 9, 10, 11, 12, 14, 16, 18];
 let currentFontIdx = 2; // default 8pt
-let colAligns = {}; // per-column alignment: { 'airline': 'left', 'route': 'center', ... }
-let selectedCol = null; // currently selected column for alignment
+let colAligns = {}; // per-table per-column: { 'rateTable': { 'airline': 'left' }, 'airlineTable': {...}, ... }
+let selectedCol = null;
+let selectedTableId = null; // which table the selected column belongs to
 let currentBold = false;
+const ALL_TABLES = ['rateTable', 'airlineTable', 'paymentTable'];
 
 // --- Auto-resize textareas ---
 function autoResize(el) {
@@ -755,7 +765,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initColumnDrag();
 });
 
-// --- Table formatting (font size, per-column alignment, bold) ---
+// --- Table formatting (font size, per-column alignment, bold) - ALL TABLES ---
 function loadTableFormat() {
     try {
         const saved = JSON.parse(localStorage.getItem('cs_table_fmt_' + CLIENT_ID) || '{}');
@@ -772,24 +782,25 @@ function saveTableFormat() {
     }));
 }
 
-function getColAlign(col) {
-    return colAligns[col] || 'center';
+function getColAlign(tableId, col) {
+    return (colAligns[tableId] && colAligns[tableId][col]) || 'center';
 }
 
 function applyTableFormat() {
     const size = FONT_SIZES[currentFontIdx];
     const sizeRem = (size / 16).toFixed(4) + 'rem';
-    // Apply to rate table cells - font/bold globally, alignment per column
-    document.querySelectorAll('#rateTable .editable-cell textarea').forEach(ta => {
-        ta.style.fontSize = sizeRem;
-        ta.style.fontWeight = currentBold ? 'bold' : 'normal';
-        // Per-column alignment
-        const td = ta.closest('td');
-        const col = td ? td.dataset.col : null;
-        if (col) ta.style.textAlign = getColAlign(col);
-        autoResize(ta);
+    // Apply to ALL tables
+    ALL_TABLES.forEach(tId => {
+        document.querySelectorAll(`#${tId} .editable-cell textarea`).forEach(ta => {
+            ta.style.fontSize = sizeRem;
+            ta.style.fontWeight = currentBold ? 'bold' : 'normal';
+            const td = ta.closest('td');
+            const col = td ? td.dataset.col : null;
+            if (col) ta.style.textAlign = getColAlign(tId, col);
+            autoResize(ta);
+        });
     });
-    // Apply to addcost inputs too
+    // Addcost inputs (rate table only)
     document.querySelectorAll('#rateTable .addcost-name, #rateTable .addcost-value').forEach(inp => {
         inp.style.fontSize = (Math.max(size - 1, 6) / 16).toFixed(4) + 'rem';
     });
@@ -800,14 +811,13 @@ function applyTableFormat() {
 }
 
 function updateAlignButtons() {
-    const align = selectedCol ? getColAlign(selectedCol) : 'center';
+    const align = (selectedCol && selectedTableId) ? getColAlign(selectedTableId, selectedCol) : 'center';
     document.getElementById('btnAlignL').classList.toggle('active', align === 'left');
     document.getElementById('btnAlignC').classList.toggle('active', align === 'center');
     document.getElementById('btnAlignR').classList.toggle('active', align === 'right');
-    // Show selected column label
     const label = document.getElementById('selectedColLabel');
-    if (selectedCol) {
-        const th = document.querySelector(`#rateTable th[data-col="${selectedCol}"] .th-text`);
+    if (selectedCol && selectedTableId) {
+        const th = document.querySelector(`#${selectedTableId} th[data-col="${selectedCol}"] .th-text`);
         label.textContent = th ? th.textContent.trim() : selectedCol;
         label.style.color = '#7c3aed';
     } else {
@@ -816,28 +826,33 @@ function updateAlignButtons() {
     }
 }
 
-function selectColumn(col) {
-    // Deselect previous
-    document.querySelectorAll('#rateTable th.col-selected').forEach(th => th.classList.remove('col-selected'));
-    if (selectedCol === col) {
-        selectedCol = null; // toggle off
+function selectColumn(col, tableId) {
+    // Deselect previous across all tables
+    document.querySelectorAll('th.col-selected').forEach(th => th.classList.remove('col-selected'));
+    if (selectedCol === col && selectedTableId === tableId) {
+        selectedCol = null;
+        selectedTableId = null;
     } else {
         selectedCol = col;
-        const th = document.querySelector(`#rateTable th[data-col="${col}"]`);
-        if (th) th.classList.add('col-selected');
+        selectedTableId = tableId || null;
+        if (tableId && col) {
+            const th = document.querySelector(`#${tableId} th[data-col="${col}"]`);
+            if (th) th.classList.add('col-selected');
+        }
     }
     updateAlignButtons();
 }
 
 function initColumnSelect() {
-    document.querySelectorAll('#rateTable thead th[data-col]').forEach(th => {
-        const col = th.dataset.col;
-        if (col.startsWith('__')) return;
-        th.addEventListener('click', (e) => {
-            // Don't select if editing text or resizing
-            if (e.target.classList.contains('resize-handle') || e.target.classList.contains('resize-handle-h')) return;
-            if (e.target.classList.contains('th-text') && document.activeElement === e.target) return;
-            selectColumn(col);
+    ALL_TABLES.forEach(tId => {
+        document.querySelectorAll(`#${tId} thead th[data-col]`).forEach(th => {
+            const col = th.dataset.col;
+            if (col.startsWith('__')) return;
+            th.addEventListener('click', (e) => {
+                if (e.target.classList.contains('resize-handle') || e.target.classList.contains('resize-handle-h')) return;
+                if (e.target.classList.contains('th-text') && document.activeElement === e.target) return;
+                selectColumn(col, tId);
+            });
         });
     });
 }
@@ -855,14 +870,17 @@ function toggleBold() {
 }
 
 function setAlign(align) {
-    if (selectedCol) {
-        // Apply to selected column only
-        colAligns[selectedCol] = align;
+    if (selectedCol && selectedTableId) {
+        if (!colAligns[selectedTableId]) colAligns[selectedTableId] = {};
+        colAligns[selectedTableId][selectedCol] = align;
     } else {
-        // Apply to all columns
-        document.querySelectorAll('#rateTable thead th[data-col]').forEach(th => {
-            const col = th.dataset.col;
-            if (!col.startsWith('__')) colAligns[col] = align;
+        // Apply to all columns in all tables
+        ALL_TABLES.forEach(tId => {
+            if (!colAligns[tId]) colAligns[tId] = {};
+            document.querySelectorAll(`#${tId} thead th[data-col]`).forEach(th => {
+                const col = th.dataset.col;
+                if (!col.startsWith('__')) colAligns[tId][col] = align;
+            });
         });
     }
     applyTableFormat();
@@ -1226,47 +1244,73 @@ function agregarSubruta(btn) {
     });
 }
 
-// --- Context Menu ---
+// --- Context Menu (all tables) ---
 let ctxTargetRow = null;
+let ctxTargetTable = null;
 function initContextMenu() {
-    const table = document.getElementById('rateTable');
     const menu = document.getElementById('ctxMenu');
-    table.querySelector('tbody').addEventListener('contextmenu', function(e) {
-        const row = e.target.closest('tr');
-        if (!row) return;
-        e.preventDefault();
-        ctxTargetRow = row;
-        menu.style.left = e.clientX + 'px';
-        menu.style.top = e.clientY + 'px';
-        menu.classList.add('show');
+    ALL_TABLES.forEach(tId => {
+        const table = document.getElementById(tId);
+        if (!table) return;
+        table.querySelector('tbody').addEventListener('contextmenu', function(e) {
+            const row = e.target.closest('tr');
+            if (!row) return;
+            e.preventDefault();
+            ctxTargetRow = row;
+            ctxTargetTable = tId;
+            // Show/hide rate-only items
+            menu.querySelectorAll('.ctx-rate-only').forEach(el => {
+                el.style.display = (tId === 'rateTable') ? '' : 'none';
+            });
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.classList.add('show');
+        });
     });
     document.addEventListener('click', () => menu.classList.remove('show'));
     document.addEventListener('contextmenu', (e) => {
-        if (!e.target.closest('#rateTable tbody')) menu.classList.remove('show');
+        const inTable = ALL_TABLES.some(tId => e.target.closest(`#${tId} tbody`));
+        if (!inTable) menu.classList.remove('show');
     });
 }
 
+function ctxGetEndpoint() {
+    if (ctxTargetTable === 'rateTable') return 'rate';
+    if (ctxTargetTable === 'airlineTable') return 'airline';
+    if (ctxTargetTable === 'paymentTable') return 'payment';
+    return 'rate';
+}
+
+function ctxBuildRow(id) {
+    if (ctxTargetTable === 'rateTable') return buildRateRow(id, '');
+    if (ctxTargetTable === 'airlineTable') return buildAirlineRow(id);
+    if (ctxTargetTable === 'paymentTable') return buildPaymentRow(id);
+    return buildRateRow(id, '');
+}
+
 function ctxInsertAbove() {
-    if (!ctxTargetRow) return;
-    fetch(`${BASE}/api/client/${CLIENT_ID}/rate`, {method: 'POST'})
+    if (!ctxTargetRow || !ctxTargetTable) return;
+    const ep = ctxGetEndpoint();
+    fetch(`${BASE}/api/client/${CLIENT_ID}/${ep}`, {method: 'POST'})
     .then(r => r.json()).then(data => {
         if (!data.success) return;
-        const tr = buildRateRow(data.id, '');
+        const tr = ctxBuildRow(data.id);
         ctxTargetRow.before(tr);
-        groupRouteRows();
+        if (ctxTargetTable === 'rateTable') groupRouteRows();
         tr.querySelector('textarea').focus();
     });
     document.getElementById('ctxMenu').classList.remove('show');
 }
 
 function ctxInsertBelow() {
-    if (!ctxTargetRow) return;
-    fetch(`${BASE}/api/client/${CLIENT_ID}/rate`, {method: 'POST'})
+    if (!ctxTargetRow || !ctxTargetTable) return;
+    const ep = ctxGetEndpoint();
+    fetch(`${BASE}/api/client/${CLIENT_ID}/${ep}`, {method: 'POST'})
     .then(r => r.json()).then(data => {
         if (!data.success) return;
-        const tr = buildRateRow(data.id, '');
+        const tr = ctxBuildRow(data.id);
         ctxTargetRow.after(tr);
-        groupRouteRows();
+        if (ctxTargetTable === 'rateTable') groupRouteRows();
         tr.querySelector('textarea').focus();
     });
     document.getElementById('ctxMenu').classList.remove('show');
@@ -1329,21 +1373,27 @@ function ctxAddSubroute() {
 }
 
 function ctxDeleteRow() {
-    if (!ctxTargetRow) return;
+    if (!ctxTargetRow || !ctxTargetTable) return;
     const id = ctxTargetRow.dataset.id;
     if (!confirm('Eliminar esta fila?')) return;
-    // Before removing, reset rowspan so sub-rows recover their airline cell
-    const airlineCell = ctxTargetRow.querySelector('.col-airline');
-    if (airlineCell && airlineCell.rowSpan > 1) {
-        const nextRow = ctxTargetRow.nextElementSibling;
-        if (nextRow) {
-            const nextCell = nextRow.querySelector('.col-airline');
-            if (nextCell) nextCell.style.display = '';
+    // For rate table, handle rowspan before removing
+    if (ctxTargetTable === 'rateTable') {
+        const airlineCell = ctxTargetRow.querySelector('.col-airline');
+        if (airlineCell && airlineCell.rowSpan > 1) {
+            const nextRow = ctxTargetRow.nextElementSibling;
+            if (nextRow) {
+                const nextCell = nextRow.querySelector('.col-airline');
+                if (nextCell) nextCell.style.display = '';
+            }
         }
     }
-    fetch(`${BASE}/api/rate/${id}`, {method: 'DELETE'})
+    const ep = ctxGetEndpoint();
+    fetch(`${BASE}/api/${ep}/${id}`, {method: 'DELETE'})
     .then(r => r.json()).then(data => {
-        if (data.success) { ctxTargetRow.remove(); groupRouteRows(); }
+        if (data.success) {
+            ctxTargetRow.remove();
+            if (ctxTargetTable === 'rateTable') groupRouteRows();
+        }
     });
     document.getElementById('ctxMenu').classList.remove('show');
 }
@@ -1357,54 +1407,58 @@ const FIELD_TO_COL = {
 };
 
 function autoTagBodyCols() {
-    const table = document.getElementById('rateTable');
-    const ths = Array.from(table.querySelectorAll('thead th'));
-    table.querySelectorAll('tbody tr').forEach(row => {
-        Array.from(row.children).forEach((td, i) => {
-            if (i < ths.length && ths[i].dataset.col) {
-                td.dataset.col = ths[i].dataset.col;
-            }
+    ALL_TABLES.forEach(tId => {
+        const table = document.getElementById(tId);
+        if (!table) return;
+        const ths = Array.from(table.querySelectorAll('thead th'));
+        table.querySelectorAll('tbody tr').forEach(row => {
+            Array.from(row.children).forEach((td, i) => {
+                if (i < ths.length && ths[i].dataset.col) {
+                    td.dataset.col = ths[i].dataset.col;
+                }
+            });
         });
     });
 }
 
 function loadColumnOrder() {
-    try {
-        const saved = JSON.parse(localStorage.getItem('cs_col_order_' + CLIENT_ID));
-        if (!saved || !saved.length) return;
-        const table = document.getElementById('rateTable');
-        const headerRow = table.querySelector('thead tr');
-        const currentCols = Array.from(headerRow.querySelectorAll('th[data-col]'))
-            .map(th => th.dataset.col)
-            .filter(c => !c.startsWith('__'));
-        const currentSet = new Set(currentCols);
-        const savedSet = new Set(saved);
-        // Merge: saved order first, then any new columns not in saved
-        const order = saved.filter(c => currentSet.has(c));
-        currentCols.forEach(c => { if (!savedSet.has(c)) order.push(c); });
-        applyColumnOrder(order);
-    } catch(e) {}
+    ALL_TABLES.forEach(tId => {
+        try {
+            const saved = JSON.parse(localStorage.getItem('cs_col_order_' + CLIENT_ID + '_' + tId));
+            if (!saved || !saved.length) return;
+            const table = document.getElementById(tId);
+            if (!table) return;
+            const headerRow = table.querySelector('thead tr');
+            const currentCols = Array.from(headerRow.querySelectorAll('th[data-col]'))
+                .map(th => th.dataset.col)
+                .filter(c => !c.startsWith('__'));
+            const currentSet = new Set(currentCols);
+            const savedSet = new Set(saved);
+            const order = saved.filter(c => currentSet.has(c));
+            currentCols.forEach(c => { if (!savedSet.has(c)) order.push(c); });
+            applyColumnOrder(order, tId);
+        } catch(e) {}
+    });
 }
 
-function saveColumnOrder() {
-    const table = document.getElementById('rateTable');
+function saveColumnOrder(tableId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
     const order = Array.from(table.querySelectorAll('thead th[data-col]'))
         .map(th => th.dataset.col)
         .filter(c => !c.startsWith('__'));
-    localStorage.setItem('cs_col_order_' + CLIENT_ID, JSON.stringify(order));
+    localStorage.setItem('cs_col_order_' + CLIENT_ID + '_' + tableId, JSON.stringify(order));
 }
 
-function applyColumnOrder(order) {
-    const table = document.getElementById('rateTable');
+function applyColumnOrder(order, tableId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
     const headerRow = table.querySelector('thead tr');
-    // Get fixed columns (stay at end)
     const fixedThs = Array.from(headerRow.querySelectorAll('th[data-col^="__"]'));
-    // Reorder header
     order.forEach(col => {
         const th = headerRow.querySelector(`th[data-col="${col}"]`);
         if (th && fixedThs.length) fixedThs[0].before(th);
     });
-    // Reorder body rows
     table.querySelectorAll('tbody tr').forEach(row => {
         const fixedTds = Array.from(row.querySelectorAll('td[data-col^="__"]'));
         order.forEach(col => {
@@ -1415,52 +1469,56 @@ function applyColumnOrder(order) {
 }
 
 function initColumnDrag() {
-    const table = document.getElementById('rateTable');
-    const headerRow = table.querySelector('thead tr');
+    ALL_TABLES.forEach(tId => {
+        const table = document.getElementById(tId);
+        if (!table) return;
+        const headerRow = table.querySelector('thead tr');
 
-    headerRow.querySelectorAll('th[data-col]').forEach(th => {
-        if (th.dataset.col.startsWith('__')) return;
-        th.draggable = true;
+        headerRow.querySelectorAll('th[data-col]').forEach(th => {
+            if (th.dataset.col.startsWith('__')) return;
+            th.draggable = true;
 
-        th.addEventListener('dragstart', (e) => {
-            // Don't drag if editing text
-            const active = document.activeElement;
-            if (active && active.classList.contains('th-text')) {
-                e.preventDefault(); return;
-            }
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', th.dataset.col);
-            th.classList.add('dragging');
-            setTimeout(() => { th.style.opacity = '0.4'; }, 0);
-        });
+            th.addEventListener('dragstart', (e) => {
+                const active = document.activeElement;
+                if (active && active.classList.contains('th-text')) {
+                    e.preventDefault(); return;
+                }
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', th.dataset.col + '|' + tId);
+                th.classList.add('dragging');
+                setTimeout(() => { th.style.opacity = '0.4'; }, 0);
+            });
 
-        th.addEventListener('dragend', () => {
-            th.classList.remove('dragging');
-            th.style.opacity = '';
-            headerRow.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        });
+            th.addEventListener('dragend', () => {
+                th.classList.remove('dragging');
+                th.style.opacity = '';
+                headerRow.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            });
 
-        th.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            if (!th.classList.contains('dragging')) th.classList.add('drag-over');
-        });
+            th.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (!th.classList.contains('dragging')) th.classList.add('drag-over');
+            });
 
-        th.addEventListener('dragleave', () => { th.classList.remove('drag-over'); });
+            th.addEventListener('dragleave', () => { th.classList.remove('drag-over'); });
 
-        th.addEventListener('drop', (e) => {
-            e.preventDefault();
-            th.classList.remove('drag-over');
-            const sourceCol = e.dataTransfer.getData('text/plain');
-            const targetCol = th.dataset.col;
-            if (!sourceCol || sourceCol === targetCol) return;
-            moveColumn(sourceCol, targetCol);
+            th.addEventListener('drop', (e) => {
+                e.preventDefault();
+                th.classList.remove('drag-over');
+                const raw = e.dataTransfer.getData('text/plain');
+                const [sourceCol, sourceTable] = raw.split('|');
+                const targetCol = th.dataset.col;
+                if (!sourceCol || sourceCol === targetCol || sourceTable !== tId) return;
+                moveColumn(sourceCol, targetCol, tId);
+            });
         });
     });
 }
 
-function moveColumn(sourceCol, targetCol) {
-    const table = document.getElementById('rateTable');
+function moveColumn(sourceCol, targetCol, tableId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
     const headerRow = table.querySelector('thead tr');
     const sourceTh = headerRow.querySelector(`th[data-col="${sourceCol}"]`);
     const targetTh = headerRow.querySelector(`th[data-col="${targetCol}"]`);
@@ -1472,7 +1530,6 @@ function moveColumn(sourceCol, targetCol) {
     if (sourceIdx < targetIdx) targetTh.after(sourceTh);
     else targetTh.before(sourceTh);
 
-    // Move in all body rows
     table.querySelectorAll('tbody tr').forEach(row => {
         const sTd = row.querySelector(`td[data-col="${sourceCol}"]`);
         const tTd = row.querySelector(`td[data-col="${targetCol}"]`);
@@ -1483,12 +1540,13 @@ function moveColumn(sourceCol, targetCol) {
         else tTd.before(sTd);
     });
 
-    saveColumnOrder();
-    groupRouteRows();
+    saveColumnOrder(tableId);
+    if (tableId === 'rateTable') groupRouteRows();
 }
 
-function reorderNewRow(tr) {
-    const headerOrder = Array.from(document.querySelectorAll('#rateTable thead th'))
+function reorderNewRow(tr, tableId) {
+    tableId = tableId || 'rateTable';
+    const headerOrder = Array.from(document.querySelectorAll(`#${tableId} thead th`))
         .map(th => th.dataset.col).filter(Boolean);
     const cells = {};
     Array.from(tr.children).forEach(td => {
@@ -1545,7 +1603,7 @@ function buildRateRow(id, airlineName) {
         ta.style.fontWeight = currentBold ? 'bold' : 'normal';
         const td = ta.closest('td');
         const col = td ? td.dataset.col : null;
-        if (col) ta.style.textAlign = getColAlign(col);
+        if (col) ta.style.textAlign = getColAlign('rateTable', col);
     });
     // Additional Costs cell
     const addcostTd = document.createElement('td');
@@ -1587,11 +1645,108 @@ function buildRateRow(id, airlineName) {
     delTd.className = 'text-center col-del';
     delTd.dataset.col = '__del';
     delTd.style.verticalAlign = 'middle';
-    delTd.innerHTML = `<button class="btn-delete-row" onclick="eliminarRate(this,${id})"><i class="bi bi-x-lg"></i></button>
-        <button class="btn-add-subroute" onclick="agregarSubruta(this)" title="Agregar ruta"><i class="bi bi-plus-circle me-1"></i>Ruta</button>`;
+    delTd.innerHTML = `<div class="col-del-actions"><button class="btn-delete-row" onclick="eliminarRate(this,${id})" title="Eliminar fila"><i class="bi bi-x-lg"></i></button><button class="btn-add-subroute" onclick="agregarSubruta(this)" title="Agregar ruta"><i class="bi bi-plus-circle"></i></button></div>`;
     tr.appendChild(delTd);
     // Reorder to match current column order
     reorderNewRow(tr);
+    return tr;
+}
+
+function applyFormatToRow(tr, tableId) {
+    const size = FONT_SIZES[currentFontIdx];
+    const sizeRem = (size / 16).toFixed(4) + 'rem';
+    tr.querySelectorAll('.editable-cell textarea').forEach(ta => {
+        ta.style.fontSize = sizeRem;
+        ta.style.fontWeight = currentBold ? 'bold' : 'normal';
+        const td = ta.closest('td');
+        const col = td ? td.dataset.col : null;
+        if (col) ta.style.textAlign = getColAlign(tableId, col);
+    });
+}
+
+function buildAirlineRow(id) {
+    const fields = ['current_status','proximo_vuelo','kg','entrega_fincas','hora_maxima','aerolinea','all_in_rate'];
+    const tr = document.createElement('tr');
+    tr.dataset.id = id;
+    fields.forEach(f => {
+        const td = document.createElement('td');
+        td.className = 'editable-cell';
+        td.dataset.col = f;
+        const ta = document.createElement('textarea');
+        ta.dataset.field = f;
+        ta.setAttribute('onblur', 'guardarAirline(this)');
+        ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
+        ta.addEventListener('input', () => autoResize(ta));
+        td.appendChild(ta);
+        tr.appendChild(td);
+    });
+    // Custom columns
+    document.querySelectorAll('#airlineTable thead .custom-col-name[data-table="airlines"]').forEach(span => {
+        const td = document.createElement('td');
+        td.className = 'editable-cell';
+        td.dataset.col = 'custom_' + span.dataset.colName;
+        const ta = document.createElement('textarea');
+        ta.dataset.field = 'extra:' + span.dataset.colName;
+        ta.setAttribute('onblur', 'guardarAirline(this)');
+        ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
+        ta.addEventListener('input', () => autoResize(ta));
+        td.appendChild(ta);
+        tr.appendChild(td);
+    });
+    const addColTd = document.createElement('td');
+    addColTd.dataset.col = '__addcol';
+    tr.appendChild(addColTd);
+    const delTd = document.createElement('td');
+    delTd.className = 'col-del';
+    delTd.dataset.col = '__del';
+    delTd.style.verticalAlign = 'middle';
+    delTd.innerHTML = `<div class="col-del-actions"><button class="btn-delete-row" onclick="eliminarAirline(this,${id})" title="Eliminar fila"><i class="bi bi-x-lg"></i></button></div>`;
+    tr.appendChild(delTd);
+    applyFormatToRow(tr, 'airlineTable');
+    reorderNewRow(tr, 'airlineTable');
+    return tr;
+}
+
+function buildPaymentRow(id) {
+    const fields = ['valor','fecha','credito'];
+    const tr = document.createElement('tr');
+    tr.dataset.id = id;
+    fields.forEach(f => {
+        const td = document.createElement('td');
+        td.className = 'editable-cell';
+        td.dataset.col = f;
+        const ta = document.createElement('textarea');
+        ta.dataset.field = f;
+        ta.setAttribute('onblur', 'guardarPayment(this)');
+        ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
+        ta.addEventListener('input', () => autoResize(ta));
+        td.appendChild(ta);
+        tr.appendChild(td);
+    });
+    // Custom columns
+    document.querySelectorAll('#paymentTable thead .custom-col-name[data-table="payments"]').forEach(span => {
+        const td = document.createElement('td');
+        td.className = 'editable-cell';
+        td.dataset.col = 'custom_' + span.dataset.colName;
+        const ta = document.createElement('textarea');
+        ta.dataset.field = 'extra:' + span.dataset.colName;
+        ta.setAttribute('onblur', 'guardarPayment(this)');
+        ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
+        ta.addEventListener('input', () => autoResize(ta));
+        td.appendChild(ta);
+        tr.appendChild(td);
+    });
+    const addColTd = document.createElement('td');
+    addColTd.dataset.col = '__addcol';
+    tr.appendChild(addColTd);
+    const delTd = document.createElement('td');
+    delTd.className = 'col-del';
+    delTd.dataset.col = '__del';
+    delTd.style.verticalAlign = 'middle';
+    delTd.innerHTML = `<div class="col-del-actions"><button class="btn-delete-row" onclick="eliminarPayment(this,${id})" title="Eliminar fila"><i class="bi bi-x-lg"></i></button></div>`;
+    tr.appendChild(delTd);
+    applyFormatToRow(tr, 'paymentTable');
+    reorderNewRow(tr, 'paymentTable');
     return tr;
 }
 
@@ -1704,38 +1859,7 @@ function agregarAirline() {
     .then(r => r.json()).then(data => {
         if (!data.success) return;
         const tbody = document.querySelector('#airlineTable tbody');
-        const fields = ['current_status','proximo_vuelo','kg','entrega_fincas','hora_maxima','aerolinea','all_in_rate'];
-        const tr = document.createElement('tr');
-        tr.dataset.id = data.id;
-        fields.forEach(f => {
-            const td = document.createElement('td');
-            td.className = 'editable-cell';
-            const ta = document.createElement('textarea');
-            ta.dataset.field = f;
-            ta.setAttribute('onblur', 'guardarAirline(this)');
-            ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
-            ta.addEventListener('input', () => autoResize(ta));
-            td.appendChild(ta);
-            tr.appendChild(td);
-        });
-        // Custom columns
-        document.querySelectorAll('#airlineTable thead .custom-col-name[data-table="airlines"]').forEach(span => {
-            const td = document.createElement('td');
-            td.className = 'editable-cell';
-            const ta = document.createElement('textarea');
-            ta.dataset.field = 'extra:' + span.dataset.colName;
-            ta.setAttribute('onblur', 'guardarAirline(this)');
-            ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
-            ta.addEventListener('input', () => autoResize(ta));
-            td.appendChild(ta);
-            tr.appendChild(td);
-        });
-        tr.appendChild(document.createElement('td'));
-        const delTd = document.createElement('td');
-        delTd.className = 'text-center';
-        delTd.style.verticalAlign = 'middle';
-        delTd.innerHTML = `<button class="btn-delete-row" onclick="eliminarAirline(this,${data.id})"><i class="bi bi-x-lg"></i></button>`;
-        tr.appendChild(delTd);
+        const tr = buildAirlineRow(data.id);
         tbody.appendChild(tr);
         tr.querySelector('textarea').focus();
     });
@@ -1764,38 +1888,7 @@ function agregarPayment() {
     .then(r => r.json()).then(data => {
         if (!data.success) return;
         const tbody = document.querySelector('#paymentTable tbody');
-        const fields = ['valor','fecha','credito'];
-        const tr = document.createElement('tr');
-        tr.dataset.id = data.id;
-        fields.forEach(f => {
-            const td = document.createElement('td');
-            td.className = 'editable-cell';
-            const ta = document.createElement('textarea');
-            ta.dataset.field = f;
-            ta.setAttribute('onblur', 'guardarPayment(this)');
-            ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
-            ta.addEventListener('input', () => autoResize(ta));
-            td.appendChild(ta);
-            tr.appendChild(td);
-        });
-        // Custom columns
-        document.querySelectorAll('#paymentTable thead .custom-col-name[data-table="payments"]').forEach(span => {
-            const td = document.createElement('td');
-            td.className = 'editable-cell';
-            const ta = document.createElement('textarea');
-            ta.dataset.field = 'extra:' + span.dataset.colName;
-            ta.setAttribute('onblur', 'guardarPayment(this)');
-            ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
-            ta.addEventListener('input', () => autoResize(ta));
-            td.appendChild(ta);
-            tr.appendChild(td);
-        });
-        tr.appendChild(document.createElement('td'));
-        const delTd = document.createElement('td');
-        delTd.className = 'text-center';
-        delTd.style.verticalAlign = 'middle';
-        delTd.innerHTML = `<button class="btn-delete-row" onclick="eliminarPayment(this,${data.id})"><i class="bi bi-x-lg"></i></button>`;
-        tr.appendChild(delTd);
+        const tr = buildPaymentRow(data.id);
         tbody.appendChild(tr);
         tr.querySelector('textarea').focus();
     });
