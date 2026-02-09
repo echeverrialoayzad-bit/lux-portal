@@ -564,10 +564,12 @@
                 <thead>
                     <tr>
                         <th><span contenteditable="true" class="th-text">Current Status</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">Proximo Vuelo</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">Entrega de Fincas</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">Hora Maxima</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span contenteditable="true" class="th-text">Aerolinea</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">Next Flight</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">KG</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">Farms Deliver</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">Farm Maximum Delivery Time</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">Airline</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span contenteditable="true" class="th-text">All in Rate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         {% for col in cliente.get_custom_cols('airlines') %}
                         <th><span contenteditable="true" class="th-text custom-col-name" data-table="airlines" data-col-name="{{ col }}">{{ col }}</span><button class="btn-del-col" onclick="deleteCustomCol('airlines','{{ col }}',this)" title="Eliminar columna">&times;</button><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         {% endfor %}
@@ -580,9 +582,11 @@
                     <tr data-id="{{ a.id }}">
                         <td class="editable-cell"><textarea data-field="current_status" onblur="guardarAirline(this)">{{ a.current_status }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="proximo_vuelo" onblur="guardarAirline(this)">{{ a.proximo_vuelo }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="kg" onblur="guardarAirline(this)">{{ a.kg }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="entrega_fincas" onblur="guardarAirline(this)">{{ a.entrega_fincas }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="hora_maxima" onblur="guardarAirline(this)">{{ a.hora_maxima }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="aerolinea" onblur="guardarAirline(this)">{{ a.aerolinea }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="all_in_rate" onblur="guardarAirline(this)">{{ a.all_in_rate }}</textarea></td>
                         {% for col in cliente.get_custom_cols('airlines') %}
                         <td class="editable-cell"><textarea data-field="extra:{{ col }}" onblur="guardarAirline(this)">{{ a.get_extra().get(col, '') }}</textarea></td>
                         {% endfor %}
@@ -1700,7 +1704,7 @@ function agregarAirline() {
     .then(r => r.json()).then(data => {
         if (!data.success) return;
         const tbody = document.querySelector('#airlineTable tbody');
-        const fields = ['current_status','proximo_vuelo','entrega_fincas','hora_maxima','aerolinea'];
+        const fields = ['current_status','proximo_vuelo','kg','entrega_fincas','hora_maxima','aerolinea','all_in_rate'];
         const tr = document.createElement('tr');
         tr.dataset.id = data.id;
         fields.forEach(f => {

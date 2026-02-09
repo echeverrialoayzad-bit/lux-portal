@@ -158,7 +158,7 @@ def actualizar_airline(id):
         extra.update(data['extra'])
         airline.extra_data = json.dumps(extra)
     else:
-        for field in ['current_status', 'proximo_vuelo', 'entrega_fincas', 'hora_maxima', 'aerolinea']:
+        for field in ['current_status', 'proximo_vuelo', 'kg', 'entrega_fincas', 'hora_maxima', 'aerolinea', 'all_in_rate']:
             if field in data:
                 setattr(airline, field, data[field])
     db.session.commit()
@@ -402,7 +402,7 @@ def upload_excel(id):
                 if all(c == '' or c == 'None' for c in row):
                     continue
                 airline = StatusAirline(client_id=id)
-                fields2 = ['current_status', 'proximo_vuelo', 'entrega_fincas', 'hora_maxima', 'aerolinea']
+                fields2 = ['current_status', 'proximo_vuelo', 'kg', 'entrega_fincas', 'hora_maxima', 'aerolinea', 'all_in_rate']
                 for j, field in enumerate(fields2):
                     if j < len(row):
                         val = row[j] if row[j] != 'None' else ''
@@ -538,7 +538,7 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
 
     # Table 2: Current Status
     if tabla in ('all', 'status'):
-        headers2 = ['Current Status', 'Proximo Vuelo', 'Entrega de Fincas', 'Hora Maxima', 'Aerolinea'] + custom_airlines
+        headers2 = ['Current Status', 'Next Flight', 'KG', 'Farms Deliver', 'Farm Maximum Delivery Time', 'Airline', 'All in Rate'] + custom_airlines
         for col, h in enumerate(headers2, 1):
             cell = ws.cell(row=row, column=col, value=h)
             cell.fill = purple_fill
@@ -548,7 +548,7 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
         row += 1
         for idx, a in enumerate(cliente.airlines):
             extra = a.get_extra()
-            vals = [a.current_status, a.proximo_vuelo, a.entrega_fincas, a.hora_maxima, a.aerolinea]
+            vals = [a.current_status, a.proximo_vuelo, a.kg, a.entrega_fincas, a.hora_maxima, a.aerolinea, a.all_in_rate]
             vals += [extra.get(c, '') for c in custom_airlines]
             for col, v in enumerate(vals, 1):
                 cell = ws.cell(row=row, column=col, value=v)
@@ -776,12 +776,12 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
 
     # Table 2: Current Status
     if tabla in ('all', 'status'):
-        data2 = [[PH('Current Status'), PH('Proximo Vuelo'), PH('Entrega de Fincas'), PH('Hora Maxima'), PH('Aerolinea')]
+        data2 = [[PH('Current Status'), PH('Next Flight'), PH('KG'), PH('Farms Deliver'), PH('Farm Max Delivery'), PH('Airline'), PH('All in Rate')]
                   + [PH(c) for c in custom_airlines]]
-        col_widths2 = [55*mm, 55*mm, 55*mm, 45*mm, 45*mm] + [35*mm] * len(custom_airlines)
+        col_widths2 = [40*mm, 40*mm, 20*mm, 40*mm, 40*mm, 30*mm, 25*mm] + [30*mm] * len(custom_airlines)
         for a in cliente.airlines:
             extra = a.get_extra()
-            data2.append([P(a.current_status), P(a.proximo_vuelo), P(a.entrega_fincas), P(a.hora_maxima), P(a.aerolinea)]
+            data2.append([P(a.current_status), P(a.proximo_vuelo), P(a.kg), P(a.entrega_fincas), P(a.hora_maxima), P(a.aerolinea), P(a.all_in_rate)]
                          + [P(extra.get(c, '')) for c in custom_airlines])
         if len(data2) > 1:
             t2 = Table(data2, repeatRows=1, colWidths=col_widths2)

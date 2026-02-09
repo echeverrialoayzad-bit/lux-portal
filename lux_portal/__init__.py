@@ -55,6 +55,8 @@ def _migrate_db(app):
         ('status_payments', 'extra_data', "TEXT DEFAULT '{}'"),
         ('planner_tasks', 'start_time', 'TIME'),
         ('planner_tasks', 'end_time', 'TIME'),
+        ('status_airlines', 'kg', 'VARCHAR(200) DEFAULT \'\''),
+        ('status_airlines', 'all_in_rate', 'VARCHAR(200) DEFAULT \'\''),
     ]
     for table, column, col_type in migrations:
         try:

@@ -65,9 +65,11 @@ class StatusAirline(db.Model):
     client_id = db.Column(db.Integer, db.ForeignKey('status_clients.id'), nullable=False)
     current_status = db.Column(db.String(200), default='')
     proximo_vuelo = db.Column(db.String(200), default='')
+    kg = db.Column(db.String(200), default='')
     entrega_fincas = db.Column(db.String(200), default='')
     hora_maxima = db.Column(db.String(200), default='')
     aerolinea = db.Column(db.String(200), default='')
+    all_in_rate = db.Column(db.String(200), default='')
     extra_data = db.Column(db.Text, default='{}')
 
     def get_extra(self):
