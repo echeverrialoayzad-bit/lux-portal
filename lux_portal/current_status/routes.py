@@ -494,7 +494,9 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
             cell.border = thin_border
         ws.merge_cells(start_row=row, start_column=add_costs_col, end_row=row, end_column=add_costs_col + 1)
         row += 1
-        for idx, r in enumerate(cliente.rates):
+        sorted_rates = sorted(cliente.rates, key=lambda r: (r.airline or '').lower())
+        data_start_row = row
+        for idx, r in enumerate(sorted_rates):
             if hide_internal:
                 vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
                         r.final_rate, r.additional_costs, r.additional_costs_value, r.notes]
@@ -511,6 +513,16 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
                 if idx % 2 == 1:
                     cell.fill = gray_fill
             row += 1
+        # Merge airline cells for same-airline groups
+        i = 0
+        while i < len(sorted_rates):
+            airline = (sorted_rates[i].airline or '').strip().lower()
+            start = i
+            while i < len(sorted_rates) and (sorted_rates[i].airline or '').strip().lower() == airline:
+                i += 1
+            if i - start > 1 and airline:
+                ws.merge_cells(start_row=data_start_row + start, start_column=1,
+                               end_row=data_start_row + i - 1, end_column=1)
         row += 1
 
     # Table 2: Current Status
@@ -702,12 +714,13 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
     # Table 1: Airline Rates
     if tabla in ('all', 'rates'):
         extra_w = [20*mm] * len(custom_rates)
+        sorted_rates = sorted(cliente.rates, key=lambda r: (r.airline or '').lower())
         if hide_internal:
             data1 = [[PH('Airline'), PH('Route'), PH('Transit'), PH('KG'), PH('Date'),
                        PH('Final Rate'), PH('Additional Costs'), PH(''), PH('Notes')] + [PH(c) for c in custom_rates]]
             add_span = (6, 0, 7, 0)
             col_widths1 = [40*mm, 38*mm, 22*mm, 18*mm, 28*mm, 20*mm, 28*mm, 20*mm, 55*mm] + extra_w
-            for r in cliente.rates:
+            for r in sorted_rates:
                 extra = r.get_extra()
                 data1.append([P(r.airline), P(r.route), P(r.transit_time), P(r.kg_availability), P(r.date),
                               P(r.final_rate), P(r.additional_costs), P(r.additional_costs_value), P(r.notes)]
@@ -718,12 +731,22 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
                        PH('Add. Costs'), PH(''), PH('Notes')] + [PH(c) for c in custom_rates]]
             add_span = (10, 0, 11, 0)
             col_widths1 = [28*mm, 28*mm, 18*mm, 14*mm, 22*mm, 14*mm, 14*mm, 14*mm, 14*mm, 16*mm, 22*mm, 16*mm, 37*mm] + extra_w
-            for r in cliente.rates:
+            for r in sorted_rates:
                 extra = r.get_extra()
                 data1.append([P(r.airline), P(r.route), P(r.transit_time), P(r.kg_availability), P(r.date),
                               P(r.net_rate), P(r.operative), P(r.net_ops), P(r.profit), P(r.final_rate),
                               P(r.additional_costs), P(r.additional_costs_value), P(r.notes)]
                              + [P(extra.get(c, '')) for c in custom_rates])
+        # Build merge spans for same-airline groups
+        airline_spans = []
+        i = 0
+        while i < len(sorted_rates):
+            airline = (sorted_rates[i].airline or '').strip().lower()
+            start = i
+            while i < len(sorted_rates) and (sorted_rates[i].airline or '').strip().lower() == airline:
+                i += 1
+            if i - start > 1 and airline:
+                airline_spans.append(('SPAN', (0, start + 1), (0, i)))  # +1 for header row
         if len(data1) > 1:
             t1 = Table(data1, repeatRows=1, colWidths=col_widths1)
             t1.setStyle(TableStyle([
@@ -731,7 +754,7 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
                 ('BACKGROUND', (0, 0), (-1, 0), purple),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#E2E8F0')]),
-            ] + common_style))
+            ] + common_style + airline_spans))
             elements.append(t1)
             elements.append(Spacer(1, 15))
 
