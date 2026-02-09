@@ -496,6 +496,17 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
         row += 1
         sorted_rates = sorted(cliente.rates, key=lambda r: (r.airline or '').lower())
         data_start_row = row
+        # Build group index per row (same airline group = same color)
+        group_idx = 0
+        row_group = []
+        i = 0
+        while i < len(sorted_rates):
+            airline = (sorted_rates[i].airline or '').strip().lower()
+            start = i
+            while i < len(sorted_rates) and (sorted_rates[i].airline or '').strip().lower() == airline:
+                row_group.append(group_idx)
+                i += 1
+            group_idx += 1
         for idx, r in enumerate(sorted_rates):
             if hide_internal:
                 vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
@@ -510,7 +521,7 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
                 cell = ws.cell(row=row, column=col, value=v)
                 cell.border = thin_border
                 cell.alignment = data_alignment
-                if idx % 2 == 1:
+                if row_group[idx] % 2 == 1:
                     cell.fill = gray_fill
             row += 1
         # Merge airline cells for same-airline groups
@@ -737,8 +748,10 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
                               P(r.net_rate), P(r.operative), P(r.net_ops), P(r.profit), P(r.final_rate),
                               P(r.additional_costs), P(r.additional_costs_value), P(r.notes)]
                              + [P(extra.get(c, '')) for c in custom_rates])
-        # Build merge spans for same-airline groups
+        # Build merge spans and group-based backgrounds for same-airline groups
         airline_spans = []
+        group_bg = []
+        group_idx = 0
         i = 0
         while i < len(sorted_rates):
             airline = (sorted_rates[i].airline or '').strip().lower()
@@ -747,14 +760,17 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
                 i += 1
             if i - start > 1 and airline:
                 airline_spans.append(('SPAN', (0, start + 1), (0, i)))  # +1 for header row
+            bg_color = colors.HexColor('#E2E8F0') if group_idx % 2 == 1 else colors.white
+            for row_i in range(start, i):
+                group_bg.append(('BACKGROUND', (0, row_i + 1), (-1, row_i + 1), bg_color))
+            group_idx += 1
         if len(data1) > 1:
             t1 = Table(data1, repeatRows=1, colWidths=col_widths1)
             t1.setStyle(TableStyle([
                 ('SPAN', (add_span[0], add_span[1]), (add_span[2], add_span[3])),
                 ('BACKGROUND', (0, 0), (-1, 0), purple),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#E2E8F0')]),
-            ] + common_style + airline_spans))
+            ] + group_bg + common_style + airline_spans))
             elements.append(t1)
             elements.append(Spacer(1, 15))
 
