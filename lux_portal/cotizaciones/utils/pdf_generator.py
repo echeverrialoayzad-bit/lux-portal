@@ -49,6 +49,21 @@ def traducir_dias(texto, a_ingles=True):
     return resultado
 
 
+def _make_cell_paragraph(text, font_size=6, alignment=TA_CENTER, text_color=BLACK_COLOR):
+    """Crea un Paragraph que hace word-wrap dentro de una celda de tabla."""
+    style = ParagraphStyle(
+        'cell',
+        fontName='Helvetica',
+        fontSize=font_size,
+        leading=font_size + 2,
+        alignment=alignment,
+        textColor=text_color,
+    )
+    # Reemplazar saltos de linea por <br/>
+    safe_text = str(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br/>')
+    return Paragraph(safe_text, style)
+
+
 def _generar_elementos_pdf(datos, idioma, available_width):
     """Genera los elementos de una pagina PDF para el idioma dado."""
     elements = []
@@ -202,6 +217,12 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                 salida = traducir_dias(salida, a_ingles=True)
                 llegada = traducir_dias(llegada, a_ingles=True)
 
+            notas_texto = aero.get('notas', '')
+
+            # Usar Paragraph para cargos y notas (word-wrap)
+            cargos_para = _make_cell_paragraph(cargos_texto, font_size=6, alignment=TA_CENTER, text_color=text_color)
+            notas_para = _make_cell_paragraph(notas_texto, font_size=6, alignment=TA_CENTER, text_color=text_color)
+
             row = [
                 aero.get('aerolinea', ''),
                 aero.get('vuelo', ''),
@@ -212,10 +233,10 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                 llegada,
                 kg_texto,
                 tarifa_texto,
-                cargos_texto,
+                cargos_para,
                 '',
                 '',
-                aero.get('notas', '')
+                notas_para
             ]
 
             table_data.append(row)
