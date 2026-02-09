@@ -300,15 +300,15 @@
         </div>
         <div class="flex-grow-1">
             <label class="form-label small mb-1">Tarifa Base</label>
-            <input type="number" step="0.01" class="form-control form-control-sm rate-input" value="0.00">
+            <input type="text" class="form-control form-control-sm rate-input formula-input" value="0.00">
         </div>
         <div class="flex-grow-1">
             <label class="form-label small mb-1">Ganancia</label>
-            <input type="number" step="0.01" class="form-control form-control-sm margin-input" value="0.00">
+            <input type="text" class="form-control form-control-sm margin-input formula-input" value="0.00">
         </div>
         <div class="flex-grow-1">
             <label class="form-label small mb-1">Costo Op.</label>
-            <input type="number" step="0.01" class="form-control form-control-sm costo-op-input" value="0.00">
+            <input type="text" class="form-control form-control-sm costo-op-input formula-input" value="0.00">
         </div>
         <div class="flex-grow-1">
             <label class="form-label small mb-1">Precio Final</label>
@@ -327,18 +327,129 @@
         <input class="form-check-input cargo-check" type="checkbox">
         <input type="text" class="form-control form-control-sm cargo-concepto" style="flex: 2;">
         <span>$</span>
-        <input type="number" step="0.01" class="form-control form-control-sm cargo-monto" style="width: 100px;">
+        <input type="text" class="form-control form-control-sm cargo-monto formula-input" style="width: 100px;">
         <button type="button" class="btn btn-outline-danger btn-sm cargo-delete d-none"
                 onclick="eliminarCargo(this)">
             <i class="bi bi-trash"></i>
         </button>
     </div>
 </template>
+
+<!-- Modal de seleccion de idioma para exportar -->
+<div class="modal fade" id="idiomaModal" tabindex="-1" aria-labelledby="idiomaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #5f259f, #8b5cf6); border: none;">
+                <h5 class="modal-title text-white" id="idiomaModalLabel">
+                    <i class="bi bi-translate me-2"></i><span id="modalTituloFormato">Exportar</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <p class="text-muted mb-3">Seleccione el idioma del documento:</p>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-lg" onclick="ejecutarExportacion('es')">
+                        <i class="bi bi-flag me-2"></i>Espanol
+                    </button>
+                    <button type="button" class="btn btn-outline-success btn-lg" onclick="ejecutarExportacion('en')">
+                        <i class="bi bi-globe me-2"></i>English
+                    </button>
+                    <button type="button" class="btn btn-primary btn-lg" onclick="ejecutarExportacion('ambos')">
+                        <i class="bi bi-files me-2"></i>Ambos / Both
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Datos globales
+// ============ FORMULA ENGINE (reutilizado de current_status) ============
+function isFormula(str) {
+    str = str.replace(/[$,]/g, '').trim();
+    if (!str) return false;
+    if (!/[+\-*/]/.test(str)) return false;
+    if (/^-?\d+\.?\d*$/.test(str)) return false;
+    if (/[^0-9+\-*/().\s]/.test(str)) return false;
+    return true;
+}
+
+function evalFormula(str) {
+    str = str.replace(/[$,]/g, '').trim();
+    if (!isFormula(str)) return null;
+    try {
+        const result = new Function('return (' + str + ')')();
+        if (typeof result === 'number' && isFinite(result)) return result;
+        return null;
+    } catch(e) { return null; }
+}
+
+function applyFormula(el) {
+    const raw = el.value.replace(/[$,]/g, '').trim();
+    const result = evalFormula(raw);
+    if (result !== null) {
+        el.dataset.formula = raw;
+        el.value = result.toFixed(2);
+    } else if (el._hadFormula && el.dataset.formula && raw !== el.dataset.formula) {
+        delete el.dataset.formula;
+    }
+    delete el._hadFormula;
+}
+
+function attachFormulaHandlers(input) {
+    input.addEventListener('focus', function() {
+        if (this.dataset.formula) {
+            this.value = this.dataset.formula;
+            this._hadFormula = true;
+        }
+    });
+    input.addEventListener('blur', function() {
+        applyFormula(this);
+        // Recalcular precio final si esta en un kg-rate-row
+        const row = this.closest('.kg-rate-row');
+        if (row) calcularPrecioFinal(row);
+    });
+}
+
+// ============ MODAL DE IDIOMA ============
+let formatoPendiente = null;
+let idPendiente = null;
+
+function mostrarModalIdioma(formato, id) {
+    formatoPendiente = formato;
+    idPendiente = id;
+    const titulos = {
+        'excel': 'Exportar Excel',
+        'pdf': 'Exportar PDF',
+        'ambos': 'Exportar Excel + PDF'
+    };
+    document.getElementById('modalTituloFormato').textContent = titulos[formato] || 'Exportar';
+    const modal = new bootstrap.Modal(document.getElementById('idiomaModal'));
+    modal.show();
+}
+
+function ejecutarExportacion(idioma) {
+    // Cerrar modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('idiomaModal'));
+    if (modal) modal.hide();
+
+    if (!idPendiente) return;
+
+    if (formatoPendiente === 'excel') {
+        window.location.href = `/cotizaciones/descargar/${idPendiente}?formato=excel&idioma=${idioma}`;
+    } else if (formatoPendiente === 'pdf') {
+        window.location.href = `/cotizaciones/descargar/${idPendiente}?formato=pdf&idioma=${idioma}`;
+    } else if (formatoPendiente === 'ambos') {
+        window.location.href = `/cotizaciones/descargar/${idPendiente}?formato=excel&idioma=${idioma}`;
+        setTimeout(() => {
+            window.location.href = `/cotizaciones/descargar/${idPendiente}?formato=pdf&idioma=${idioma}`;
+        }, 1000);
+    }
+}
+
+// ============ DATOS GLOBALES ============
 let aerolineasLista = [];
 let cargosComunes = [];
 let aerolineasData = {{ aerolineas | tojson | safe if aerolineas else '[]' }};
@@ -603,6 +714,10 @@ function agregarCargo(container, concepto, monto, checked, esPersonalizado) {
         row.querySelector('.cargo-delete').classList.remove('d-none');
     }
 
+    // Adjuntar handlers de formula al campo monto
+    const montoInput = row.querySelector('.cargo-monto');
+    attachFormulaHandlers(montoInput);
+
     container.appendChild(clone);
 }
 
@@ -641,6 +756,7 @@ function agregarKgRate(btn, datos = null) {
     const inputs = clone.querySelectorAll('.rate-input, .margin-input, .costo-op-input');
     inputs.forEach(input => {
         input.addEventListener('input', () => calcularPrecioFinal(row));
+        attachFormulaHandlers(input);
     });
 
     container.appendChild(clone);
@@ -657,9 +773,21 @@ function eliminarKgRate(btn) {
 }
 
 function calcularPrecioFinal(row) {
-    const rate = parseFloat(row.querySelector('.rate-input').value) || 0;
-    const margin = parseFloat(row.querySelector('.margin-input').value) || 0;
-    const costoOp = parseFloat(row.querySelector('.costo-op-input').value) || 0;
+    const rateEl = row.querySelector('.rate-input');
+    const marginEl = row.querySelector('.margin-input');
+    const costoOpEl = row.querySelector('.costo-op-input');
+
+    // Obtener valor numerico (evaluando formula si existe)
+    function getNumericValue(el) {
+        const raw = el.value.replace(/[$,]/g, '').trim();
+        const formulaResult = evalFormula(raw);
+        if (formulaResult !== null) return formulaResult;
+        return parseFloat(raw) || 0;
+    }
+
+    const rate = getNumericValue(rateEl);
+    const margin = getNumericValue(marginEl);
+    const costoOp = getNumericValue(costoOpEl);
     const total = rate + margin + costoOp;
     row.querySelector('.precio-final').textContent = `$ ${total.toFixed(2)}`;
 }
@@ -748,14 +876,23 @@ function recopilarDatos() {
 
             const kgRates = [];
             itinCard.querySelectorAll('.kg-rate-row').forEach(row => {
-                const rate = parseFloat(row.querySelector('.rate-input').value) || 0;
-                const margin = parseFloat(row.querySelector('.margin-input').value) || 0;
-                const costoOp = parseFloat(row.querySelector('.costo-op-input').value) || 0;
+                function getVal(el) {
+                    const raw = el.value.replace(/[$,]/g, '').trim();
+                    const fr = evalFormula(raw);
+                    if (fr !== null) return fr;
+                    return parseFloat(raw) || 0;
+                }
+                const rateEl = row.querySelector('.rate-input');
+                const marginEl = row.querySelector('.margin-input');
+                const costoOpEl = row.querySelector('.costo-op-input');
+                const rate = getVal(rateEl);
+                const margin = getVal(marginEl);
+                const costoOp = getVal(costoOpEl);
                 kgRates.push({
                     kg: row.querySelector('.kg-input').value,
-                    tarifa: row.querySelector('.rate-input').value,
-                    margen: row.querySelector('.margin-input').value,
-                    costo_operativo: row.querySelector('.costo-op-input').value,
+                    tarifa: rate.toFixed(2),
+                    margen: margin.toFixed(2),
+                    costo_operativo: costoOp.toFixed(2),
                     tarifa_cliente: (rate + margin + costoOp).toFixed(2)
                 });
             });
@@ -764,7 +901,10 @@ function recopilarDatos() {
             itinCard.querySelectorAll('.cargo-row').forEach(row => {
                 if (row.querySelector('.cargo-check').checked) {
                     const concepto = row.querySelector('.cargo-concepto').value;
-                    const monto = row.querySelector('.cargo-monto').value;
+                    const montoEl = row.querySelector('.cargo-monto');
+                    const montoRaw = montoEl.value.replace(/[$,]/g, '').trim();
+                    const montoFormula = evalFormula(montoRaw);
+                    const monto = montoFormula !== null ? montoFormula.toFixed(2) : montoRaw;
                     if (concepto && monto) {
                         cargos.push({ concepto, monto });
                     }
@@ -843,16 +983,7 @@ async function guardarCotizacion() {
 async function guardarYDescargar(formato) {
     const id = await guardarCotizacion();
     if (id) {
-        if (formato === 'excel') {
-            window.location.href = `/cotizaciones/descargar/${id}?formato=excel`;
-        } else if (formato === 'pdf') {
-            window.location.href = `/cotizaciones/descargar/${id}?formato=pdf`;
-        } else if (formato === 'ambos') {
-            window.location.href = `/cotizaciones/descargar/${id}?formato=excel`;
-            setTimeout(() => {
-                window.location.href = `/cotizaciones/descargar/${id}?formato=pdf`;
-            }, 1000);
-        }
+        mostrarModalIdioma(formato, id);
     }
 }
 </script>

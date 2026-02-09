@@ -526,23 +526,25 @@ def generar_hoja(ws, datos, idioma='es'):
             ws.cell(row=row, column=col).border = Border(left=left, right=right, top=top, bottom=bottom)
 
 
-def crear_cotizacion_excel(datos):
-    """Crea un archivo Excel con dos hojas: espanol e ingles."""
+def crear_cotizacion_excel(datos, idioma='ambos'):
+    """Crea un archivo Excel segun el idioma seleccionado: 'es', 'en' o 'ambos'."""
     wb = Workbook()
     wb.remove(wb.active)
 
-    ws_es = wb.create_sheet("Cotizacion Espanol")
-    ws_en = wb.create_sheet("Quotation English")
+    if idioma in ('es', 'ambos'):
+        ws_es = wb.create_sheet("Cotizacion Espanol")
+        generar_hoja(ws_es, datos, idioma='es')
 
-    generar_hoja(ws_es, datos, idioma='es')
-    generar_hoja(ws_en, datos, idioma='en')
+    if idioma in ('en', 'ambos'):
+        ws_en = wb.create_sheet("Quotation English")
+        generar_hoja(ws_en, datos, idioma='en')
 
     return wb
 
 
-def guardar_cotizacion_bytes(datos):
+def guardar_cotizacion_bytes(datos, idioma='ambos'):
     """Genera la cotizacion y retorna los bytes del archivo."""
-    wb = crear_cotizacion_excel(datos)
+    wb = crear_cotizacion_excel(datos, idioma=idioma)
 
     output = io.BytesIO()
     wb.save(output)

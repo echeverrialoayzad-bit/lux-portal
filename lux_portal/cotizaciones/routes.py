@@ -94,6 +94,7 @@ def descargar_cotizacion(id):
     try:
         cotizacion = Cotizacion.query.get_or_404(id)
         formato = request.args.get('formato', 'excel')
+        idioma = request.args.get('idioma', 'ambos')
 
         # Preparar datos para el generador
         datos = {
@@ -111,10 +112,14 @@ def descargar_cotizacion(id):
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
+        # Sufijo de idioma para el nombre del archivo
+        idioma_sufijo = {'es': '_ES', 'en': '_EN', 'ambos': ''}
+        sufijo = idioma_sufijo.get(idioma, '')
+
         if formato == 'pdf':
             # Generar PDF
-            pdf_bytes = guardar_cotizacion_pdf_bytes(datos)
-            nombre_archivo = f"FreightWise_Cotizacion_{cotizacion.ruta}_{timestamp}.pdf"
+            pdf_bytes = guardar_cotizacion_pdf_bytes(datos, idioma=idioma)
+            nombre_archivo = f"FreightWise_Cotizacion_{cotizacion.ruta}{sufijo}_{timestamp}.pdf"
 
             return send_file(
                 pdf_bytes,
@@ -124,8 +129,8 @@ def descargar_cotizacion(id):
             )
         else:
             # Generar Excel (por defecto)
-            excel_bytes = guardar_cotizacion_bytes(datos)
-            nombre_archivo = f"FreightWise_Cotizacion_{cotizacion.ruta}_{timestamp}.xlsx"
+            excel_bytes = guardar_cotizacion_bytes(datos, idioma=idioma)
+            nombre_archivo = f"FreightWise_Cotizacion_{cotizacion.ruta}{sufijo}_{timestamp}.xlsx"
 
             return send_file(
                 excel_bytes,

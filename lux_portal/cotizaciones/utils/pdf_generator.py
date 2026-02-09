@@ -9,7 +9,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch, cm, mm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
@@ -49,34 +49,9 @@ def traducir_dias(texto, a_ingles=True):
     return resultado
 
 
-def crear_pdf_cotizacion(datos, idioma='es'):
-    """Crea un PDF que replica exactamente el formato del Excel."""
-
-    buffer = io.BytesIO()
-
-    # Pagina horizontal A4
-    page_width, page_height = landscape(A4)
-
-    # Margenes reducidos para maximizar espacio
-    left_margin = 0.5 * cm
-    right_margin = 0.5 * cm
-    top_margin = 0.8 * cm
-    bottom_margin = 0.5 * cm
-
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=landscape(A4),
-        rightMargin=right_margin,
-        leftMargin=left_margin,
-        topMargin=top_margin,
-        bottomMargin=bottom_margin
-    )
-
-    # Ancho disponible
-    available_width = page_width - left_margin - right_margin
-
+def _generar_elementos_pdf(datos, idioma, available_width):
+    """Genera los elementos de una pagina PDF para el idioma dado."""
     elements = []
-    styles = getSampleStyleSheet()
 
     # Textos segun idioma
     if idioma == 'es':
@@ -85,8 +60,6 @@ def crear_pdf_cotizacion(datos, idioma='es'):
         valido_label = 'Valido desde'
         cliente_label = 'CLIENTE'
         mercancia_label = 'MERCANCIA'
-        encabezados = ['AEROLINEA', 'VUELO', 'ITINERARIO', 'TIEMPO\nTRANSITO', 'FINCAS\nENTREGA',
-                       'SALIDA', 'LLEGADA', 'KG', 'TARIFA', 'CARGOS ADICIONALES', '', '', 'NOTAS']
         fw_titulo = 'Cargos Adicionales FreightWise:'
     else:
         titulo = 'A I R F R E I G H T   Q U O T A T I O N'
@@ -94,20 +67,14 @@ def crear_pdf_cotizacion(datos, idioma='es'):
         valido_label = 'Valid from'
         cliente_label = 'CUSTOMER'
         mercancia_label = 'COMMODITY'
-        encabezados = ['AIRLINE', 'FLIGHT', 'ITINERARY', 'TRANSIT\nTIME', 'FARMS\nDELIVER',
-                       'DEPARTURE', 'ARRIVAL', 'KG', 'RATE', 'ADD CHARGES', '', '', 'NOTES']
         fw_titulo = 'FreightWise Additional Charges:'
 
-    # ============ ENCABEZADO CON LOGO ============
-    header_data = [[titulo, '']]
-
-    # Intentar agregar logo
+    # Encabezado con logo
     logo_cell = ''
     logo_path = get_logo_path()
     if os.path.exists(logo_path):
         try:
-            logo = Image(logo_path, width=2.5*inch, height=0.35*inch)
-            logo_cell = logo
+            logo_cell = Image(logo_path, width=2.5*inch, height=0.35*inch)
         except:
             logo_cell = ''
 
@@ -124,14 +91,13 @@ def crear_pdf_cotizacion(datos, idioma='es'):
     elements.append(header_table)
     elements.append(Spacer(1, 0.3*cm))
 
-    # ============ INFO CLIENTE Y CONTACTO ============
+    # Info cliente y contacto
     info_data = [
         [f'{cliente_label}:', datos.get('customer', ''), '', f'{contacto_label}:', datos.get('contacto_nombre', '')],
         ['ATTN:', datos.get('attn', ''), '', 'eMail:', datos.get('contacto_email', '')],
         [f'{mercancia_label}:', datos.get('mercancia', ''), '', f'{valido_label}:', datos.get('valid_from', '')],
         ['ORI - DES:', datos.get('ruta', ''), '', '', ''],
     ]
-
     col_widths_info = [available_width * 0.08, available_width * 0.30, available_width * 0.12,
                        available_width * 0.15, available_width * 0.35]
     info_table = Table(info_data, colWidths=col_widths_info)
@@ -147,7 +113,7 @@ def crear_pdf_cotizacion(datos, idioma='es'):
     elements.append(info_table)
     elements.append(Spacer(1, 0.2*cm))
 
-    # ============ BARRA DE RUTA (MORADA) ============
+    # Barra de ruta
     ruta_data = [[datos.get('ruta', '')]]
     ruta_table = Table(ruta_data, colWidths=[available_width])
     ruta_table.setStyle(TableStyle([
@@ -161,19 +127,20 @@ def crear_pdf_cotizacion(datos, idioma='es'):
     ]))
     elements.append(ruta_table)
 
-    # ============ ENCABEZADOS DE TABLA ============
+    # Encabezados de tabla
     col_proportions = [0.08, 0.06, 0.10, 0.06, 0.07, 0.07, 0.07, 0.04, 0.05, 0.12, 0.02, 0.04, 0.22]
     col_widths = [available_width * p for p in col_proportions]
 
-    enc_simple = ['AEROLINEA', 'VUELO', 'ITINERARIO', 'TIEMPO\nTRANSITO', 'FINCAS\nENTREGA',
-                  'SALIDA', 'LLEGADA', 'KG', 'TARIFA', 'CARGOS ADICIONALES', '', '', 'NOTAS']
-    if idioma == 'en':
+    if idioma == 'es':
+        enc_simple = ['AEROLINEA', 'VUELO', 'ITINERARIO', 'TIEMPO\nTRANSITO', 'FINCAS\nENTREGA',
+                      'SALIDA', 'LLEGADA', 'KG', 'TARIFA', 'CARGOS ADICIONALES', '', '', 'NOTAS']
+    else:
         enc_simple = ['AIRLINE', 'FLIGHT', 'ITINERARY', 'TRANSIT\nTIME', 'FARMS\nDELIVER',
                       'DEPARTURE', 'ARRIVAL', 'KG', 'RATE', 'ADD CHARGES', '', '', 'NOTES']
 
-    header_data = [enc_simple]
-    header_table = Table(header_data, colWidths=col_widths)
-    header_table.setStyle(TableStyle([
+    enc_header_data = [enc_simple]
+    enc_header_table = Table(enc_header_data, colWidths=col_widths)
+    enc_header_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), PURPLE_COLOR),
         ('TEXTCOLOR', (0, 0), (-1, -1), WHITE_COLOR),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -185,18 +152,16 @@ def crear_pdf_cotizacion(datos, idioma='es'):
         ('GRID', (0, 0), (-1, -1), 0.5, WHITE_COLOR),
         ('SPAN', (9, 0), (11, 0)),
     ]))
-    elements.append(header_table)
+    elements.append(enc_header_table)
 
-    # ============ DATOS DE AEROLINEAS ============
+    # Datos de aerolineas
     aerolineas = datos.get('aerolineas', [])
 
     if aerolineas:
         table_data = []
-        row_styles = []
+        row_colors = []
 
         color_idx = 0
-        prev_aerolinea = None
-
         for idx, aero in enumerate(aerolineas):
             es_continuacion = aero.get('es_continuacion', False)
             if not es_continuacion and idx > 0:
@@ -206,7 +171,20 @@ def crear_pdf_cotizacion(datos, idioma='es'):
             text_color = BLACK_COLOR if color_idx % 2 == 0 else WHITE_COLOR
 
             cargos = aero.get('cargos_adicionales', [])
-            cargos_texto = '\n'.join([f"{c.get('concepto', '')}: ${c.get('monto', '')}" for c in cargos if c.get('concepto')])
+            if idioma == 'en':
+                cargos_items = []
+                for c in cargos:
+                    if not c.get('concepto'):
+                        continue
+                    concepto = c.get('concepto', '')
+                    if concepto.lower() == 'fitosanitario':
+                        concepto = 'Phytosanitary'
+                    elif concepto.lower() == 'certificado':
+                        concepto = 'Certificate'
+                    cargos_items.append(f"{concepto}: ${c.get('monto', '')}")
+            else:
+                cargos_items = [f"{c.get('concepto', '')}: ${c.get('monto', '')}" for c in cargos if c.get('concepto')]
+            cargos_texto = '\n'.join(cargos_items)
 
             kg_rates = aero.get('kg_rates', [])
             if kg_rates:
@@ -224,10 +202,8 @@ def crear_pdf_cotizacion(datos, idioma='es'):
                 salida = traducir_dias(salida, a_ingles=True)
                 llegada = traducir_dias(llegada, a_ingles=True)
 
-            aero_nombre = aero.get('aerolinea', '') if not es_continuacion else ''
-
             row = [
-                aero_nombre,
+                aero.get('aerolinea', ''),
                 aero.get('vuelo', ''),
                 aero.get('itinerario', ''),
                 aero.get('tiempo_transito', ''),
@@ -243,7 +219,7 @@ def crear_pdf_cotizacion(datos, idioma='es'):
             ]
 
             table_data.append(row)
-            row_styles.append((bg_color, text_color))
+            row_colors.append((bg_color, text_color))
 
         if table_data:
             data_table = Table(table_data, colWidths=col_widths)
@@ -258,17 +234,33 @@ def crear_pdf_cotizacion(datos, idioma='es'):
                 ('GRID', (0, 0), (-1, -1), 0.5, BLACK_COLOR),
             ]
 
-            for row_idx, (bg, txt) in enumerate(row_styles):
+            for row_idx, (bg, txt) in enumerate(row_colors):
                 style_cmds.append(('BACKGROUND', (0, row_idx), (-1, row_idx), bg))
                 style_cmds.append(('TEXTCOLOR', (0, row_idx), (-1, row_idx), txt))
                 style_cmds.append(('SPAN', (9, row_idx), (11, row_idx)))
+
+            # Fusionar columna A para rutas multiples de misma aerolinea
+            idx_aero = 0
+            while idx_aero < len(aerolineas):
+                if not aerolineas[idx_aero].get('es_continuacion', False):
+                    num_filas = 1
+                    for j in range(idx_aero + 1, len(aerolineas)):
+                        if aerolineas[j].get('es_continuacion', False):
+                            num_filas += 1
+                        else:
+                            break
+                    if num_filas > 1:
+                        style_cmds.append(('SPAN', (0, idx_aero), (0, idx_aero + num_filas - 1)))
+                    idx_aero += num_filas
+                else:
+                    idx_aero += 1
 
             data_table.setStyle(TableStyle(style_cmds))
             elements.append(data_table)
 
     elements.append(Spacer(1, 0.3*cm))
 
-    # ============ CARGOS FREIGHTWISE ============
+    # Cargos FreightWise
     fw_header = [[fw_titulo]]
     fw_header_table = Table(fw_header, colWidths=[available_width])
     fw_header_table.setStyle(TableStyle([
@@ -283,7 +275,6 @@ def crear_pdf_cotizacion(datos, idioma='es'):
     ]))
     elements.append(fw_header_table)
 
-    # Cargos fijos
     cargos_fw = [
         {'concepto_es': 'Due Agent', 'concepto_en': 'Due Agent', 'monto': '50.00'},
         {'concepto_es': 'Certificado', 'concepto_en': 'Certificate', 'monto': '15.00'},
@@ -313,13 +304,39 @@ def crear_pdf_cotizacion(datos, idioma='es'):
     ]))
     elements.append(fw_table)
 
-    # Construir documento
+    return elements
+
+
+def guardar_cotizacion_pdf_bytes(datos, idioma='es'):
+    """Genera la cotizacion PDF y retorna los bytes del archivo.
+    Si idioma='ambos', genera un PDF con pagina en español seguida de pagina en ingles.
+    """
+    buffer = io.BytesIO()
+
+    page_width, page_height = landscape(A4)
+    left_margin = 0.5 * cm
+    right_margin = 0.5 * cm
+    top_margin = 0.8 * cm
+    bottom_margin = 0.5 * cm
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=right_margin,
+        leftMargin=left_margin,
+        topMargin=top_margin,
+        bottomMargin=bottom_margin
+    )
+
+    available_width = page_width - left_margin - right_margin
+
+    if idioma == 'ambos':
+        elements = _generar_elementos_pdf(datos, 'es', available_width)
+        elements.append(PageBreak())
+        elements += _generar_elementos_pdf(datos, 'en', available_width)
+    else:
+        elements = _generar_elementos_pdf(datos, idioma, available_width)
+
     doc.build(elements)
     buffer.seek(0)
-
     return buffer
-
-
-def guardar_cotizacion_pdf_bytes(datos):
-    """Genera la cotizacion PDF y retorna los bytes del archivo."""
-    return crear_pdf_cotizacion(datos, idioma='es')
