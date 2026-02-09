@@ -260,7 +260,7 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                 style_cmds.append(('TEXTCOLOR', (0, row_idx), (-1, row_idx), txt))
                 style_cmds.append(('SPAN', (9, row_idx), (11, row_idx)))
 
-            # Fusionar columna A para rutas multiples de misma aerolinea
+            # Fusionar columna A y columna NOTAS para rutas multiples de misma aerolinea
             idx_aero = 0
             while idx_aero < len(aerolineas):
                 if not aerolineas[idx_aero].get('es_continuacion', False):
@@ -272,6 +272,12 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                             break
                     if num_filas > 1:
                         style_cmds.append(('SPAN', (0, idx_aero), (0, idx_aero + num_filas - 1)))
+                        # Fusionar notas si son iguales en el grupo
+                        notas_grupo = [aerolineas[idx_aero + k].get('notas', '') for k in range(num_filas)]
+                        if len(set(notas_grupo)) == 1:
+                            style_cmds.append(('SPAN', (12, idx_aero), (12, idx_aero + num_filas - 1)))
+                            for k in range(1, num_filas):
+                                table_data[idx_aero + k][12] = ''
                     idx_aero += num_filas
                 else:
                     idx_aero += 1

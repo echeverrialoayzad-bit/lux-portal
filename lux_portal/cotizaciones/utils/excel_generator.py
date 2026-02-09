@@ -456,6 +456,46 @@ def generar_hoja(ws, datos, idioma='es'):
         for i in range(fila_inicio, fila_inicio + num_filas_cargos):
             ws.row_dimensions[i].height = 20
 
+    # Tercer paso: fusionar columna M (notas) para grupos de misma aerolinea con nota igual
+    idx_aerolinea = 0
+    color_actual_idx_m = 0
+    while idx_aerolinea < len(aerolineas):
+        es_continuacion = aerolineas[idx_aerolinea].get('es_continuacion', False)
+        if not es_continuacion and idx_aerolinea > 0:
+            color_actual_idx_m += 1
+
+        if not es_continuacion:
+            num_rutas = 1
+            for i in range(idx_aerolinea + 1, len(aerolineas)):
+                if aerolineas[i].get('es_continuacion', False):
+                    num_rutas += 1
+                else:
+                    break
+
+            if num_rutas > 1:
+                notas_grupo = [aerolineas[idx_aerolinea + k].get('notas', '') for k in range(num_rutas)]
+                if len(set(notas_grupo)) == 1:
+                    fila_grupo_inicio = fila_datos + sum(filas_por_aerolinea[:idx_aerolinea])
+                    filas_totales = sum(filas_por_aerolinea[idx_aerolinea:idx_aerolinea + num_rutas])
+                    fila_grupo_fin = fila_grupo_inicio + filas_totales - 1
+
+                    # Deshacer merges individuales de M en este grupo
+                    for k in range(num_rutas):
+                        idx_k = idx_aerolinea + k
+                        f_ini = fila_datos + sum(filas_por_aerolinea[:idx_k])
+                        f_fin = f_ini + filas_por_aerolinea[idx_k] - 1
+                        try:
+                            ws.unmerge_cells(f'M{f_ini}:M{f_fin}')
+                        except (KeyError, ValueError):
+                            pass
+
+                    # Merge del grupo completo
+                    ws.merge_cells(f'M{fila_grupo_inicio}:M{fila_grupo_fin}')
+
+            idx_aerolinea += num_rutas
+        else:
+            idx_aerolinea += 1
+
     # Calcular ultima fila
     ultima_fila = fila_datos + sum(filas_por_aerolinea) - 1 if filas_por_aerolinea else fila_datos
 
