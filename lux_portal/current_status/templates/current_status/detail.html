@@ -689,14 +689,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // On focus: show formula or strip dollar
             ta.addEventListener('focus', () => {
-                if (ta.dataset.formula) { ta.value = ta.dataset.formula; return; }
+                if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; return; }
                 const raw = stripDollar(ta.value);
                 if (raw) ta.value = raw;
             });
         } else {
             // Non-dollar fields: show formula on focus
             ta.addEventListener('focus', () => {
-                if (ta.dataset.formula) ta.value = ta.dataset.formula;
+                if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; }
             });
         }
         // Format integer fields on load (KG)
@@ -716,7 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isNaN(num)) inp.value = formatDollar(num);
         }
         inp.addEventListener('focus', () => {
-            if (inp.dataset.formula) { inp.value = inp.dataset.formula; return; }
+            if (inp.dataset.formula) { inp.value = inp.dataset.formula; inp._hadFormula = true; return; }
             const raw = stripDollar(inp.value);
             if (raw) inp.value = raw;
         });
@@ -979,6 +979,7 @@ function formatDollar(num) {
 }
 
 function roundIfNumeric(el) {
+    applyFormula(el);
     const val = stripDollar(el.value.trim());
     if (val === '') return;
     const num = parseFloat(val);
@@ -1019,9 +1020,10 @@ function applyFormula(el) {
     if (result !== null) {
         el.dataset.formula = raw;
         el.value = result.toString();
-    } else if (!isFormula(raw)) {
+    } else if (el._hadFormula && el.dataset.formula && raw !== el.dataset.formula) {
         delete el.dataset.formula;
     }
+    delete el._hadFormula;
 }
 
 // --- Save helper for extra fields ---
@@ -1452,12 +1454,12 @@ function buildRateRow(id, airlineName) {
         }
         if (DOLLAR_FIELDS.includes(f)) {
             ta.addEventListener('focus', () => {
-                if (ta.dataset.formula) { ta.value = ta.dataset.formula; return; }
+                if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; return; }
                 const r = stripDollar(ta.value); if (r) ta.value = r;
             });
         } else {
             ta.addEventListener('focus', () => {
-                if (ta.dataset.formula) ta.value = ta.dataset.formula;
+                if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; }
             });
         }
         ta.addEventListener('input', () => autoResize(ta));
@@ -1556,7 +1558,7 @@ function addAddcostItem(btn) {
         <button class="addcost-del" onclick="removeAddcost(this)"><i class="bi bi-x"></i></button>`;
     const valInp = item.querySelector('.addcost-value');
     valInp.addEventListener('focus', () => {
-        if (valInp.dataset.formula) { valInp.value = valInp.dataset.formula; return; }
+        if (valInp.dataset.formula) { valInp.value = valInp.dataset.formula; valInp._hadFormula = true; return; }
         const r = stripDollar(valInp.value); if (r) valInp.value = r;
     });
     container.insertBefore(item, btn);
@@ -1646,7 +1648,7 @@ function agregarAirline() {
             const ta = document.createElement('textarea');
             ta.dataset.field = f;
             ta.setAttribute('onblur', 'guardarAirline(this)');
-            ta.addEventListener('focus', () => { if (ta.dataset.formula) ta.value = ta.dataset.formula; });
+            ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
             ta.addEventListener('input', () => autoResize(ta));
             td.appendChild(ta);
             tr.appendChild(td);
@@ -1658,7 +1660,7 @@ function agregarAirline() {
             const ta = document.createElement('textarea');
             ta.dataset.field = 'extra:' + span.dataset.colName;
             ta.setAttribute('onblur', 'guardarAirline(this)');
-            ta.addEventListener('focus', () => { if (ta.dataset.formula) ta.value = ta.dataset.formula; });
+            ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
             ta.addEventListener('input', () => autoResize(ta));
             td.appendChild(ta);
             tr.appendChild(td);
@@ -1706,7 +1708,7 @@ function agregarPayment() {
             const ta = document.createElement('textarea');
             ta.dataset.field = f;
             ta.setAttribute('onblur', 'guardarPayment(this)');
-            ta.addEventListener('focus', () => { if (ta.dataset.formula) ta.value = ta.dataset.formula; });
+            ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
             ta.addEventListener('input', () => autoResize(ta));
             td.appendChild(ta);
             tr.appendChild(td);
@@ -1718,7 +1720,7 @@ function agregarPayment() {
             const ta = document.createElement('textarea');
             ta.dataset.field = 'extra:' + span.dataset.colName;
             ta.setAttribute('onblur', 'guardarPayment(this)');
-            ta.addEventListener('focus', () => { if (ta.dataset.formula) ta.value = ta.dataset.formula; });
+            ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
             ta.addEventListener('input', () => autoResize(ta));
             td.appendChild(ta);
             tr.appendChild(td);
