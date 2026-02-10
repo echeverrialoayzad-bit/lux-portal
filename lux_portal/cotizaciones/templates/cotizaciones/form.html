@@ -922,7 +922,7 @@ function recopilarDatos() {
             });
 
             const transitTime = itinCard.querySelector('.transit-time').value;
-            const transitMatch = transitTime.match(/(\d+)-?(\d+)?D/);
+            const transitMatch = transitTime.match(/(\d+)[-+]?(\d+)?D/);
             const transitDias = transitMatch ? parseInt(transitMatch[2] || transitMatch[1]) : 2;
             const diasLlegada = diasSalida.map(dia => {
                 const idx = diasMapping[dia];
@@ -971,6 +971,21 @@ async function guardarCotizacion() {
         const result = await response.json();
 
         if (result.success) {
+            // Actualizar cotizacionId para que futuros guardados actualicen en vez de crear duplicados
+            let idInput = document.getElementById('cotizacionId');
+            if (!idInput) {
+                idInput = document.createElement('input');
+                idInput.type = 'hidden';
+                idInput.id = 'cotizacionId';
+                document.getElementById('cotizacionForm').appendChild(idInput);
+            }
+            idInput.value = result.id;
+
+            // Actualizar URL para que refleje la cotizacion editada
+            if (!window.location.pathname.includes('/editar/')) {
+                history.replaceState(null, '', `/cotizaciones/editar/${result.id}`);
+            }
+
             alert('Cotizacion guardada exitosamente');
             return result.id;
         } else {

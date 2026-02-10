@@ -35,7 +35,7 @@ class Cotizacion(db.Model):
 
     @property
     def ruta(self):
-        return f"{self.origen}-{self.destino}"
+        return f"{self.origen or ''}-{self.destino or ''}"
 
     @property
     def aerolineas(self):
