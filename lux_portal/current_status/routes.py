@@ -464,6 +464,30 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
         top=Side(style='thin'), bottom=Side(style='thin')
     )
 
+    def fmt_dollar(val):
+        """Format a value with $ sign if it looks numeric."""
+        if not val:
+            return val
+        s = str(val).replace('$', '').replace(',', '').strip()
+        try:
+            num = float(s)
+            if num == int(num):
+                return f'${int(num):,}'
+            return f'${num:,.2f}'
+        except (ValueError, TypeError):
+            return val
+
+    def get_addcosts_display(rate):
+        """Get addcosts names and values from extra_data, fallback to old columns."""
+        extra = rate.get_extra()
+        addcosts = extra.get('addcosts', [])
+        if addcosts:
+            names = '\n'.join(item.get('name', '') for item in addcosts if item.get('name'))
+            values = '\n'.join(fmt_dollar(item.get('value', '')) for item in addcosts if item.get('value'))
+            return names, values
+        # Fallback to old columns
+        return rate.additional_costs or '', fmt_dollar(rate.additional_costs_value) if rate.additional_costs_value else ''
+
     row = 4
     # Client name
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=8)
@@ -508,13 +532,15 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
                 i += 1
             group_idx += 1
         for idx, r in enumerate(sorted_rates):
+            addcost_names, addcost_values = get_addcosts_display(r)
             if hide_internal:
                 vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
-                        r.final_rate, r.additional_costs, r.additional_costs_value, r.notes]
+                        fmt_dollar(r.final_rate), addcost_names, addcost_values, r.notes]
             else:
                 vals = [r.airline, r.route, r.transit_time, r.kg_availability, r.date,
-                        r.net_rate, r.operative, r.net_ops, r.profit, r.final_rate,
-                        r.additional_costs, r.additional_costs_value, r.notes]
+                        fmt_dollar(r.net_rate), fmt_dollar(r.operative), fmt_dollar(r.net_ops),
+                        fmt_dollar(r.profit), fmt_dollar(r.final_rate),
+                        addcost_names, addcost_values, r.notes]
             extra = r.get_extra()
             vals += [extra.get(c, '') for c in custom_rates]
             for col, v in enumerate(vals, 1):
@@ -733,8 +759,9 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
             col_widths1 = [40*mm, 38*mm, 22*mm, 18*mm, 28*mm, 20*mm, 28*mm, 20*mm, 55*mm] + extra_w
             for r in sorted_rates:
                 extra = r.get_extra()
+                addcost_names, addcost_values = get_addcosts_display(r)
                 data1.append([P(r.airline), P(r.route), P(r.transit_time), P(r.kg_availability), P(r.date),
-                              P(r.final_rate), P(r.additional_costs), P(r.additional_costs_value), P(r.notes)]
+                              P(fmt_dollar(r.final_rate)), P(addcost_names), P(addcost_values), P(r.notes)]
                              + [P(extra.get(c, '')) for c in custom_rates])
         else:
             data1 = [[PH('Airline'), PH('Route'), PH('Transit'), PH('KG'), PH('Date'),
@@ -744,9 +771,11 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
             col_widths1 = [28*mm, 28*mm, 18*mm, 14*mm, 22*mm, 14*mm, 14*mm, 14*mm, 14*mm, 16*mm, 22*mm, 16*mm, 37*mm] + extra_w
             for r in sorted_rates:
                 extra = r.get_extra()
+                addcost_names, addcost_values = get_addcosts_display(r)
                 data1.append([P(r.airline), P(r.route), P(r.transit_time), P(r.kg_availability), P(r.date),
-                              P(r.net_rate), P(r.operative), P(r.net_ops), P(r.profit), P(r.final_rate),
-                              P(r.additional_costs), P(r.additional_costs_value), P(r.notes)]
+                              P(fmt_dollar(r.net_rate)), P(fmt_dollar(r.operative)), P(fmt_dollar(r.net_ops)),
+                              P(fmt_dollar(r.profit)), P(fmt_dollar(r.final_rate)),
+                              P(addcost_names), P(addcost_values), P(r.notes)]
                              + [P(extra.get(c, '')) for c in custom_rates])
         # Build merge spans and group-based backgrounds for same-airline groups
         airline_spans = []
