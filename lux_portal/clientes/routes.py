@@ -362,8 +362,14 @@ def customer_associate_form(id=None):
                     })
             form.set_shareholders(shareholders)
 
-            # Financial
-            form.financial_contact = request.form.get('financial_contact', '').strip()
+            # Financial Contact (name + multiple emails + multiple phones)
+            fc_emails = [e.strip() for e in request.form.getlist('fc_email[]') if e.strip()]
+            fc_phones = [p.strip() for p in request.form.getlist('fc_phone[]') if p.strip()]
+            form.set_financial_contact({
+                'name': request.form.get('fc_name', '').strip(),
+                'emails': fc_emails,
+                'phones': fc_phones,
+            })
             form.bank_name = request.form.get('bank_name', '').strip()
             form.bank_account = request.form.get('bank_account', '').strip()
             form.bank_address = request.form.get('bank_address', '').strip()

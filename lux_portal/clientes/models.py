@@ -43,7 +43,7 @@ class CustomerAssociateForm(db.Model):
     shareholders_data = db.Column(db.Text, default='[]')
 
     # FINANCIAL AND BANKING
-    financial_contact = db.Column(db.String(300))
+    financial_contact = db.Column(db.Text, default='{}')
     bank_name = db.Column(db.String(200))
     bank_account = db.Column(db.String(100))
     bank_address = db.Column(db.String(300))
@@ -60,6 +60,20 @@ class CustomerAssociateForm(db.Model):
 
     def set_shareholders(self, shareholders_list):
         self.shareholders_data = json.dumps(shareholders_list, ensure_ascii=False)
+
+    def get_financial_contact(self):
+        try:
+            data = json.loads(self.financial_contact) if self.financial_contact else {}
+            if isinstance(data, dict):
+                return data
+            # Legacy: old string value, put it as name
+            return {'name': str(data), 'emails': [], 'phones': []}
+        except:
+            # Legacy: plain text value
+            return {'name': self.financial_contact or '', 'emails': [], 'phones': []}
+
+    def set_financial_contact(self, contact_dict):
+        self.financial_contact = json.dumps(contact_dict, ensure_ascii=False)
 
     def get_ethics(self):
         try:
