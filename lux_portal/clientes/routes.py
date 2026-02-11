@@ -724,59 +724,82 @@ def eliminar_shipping_instructions(id):
 @clientes_bp.route('/formularios/payment-info/<int:id>', methods=['GET', 'POST'])
 @login_required
 def payment_info_form(id=None):
-    """Formulario Payment Info - nuevo o edicion"""
+    """Formulario Invoice"""
     form_data = None
     if id:
         form_data = PaymentInfoForm.query.get_or_404(id)
 
     if request.method == 'POST':
         try:
-            if id:
-                form = PaymentInfoForm.query.get_or_404(id)
-            else:
-                form = PaymentInfoForm()
+            form = PaymentInfoForm.query.get_or_404(id) if id else PaymentInfoForm()
 
-            form.label = request.form.get('label', '').strip()
+            # Header
+            for f in ['invoice_date', 'expiration_date', 'invoice_number',
+                       'customer_id_code', 'date_from', 'date_to']:
+                setattr(form, f, request.form.get(f, '').strip())
 
-            # FreightWise Account
-            form.fw_bank = request.form.get('fw_bank', '').strip()
-            form.fw_swift = request.form.get('fw_swift', '').strip()
-            form.fw_account = request.form.get('fw_account', '').strip()
-            form.fw_company = request.form.get('fw_company', '').strip()
-            form.fw_tax_id = request.form.get('fw_tax_id', '').strip()
-            form.fw_address = request.form.get('fw_address', '').strip()
+            # Customer
+            form.customer_name = request.form.get('customer_name', '').strip()
+            form.customer_address = request.form.get('customer_address', '').strip()
 
-            # Client Account
-            form.cl_bank = request.form.get('cl_bank', '').strip()
-            form.cl_swift = request.form.get('cl_swift', '').strip()
-            form.cl_account = request.form.get('cl_account', '').strip()
-            form.cl_company = request.form.get('cl_company', '').strip()
-            form.cl_tax_id = request.form.get('cl_tax_id', '').strip()
-            form.cl_address = request.form.get('cl_address', '').strip()
+            # Shipment
+            for f in ['peso', 'moneda', 'aerolinea', 'tarifa', 'origen', 'destino', 'tarifa_iva']:
+                setattr(form, f, request.form.get(f, '').strip())
 
+            # Line Items
+            li_dates = request.form.getlist('li_date[]')
+            li_units = request.form.getlist('li_units[]')
+            li_descs = request.form.getlist('li_desc[]')
+            li_rates = request.form.getlist('li_rate[]')
+            li_amounts = request.form.getlist('li_amount[]')
+            li_totals = request.form.getlist('li_total[]')
+            items = []
+            for i in range(len(li_descs)):
+                if li_descs[i].strip() or (i < len(li_rates) and li_rates[i].strip()):
+                    items.append({
+                        'date': li_dates[i].strip() if i < len(li_dates) else '',
+                        'units': li_units[i].strip() if i < len(li_units) else '',
+                        'description': li_descs[i].strip(),
+                        'rate': li_rates[i].strip() if i < len(li_rates) else '',
+                        'amount': li_amounts[i].strip() if i < len(li_amounts) else '',
+                        'total': li_totals[i].strip() if i < len(li_totals) else '',
+                    })
+            form.set_line_items(items)
+
+            # Terms
+            for f in ['full_count', 'pieces_count', 'awb', 'gross_weight']:
+                setattr(form, f, request.form.get(f, '').strip())
+
+            # Bank
+            for f in ['fw_bank', 'fw_swift', 'fw_account', 'fw_tax_id', 'fw_company']:
+                setattr(form, f, request.form.get(f, '').strip())
+
+            # Totals
+            for f in ['subtotal', 'taxable', 'tax_rate_vat', 'tax', 'other_charges',
+                       'insurance', 'legal_consular', 'inspection_cert', 'other_specify',
+                       'total', 'currency']:
+                setattr(form, f, request.form.get(f, '').strip())
+
+            form.reason_for_export = request.form.get('reason_for_export', '').strip()
+            form.label = form.invoice_number or form.customer_name or ''
             form.estado = 'completo'
 
             if not id:
                 db.session.add(form)
-
             db.session.commit()
-            flash('Payment Info guardado exitosamente', 'success')
-            return redirect(url_for('clientes.formularios'))
+            flash('Invoice guardada exitosamente', 'success')
+            return redirect(url_for('clientes.payment_info_form', id=form.id))
 
         except Exception as e:
             db.session.rollback()
             flash(f'Error al guardar: {str(e)}', 'danger')
 
-    return render_template(
-        'clientes/form_payment_info.html',
-        form_data=form_data
-    )
+    return render_template('clientes/form_payment_info.html', form_data=form_data)
 
 
 @clientes_bp.route('/formularios/payment-info/<int:id>/eliminar', methods=['POST'])
 @login_required
 def eliminar_payment_info(id):
-    """Eliminar formulario Payment Info"""
     try:
         form = PaymentInfoForm.query.get_or_404(id)
         db.session.delete(form)
@@ -786,6 +809,250 @@ def eliminar_payment_info(id):
         db.session.rollback()
         flash(f'Error: {str(e)}', 'danger')
     return redirect(url_for('clientes.formularios'))
+
+
+@clientes_bp.route('/formularios/payment-info/<int:id>/pdf')
+@login_required
+def descargar_invoice_pdf(id):
+    """Genera PDF de la invoice"""
+    import io
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm, cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Spacer, Paragraph, Image as RLImage
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+
+    form = PaymentInfoForm.query.get_or_404(id)
+    output = io.BytesIO()
+    doc = SimpleDocTemplate(output, pagesize=A4, topMargin=1*cm, bottomMargin=1*cm,
+                            leftMargin=1.5*cm, rightMargin=1.5*cm)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    BLUE = colors.HexColor('#4472C4')
+    LIGHT_BLUE = colors.HexColor('#D6E4F0')
+    BLACK = colors.black
+    WHITE = colors.white
+
+    s_normal = ParagraphStyle('sn', fontSize=8, leading=10)
+    s_bold = ParagraphStyle('sb', fontSize=8, leading=10, fontName='Helvetica-Bold')
+    s_center = ParagraphStyle('sc', fontSize=8, leading=10, alignment=TA_CENTER)
+    s_center_bold = ParagraphStyle('scb', fontSize=8, leading=10, alignment=TA_CENTER, fontName='Helvetica-Bold')
+    s_right = ParagraphStyle('sr', fontSize=8, leading=10, alignment=TA_RIGHT)
+    s_right_bold = ParagraphStyle('srb', fontSize=8, leading=10, alignment=TA_RIGHT, fontName='Helvetica-Bold')
+    s_small = ParagraphStyle('ss', fontSize=7, leading=9)
+    s_title_white = ParagraphStyle('stw', fontSize=10, leading=12, fontName='Helvetica-Bold',
+                                    textColor=WHITE, alignment=TA_CENTER)
+    P = Paragraph
+
+    # ======== HEADER: Company + Invoice info ========
+    logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images', 'logo.png')
+
+    # Left: Company info
+    company_info = [
+        [P('<b>FreightWise Forwarding S.A.</b>', ParagraphStyle('ci', fontSize=11, leading=13, fontName='Helvetica-Bold', alignment=TA_CENTER))],
+        [P(f'RUC: {form.fw_tax_id}', s_center)],
+        [P('', s_center)],
+        [P('Tababela Cargo Center', s_center)],
+        [P('Quito - Ecuador', s_center)],
+        [P('www.freigh-twise.com', s_center)],
+    ]
+    company_table = Table(company_info, colWidths=[65*mm])
+    company_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, BLUE),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+
+    # Right: Invoice details
+    inv_data = [
+        ['', '', P('<b>INVOICE</b>', ParagraphStyle('inv', fontSize=14, fontName='Helvetica-Bold', alignment=TA_RIGHT))],
+        [P('Date', s_right), '', P(form.invoice_date or '', s_right_bold)],
+        [P('Expiration Date', s_right), '', P(form.expiration_date or '', s_right_bold)],
+        [P('Invoice #', s_right), '', P(form.invoice_number or '', s_right_bold)],
+        [P('Customer ID', s_right), '', P(form.customer_id_code or '', s_right_bold)],
+        ['', '', ''],
+        [P('From:', s_right), P(form.date_from or '', s_center), P('to:  ' + (form.date_to or ''), s_normal)],
+    ]
+    inv_table = Table(inv_data, colWidths=[30*mm, 25*mm, 40*mm])
+    inv_table.setStyle(TableStyle([
+        ('GRID', (0, 1), (-1, 4), 0.5, colors.grey),
+        ('GRID', (0, 6), (-1, 6), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+
+    # Customer box
+    cust_data = [
+        [P('<b>CUSTOMER:</b>', s_bold)],
+        [P(form.customer_name or '', s_bold)],
+        [P(form.customer_address or '', s_small)],
+    ]
+    cust_table = Table(cust_data, colWidths=[65*mm])
+    cust_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+
+    # Combine header
+    header_data = [[company_table, '', inv_table], ['', '', cust_table]]
+    header = Table(header_data, colWidths=[70*mm, 20*mm, 95*mm])
+    header.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
+    elements.append(header)
+    elements.append(Spacer(1, 5*mm))
+
+    # ======== SHIPMENT INFO ========
+    ship_data = [[
+        P(f'Peso:', s_small), P(f'<b>{form.peso or ""}</b>', s_small),
+        P(f'Moneda:', s_small), P(f'<b>{form.moneda or "USD"}</b>', s_small),
+        '', '',
+    ], [
+        P(f'Tarifa:', s_small), P(f'<b>{form.tarifa or ""}</b>', s_small),
+        P(f'Aerolinea:', s_small), P(f'<b>{form.aerolinea or ""}</b>', s_small),
+        '', '',
+    ], [
+        P(f'Origen:', s_small), P(f'<b>{form.origen or "UIO"}</b>', s_small),
+        P(f'Destino', s_small), P(f'<b>{form.destino or ""}</b>', s_small),
+        P(f'Tarifa IVA:', s_small), P(f'<b>{form.tarifa_iva or "0%"}</b>', s_small),
+    ]]
+    ship_table = Table(ship_data, colWidths=[18*mm, 20*mm, 20*mm, 30*mm, 22*mm, 20*mm])
+    ship_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+    ]))
+    elements.append(ship_table)
+    elements.append(Spacer(1, 3*mm))
+
+    # ======== LINE ITEMS TABLE ========
+    items = form.get_line_items()
+    li_header = [P('Date', s_center_bold), P('UNITS', s_center_bold), '',
+                 P('DESCRIPTION', s_center_bold), '',
+                 P('RATE<br/>PRICE', s_center_bold), P('AMOUNT', s_center_bold),
+                 P('TOTAL<br/>AMOUNT', s_center_bold)]
+    li_rows = [li_header]
+    for item in items:
+        li_rows.append([
+            P(item.get('date', ''), s_center), P(item.get('units', ''), s_center), '',
+            P(item.get('description', ''), s_normal), '',
+            P(item.get('rate', ''), s_right), P(item.get('amount', ''), s_right),
+            P(item.get('total', ''), s_right),
+        ])
+    # Fill empty rows to match template (at least 14 rows)
+    while len(li_rows) < 15:
+        li_rows.append(['', '', '', '', '', '', '', P('-', s_right)])
+
+    li_col_w = [18*mm, 14*mm, 5*mm, 45*mm, 10*mm, 18*mm, 25*mm, 25*mm]
+    li_table = Table(li_rows, colWidths=li_col_w)
+    li_style = [
+        ('BACKGROUND', (0, 0), (-1, 0), BLUE),
+        ('TEXTCOLOR', (0, 0), (-1, 0), WHITE),
+        ('GRID', (0, 0), (-1, 0), 0.5, BLACK),
+        ('LINEBELOW', (0, -1), (-1, -1), 0.5, BLACK),
+        ('LINEBEFORE', (0, 0), (0, -1), 0.5, BLACK),
+        ('LINEAFTER', (-1, 0), (-1, -1), 0.5, BLACK),
+        ('LINEAFTER', (-2, 0), (-2, -1), 0.5, BLACK),
+        ('SPAN', (2, 0), (4, 0)),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]
+    # Span description columns for data rows
+    for r in range(1, len(li_rows)):
+        li_style.append(('SPAN', (2, r), (4, r)))
+    li_table.setStyle(TableStyle(li_style))
+
+    # ======== TOTALS (right side of line items) ========
+    totals_data = [
+        [P('Subtotal', s_right), P('$', s_center), P(form.subtotal or '-', s_right)],
+        [P('Taxable', s_right), P('$', s_center), P(form.taxable or '-', s_right)],
+        [P('Tax rate VAT', s_right), '', P(form.tax_rate_vat or '0.000%', s_right)],
+        [P('Tax', s_right), P('$', s_center), P(form.tax or '-', s_right)],
+        [P('Other charges', s_right), P('$', s_center), P(form.other_charges or '-', s_right)],
+        [P('Insurance', s_right), P('$', s_center), P(form.insurance or '-', s_right)],
+        [P('Legal/Consular', s_right), P('$', s_center), P(form.legal_consular or '-', s_right)],
+        [P('Inspection/Cert.', s_right), P('$', s_center), P(form.inspection_cert or '-', s_right)],
+        [P('Other (specify)', s_right), P('$', s_center), P(form.other_specify or '-', s_right)],
+        [P('<b>TOTAL</b>', s_right_bold), P('<b>$</b>', s_center_bold), P(f'<b>{form.total or "-"}</b>', s_right_bold)],
+        [P('Currency', s_right), '', P(form.currency or 'USD', s_right)],
+    ]
+    totals_table = Table(totals_data, colWidths=[28*mm, 8*mm, 20*mm])
+    totals_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+    ]))
+
+    # Combine line items + totals side by side
+    main_data = [[li_table, totals_table]]
+    main_table = Table(main_data, colWidths=[160*mm, 56*mm])
+    main_table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
+    elements.append(main_table)
+    elements.append(Spacer(1, 3*mm))
+
+    # ======== TERMS + BANK ========
+    terms_bank = [
+        [P('<b>TERMS OF SALE AND OTHER COMMENTS</b>', s_small), '', '', '', '', ''],
+        [P('FULL:', s_small), P(form.full_count or '0', s_small), '',
+         P('AWB:', s_small), '', P(form.awb or '', s_small)],
+        [P('PIECES:', s_small), P(form.pieces_count or '0', s_small), '',
+         P('GROSS:', s_small), '', P(form.gross_weight or '', s_small)],
+        ['', '', '', '', '', ''],
+        [P('BANK', s_bold), P(form.fw_bank or '', s_small), '', '', '', ''],
+        [P('SWIFT', s_bold), P(form.fw_swift or '', s_small), '', '', '', ''],
+        [P('ACCOUNT', s_bold), P(form.fw_account or '', s_small), '', '', '', ''],
+        [P('TAX ID', s_bold), P(form.fw_tax_id or '', s_small), '', '', '', ''],
+        [P('COMPANY', s_bold), P(form.fw_company or '', s_small), '', '', '', ''],
+    ]
+    tb_table = Table(terms_bank, colWidths=[20*mm, 35*mm, 10*mm, 15*mm, 5*mm, 30*mm])
+    tb_table.setStyle(TableStyle([
+        ('SPAN', (0, 0), (-1, 0)),
+        ('BACKGROUND', (0, 0), (-1, 0), LIGHT_BLUE),
+        ('BOX', (0, 0), (-1, -1), 0.5, BLACK),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.5, BLACK),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    elements.append(tb_table)
+    elements.append(Spacer(1, 5*mm))
+
+    # ======== ADDITIONAL DETAILS ========
+    add_data = [
+        [P('<b>ADDITIONAL DETAILS</b>', s_small), '', '', ''],
+        ['', '', '', ''],
+        [P('Reason for Export:', s_small), '', P(form.reason_for_export or 'Fresh Flowers', s_center_bold), ''],
+        ['', '', '', ''],
+        [P('I certify the above to be true and correct to the best of my knowledge.', s_small), '', '', ''],
+        ['', '', P(form.invoice_date or '', s_center), ''],
+        ['', '', P('Date', s_center), ''],
+    ]
+    add_table = Table(add_data, colWidths=[60*mm, 15*mm, 50*mm, 40*mm])
+    add_table.setStyle(TableStyle([
+        ('SPAN', (0, 0), (-1, 0)),
+        ('BACKGROUND', (0, 0), (-1, 0), LIGHT_BLUE),
+        ('BOX', (0, 0), (-1, -1), 0.5, BLACK),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.5, BLACK),
+        ('BOX', (2, 2), (2, 2), 0.5, BLACK),
+        ('LINEABOVE', (2, 5), (2, 5), 0.5, BLACK),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('SPAN', (0, 4), (-1, 4)),
+    ]))
+    elements.append(add_table)
+
+    # Page number
+    elements.append(Spacer(1, 5*mm))
+    elements.append(P('Page 1 of 1', s_center))
+
+    doc.build(elements)
+    output.seek(0)
+    inv_num = (form.invoice_number or str(form.id)).replace(' ', '_')
+    filename = f'Invoice_{inv_num}.pdf'
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='application/pdf')
 
 
 # ============================================================================

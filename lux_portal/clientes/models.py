@@ -272,10 +272,10 @@ class FreightQuoteForm(db.Model):
 
 
 # ============================================================================
-# FORMULARIO PAYMENT INFO
+# FORMULARIO PAYMENT / INVOICE
 # ============================================================================
 class PaymentInfoForm(db.Model):
-    """Formulario Payment - Datos bancarios FreightWise y Cliente"""
+    """Invoice - Factura FreightWise"""
     __tablename__ = 'payment_info_forms'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -284,24 +284,70 @@ class PaymentInfoForm(db.Model):
     estado = db.Column(db.String(20), default='borrador')
     label = db.Column(db.String(200), default='')
 
-    # FREIGHTWISE ACCOUNT
-    fw_bank = db.Column(db.String(200), default='Banco Pichincha')
+    # HEADER
+    invoice_date = db.Column(db.String(50), default='')
+    expiration_date = db.Column(db.String(50), default='')
+    invoice_number = db.Column(db.String(50), default='')
+    customer_id_code = db.Column(db.String(50), default='')
+    date_from = db.Column(db.String(50), default='')
+    date_to = db.Column(db.String(50), default='')
+
+    # CUSTOMER
+    customer_name = db.Column(db.String(300), default='')
+    customer_address = db.Column(db.Text, default='')
+
+    # SHIPMENT INFO
+    peso = db.Column(db.String(50), default='')
+    moneda = db.Column(db.String(10), default='USD')
+    aerolinea = db.Column(db.String(100), default='')
+    tarifa = db.Column(db.String(50), default='')
+    origen = db.Column(db.String(10), default='UIO')
+    destino = db.Column(db.String(50), default='')
+    tarifa_iva = db.Column(db.String(10), default='0%')
+
+    # LINE ITEMS (JSON array: [{date, units, description, rate, amount, total}, ...])
+    line_items = db.Column(db.Text, default='[]')
+
+    # TERMS
+    full_count = db.Column(db.String(20), default='0')
+    pieces_count = db.Column(db.String(20), default='0')
+    awb = db.Column(db.String(50), default='')
+    gross_weight = db.Column(db.String(20), default='')
+
+    # BANK INFO (FreightWise - pre-filled)
+    fw_bank = db.Column(db.String(200), default='BANCO DEL PICHINCHA')
     fw_swift = db.Column(db.String(50), default='PICHECEQXXX')
     fw_account = db.Column(db.String(50), default='2100339784')
-    fw_company = db.Column(db.String(200), default='FREIGHTWISE FORWARDING S.A')
     fw_tax_id = db.Column(db.String(50), default='1793230131001')
-    fw_address = db.Column(db.String(300), default='Pedro de Alfaro y Francisco Ruiz')
+    fw_company = db.Column(db.String(200), default='FREIGHTWISE FORWARDING S.A.')
 
-    # CLIENT ACCOUNT
-    cl_bank = db.Column(db.String(200), default='')
-    cl_swift = db.Column(db.String(50), default='')
-    cl_account = db.Column(db.String(50), default='')
-    cl_company = db.Column(db.String(200), default='')
-    cl_tax_id = db.Column(db.String(50), default='')
-    cl_address = db.Column(db.String(300), default='')
+    # TOTALS (right side)
+    subtotal = db.Column(db.String(50), default='')
+    taxable = db.Column(db.String(50), default='')
+    tax_rate_vat = db.Column(db.String(20), default='0.000%')
+    tax = db.Column(db.String(50), default='')
+    other_charges = db.Column(db.String(50), default='')
+    insurance = db.Column(db.String(50), default='')
+    legal_consular = db.Column(db.String(50), default='')
+    inspection_cert = db.Column(db.String(50), default='')
+    other_specify = db.Column(db.String(50), default='')
+    total = db.Column(db.String(50), default='')
+    currency = db.Column(db.String(10), default='USD')
+
+    # ADDITIONAL
+    reason_for_export = db.Column(db.String(200), default='Fresh Flowers')
+
+    def get_line_items(self):
+        try:
+            return json.loads(self.line_items) if self.line_items else []
+        except:
+            return []
+
+    def set_line_items(self, items):
+        self.line_items = json.dumps(items, ensure_ascii=False)
 
     def __repr__(self):
-        return f'<PaymentInfoForm {self.id} - {self.label}>'
+        return f'<PaymentInfoForm {self.id} - {self.invoice_number}>'
 
 
 # Estructura por defecto de una fila de ruta

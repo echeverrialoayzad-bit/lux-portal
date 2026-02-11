@@ -1,23 +1,22 @@
 {% extends 'clientes/base_clientes.html' %}
 
-{% block title %}Payment Info - Clientes{% endblock %}
+{% block title %}Invoice - Payment{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Header -->
     <div class="row mb-4">
         <div class="col">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <h2 class="mb-1">
-                        <i class="bi bi-credit-card text-rose"></i>
+                        <i class="bi bi-receipt text-rose"></i>
                         {% if form_data and form_data.id %}
-                            Editar Payment Info
+                            Editar Invoice
                         {% else %}
-                            Nuevo Payment Info
+                            Nueva Invoice
                         {% endif %}
                     </h2>
-                    <p class="text-muted mb-0">Datos bancarios de FreightWise y del Cliente</p>
+                    <p class="text-muted mb-0">FreightWise Forwarding S.A. - Invoice Generator</p>
                 </div>
                 <a href="{{ url_for('clientes.formularios') }}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-2"></i>Volver
@@ -26,108 +25,297 @@
         </div>
     </div>
 
-    <form method="POST" id="paymentForm">
-        <!-- Label -->
+    <form method="POST" id="invoiceForm">
+
+        <!-- Section 1: Header Info -->
         <div class="card mb-4 fade-in">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>Invoice Header</h5>
+            </div>
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Etiqueta / Label</label>
-                        <input type="text" class="form-control" name="label"
-                               value="{{ form_data.label if form_data else '' }}"
-                               placeholder="Ej: Pago cliente XYZ">
+                    <div class="col-md-3">
+                        <label class="form-label">Date</label>
+                        <input type="date" class="form-control" name="invoice_date"
+                               value="{{ form_data.invoice_date if form_data else '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Expiration Date</label>
+                        <input type="date" class="form-control" name="expiration_date"
+                               value="{{ form_data.expiration_date if form_data else '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Invoice #</label>
+                        <input type="text" class="form-control" name="invoice_number"
+                               value="{{ form_data.invoice_number if form_data else '' }}"
+                               placeholder="001-002-0000019">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Customer ID</label>
+                        <input type="text" class="form-control" name="customer_id_code"
+                               value="{{ form_data.customer_id_code if form_data else '' }}"
+                               placeholder="ACKI-001">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">From</label>
+                        <input type="date" class="form-control" name="date_from"
+                               value="{{ form_data.date_from if form_data else '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">To</label>
+                        <input type="date" class="form-control" name="date_to"
+                               value="{{ form_data.date_to if form_data else '' }}">
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Section 1: FreightWise Account -->
-        <div class="card mb-4 fade-in" style="animation-delay: 0.1s">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-building me-2"></i>FreightWise Account
-                </h5>
-            </div>
+        <!-- Section 2: Customer -->
+        <div class="card mb-4 fade-in" style="animation-delay:0.05s">
+            <div class="card-header"><h5 class="mb-0"><i class="bi bi-person me-2"></i>Customer</h5></div>
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label">Bank</label>
-                        <input type="text" class="form-control" name="fw_bank"
-                               value="{{ form_data.fw_bank if form_data else 'Banco Pichincha' }}">
+                        <label class="form-label">Customer Name</label>
+                        <input type="text" class="form-control" name="customer_name"
+                               value="{{ form_data.customer_name if form_data else '' }}"
+                               placeholder="ACK IMPORT EXPORT">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Swift</label>
-                        <input type="text" class="form-control" name="fw_swift"
-                               value="{{ form_data.fw_swift if form_data else 'PICHECEQXXX' }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Account</label>
-                        <input type="text" class="form-control" name="fw_account"
-                               value="{{ form_data.fw_account if form_data else '2100339784' }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Company</label>
-                        <input type="text" class="form-control" name="fw_company"
-                               value="{{ form_data.fw_company if form_data else 'FREIGHTWISE FORWARDING S.A' }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Tax ID</label>
-                        <input type="text" class="form-control" name="fw_tax_id"
-                               value="{{ form_data.fw_tax_id if form_data else '1793230131001' }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Address</label>
-                        <input type="text" class="form-control" name="fw_address"
-                               value="{{ form_data.fw_address if form_data else 'Pedro de Alfaro y Francisco Ruiz' }}">
+                        <label class="form-label">Customer Address</label>
+                        <textarea class="form-control" name="customer_address" rows="2"
+                                  placeholder="Direccion completa">{{ form_data.customer_address if form_data else '' }}</textarea>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Section 2: Client Account -->
-        <div class="card mb-4 fade-in" style="animation-delay: 0.2s">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-person-badge me-2"></i>Client Account
-                </h5>
+        <!-- Section 3: Shipment Info -->
+        <div class="card mb-4 fade-in" style="animation-delay:0.1s">
+            <div class="card-header"><h5 class="mb-0"><i class="bi bi-box-seam me-2"></i>Shipment Info</h5></div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label class="form-label">Peso</label>
+                        <input type="text" class="form-control" name="peso"
+                               value="{{ form_data.peso if form_data else '' }}" placeholder="180">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Moneda</label>
+                        <input type="text" class="form-control" name="moneda"
+                               value="{{ form_data.moneda if form_data else 'USD' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Aerolinea</label>
+                        <input type="text" class="form-control" name="aerolinea"
+                               value="{{ form_data.aerolinea if form_data else '' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Tarifa</label>
+                        <input type="text" class="form-control" name="tarifa"
+                               value="{{ form_data.tarifa if form_data else '' }}" placeholder="3.91">
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">Origen</label>
+                        <input type="text" class="form-control" name="origen"
+                               value="{{ form_data.origen if form_data else 'UIO' }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Destino</label>
+                        <input type="text" class="form-control" name="destino"
+                               value="{{ form_data.destino if form_data else '' }}">
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">IVA</label>
+                        <input type="text" class="form-control" name="tarifa_iva"
+                               value="{{ form_data.tarifa_iva if form_data else '0%' }}">
+                    </div>
+                </div>
             </div>
+        </div>
+
+        <!-- Section 4: Line Items -->
+        <div class="card mb-4 fade-in" style="animation-delay:0.15s">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-list-ol me-2"></i>Line Items</h5>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addLineItem()">
+                    <i class="bi bi-plus-circle me-1"></i>Agregar Fila
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered mb-0" id="lineItemsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:120px">Date</th>
+                                <th style="width:80px">Units</th>
+                                <th>Description</th>
+                                <th style="width:100px">Rate Price</th>
+                                <th style="width:110px">Amount</th>
+                                <th style="width:120px">Total Amount</th>
+                                <th style="width:50px"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="lineItemsBody">
+                            {% set items = form_data.get_line_items() if form_data and form_data.get_line_items else [] %}
+                            {% if items %}
+                                {% for item in items %}
+                                <tr class="line-item-row">
+                                    <td><input type="date" class="form-control form-control-sm" name="li_date[]" value="{{ item.date }}"></td>
+                                    <td><input type="text" class="form-control form-control-sm" name="li_units[]" value="{{ item.units }}"></td>
+                                    <td><input type="text" class="form-control form-control-sm" name="li_desc[]" value="{{ item.description }}"></td>
+                                    <td><input type="text" class="form-control form-control-sm li-rate" name="li_rate[]" value="{{ item.rate }}" oninput="calcLineItem(this)"></td>
+                                    <td><input type="text" class="form-control form-control-sm li-amount" name="li_amount[]" value="{{ item.amount }}" readonly style="background:#f1f5f9"></td>
+                                    <td><input type="text" class="form-control form-control-sm li-total" name="li_total[]" value="{{ item.total }}" readonly style="background:#f1f5f9"></td>
+                                    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLineItem(this)"><i class="bi bi-trash"></i></button></td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr class="line-item-row">
+                                    <td><input type="date" class="form-control form-control-sm" name="li_date[]"></td>
+                                    <td><input type="text" class="form-control form-control-sm" name="li_units[]" value="1"></td>
+                                    <td><input type="text" class="form-control form-control-sm" name="li_desc[]" placeholder="Freight"></td>
+                                    <td><input type="text" class="form-control form-control-sm li-rate" name="li_rate[]" oninput="calcLineItem(this)"></td>
+                                    <td><input type="text" class="form-control form-control-sm li-amount" name="li_amount[]" readonly style="background:#f1f5f9"></td>
+                                    <td><input type="text" class="form-control form-control-sm li-total" name="li_total[]" readonly style="background:#f1f5f9"></td>
+                                    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLineItem(this)"><i class="bi bi-trash"></i></button></td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Terms + Bank + Totals -->
+        <div class="row">
+            <!-- Left: Terms & Bank -->
+            <div class="col-md-6">
+                <div class="card mb-4 fade-in" style="animation-delay:0.2s">
+                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-card-text me-2"></i>Terms of Sale</h5></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="form-label">FULL</label>
+                                <input type="text" class="form-control" name="full_count"
+                                       value="{{ form_data.full_count if form_data else '0' }}">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">AWB</label>
+                                <input type="text" class="form-control" name="awb"
+                                       value="{{ form_data.awb if form_data else '' }}">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">PIECES</label>
+                                <input type="text" class="form-control" name="pieces_count"
+                                       value="{{ form_data.pieces_count if form_data else '0' }}">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">GROSS</label>
+                                <input type="text" class="form-control" name="gross_weight"
+                                       value="{{ form_data.gross_weight if form_data else '' }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card mb-4 fade-in" style="animation-delay:0.25s">
+                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-bank me-2"></i>Bank Info (FreightWise)</h5></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">BANK</label>
+                                <input type="text" class="form-control" name="fw_bank"
+                                       value="{{ form_data.fw_bank if form_data else 'BANCO DEL PICHINCHA' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">SWIFT</label>
+                                <input type="text" class="form-control" name="fw_swift"
+                                       value="{{ form_data.fw_swift if form_data else 'PICHECEQXXX' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">ACCOUNT</label>
+                                <input type="text" class="form-control" name="fw_account"
+                                       value="{{ form_data.fw_account if form_data else '2100339784' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">TAX ID</label>
+                                <input type="text" class="form-control" name="fw_tax_id"
+                                       value="{{ form_data.fw_tax_id if form_data else '1793230131001' }}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">COMPANY</label>
+                                <input type="text" class="form-control" name="fw_company"
+                                       value="{{ form_data.fw_company if form_data else 'FREIGHTWISE FORWARDING S.A.' }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Totals -->
+            <div class="col-md-6">
+                <div class="card mb-4 fade-in" style="animation-delay:0.2s">
+                    <div class="card-header"><h5 class="mb-0"><i class="bi bi-calculator me-2"></i>Totals</h5></div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-6"><label class="form-label">Subtotal</label></div>
+                            <div class="col-6"><input type="text" class="form-control form-control-sm" name="subtotal" id="subtotal"
+                                   value="{{ form_data.subtotal if form_data else '' }}" readonly style="background:#f1f5f9"></div>
+
+                            <div class="col-6"><label class="form-label">Taxable</label></div>
+                            <div class="col-6"><input type="text" class="form-control form-control-sm" name="taxable"
+                                   value="{{ form_data.taxable if form_data else '' }}"></div>
+
+                            <div class="col-6"><label class="form-label">Tax rate VAT</label></div>
+                            <div class="col-6"><input type="text" class="form-control form-control-sm" name="tax_rate_vat"
+                                   value="{{ form_data.tax_rate_vat if form_data else '0.000%' }}"></div>
+
+                            <div class="col-6"><label class="form-label">Tax</label></div>
+                            <div class="col-6"><input type="text" class="form-control form-control-sm" name="tax"
+                                   value="{{ form_data.tax if form_data else '' }}"></div>
+
+                            <div class="col-6"><label class="form-label">Other charges</label></div>
+                            <div class="col-6"><input type="text" class="form-control form-control-sm" name="other_charges"
+                                   value="{{ form_data.other_charges if form_data else '' }}"></div>
+
+                            <div class="col-6"><label class="form-label">Insurance</label></div>
+                            <div class="col-6"><input type="text" class="form-control form-control-sm" name="insurance"
+                                   value="{{ form_data.insurance if form_data else '' }}"></div>
+
+                            <div class="col-6"><label class="form-label">Legal/Consular</label></div>
+                            <div class="col-6"><input type="text" class="form-control form-control-sm" name="legal_consular"
+                                   value="{{ form_data.legal_consular if form_data else '' }}"></div>
+
+                            <div class="col-6"><label class="form-label">Inspection/Cert.</label></div>
+                            <div class="col-6"><input type="text" class="form-control form-control-sm" name="inspection_cert"
+                                   value="{{ form_data.inspection_cert if form_data else '' }}"></div>
+
+                            <div class="col-6"><label class="form-label">Other (specify)</label></div>
+                            <div class="col-6"><input type="text" class="form-control form-control-sm" name="other_specify"
+                                   value="{{ form_data.other_specify if form_data else '' }}"></div>
+
+                            <div class="col-6"><label class="form-label fw-bold fs-5">TOTAL</label></div>
+                            <div class="col-6"><input type="text" class="form-control form-control-sm fw-bold fs-5" name="total" id="invoiceTotal"
+                                   value="{{ form_data.total if form_data else '' }}" readonly style="background:#f1f5f9"></div>
+
+                            <div class="col-6"><label class="form-label">Currency</label></div>
+                            <div class="col-6"><input type="text" class="form-control form-control-sm" name="currency"
+                                   value="{{ form_data.currency if form_data else 'USD' }}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 6: Additional Details -->
+        <div class="card mb-4 fade-in" style="animation-delay:0.3s">
+            <div class="card-header"><h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Additional Details</h5></div>
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label">Bank</label>
-                        <input type="text" class="form-control" name="cl_bank"
-                               value="{{ form_data.cl_bank if form_data else '' }}"
-                               placeholder="Nombre del banco">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Swift</label>
-                        <input type="text" class="form-control" name="cl_swift"
-                               value="{{ form_data.cl_swift if form_data else '' }}"
-                               placeholder="Codigo SWIFT">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Account</label>
-                        <input type="text" class="form-control" name="cl_account"
-                               value="{{ form_data.cl_account if form_data else '' }}"
-                               placeholder="Numero de cuenta">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Company</label>
-                        <input type="text" class="form-control" name="cl_company"
-                               value="{{ form_data.cl_company if form_data else '' }}"
-                               placeholder="Nombre de la empresa">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Tax ID</label>
-                        <input type="text" class="form-control" name="cl_tax_id"
-                               value="{{ form_data.cl_tax_id if form_data else '' }}"
-                               placeholder="RUC / Tax ID">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Address</label>
-                        <input type="text" class="form-control" name="cl_address"
-                               value="{{ form_data.cl_address if form_data else '' }}"
-                               placeholder="Direccion">
+                        <label class="form-label">Reason for Export</label>
+                        <input type="text" class="form-control" name="reason_for_export"
+                               value="{{ form_data.reason_for_export if form_data else 'Fresh Flowers' }}">
                     </div>
                 </div>
             </div>
@@ -136,6 +324,11 @@
         <!-- Submit -->
         <div class="d-flex justify-content-end gap-2 mb-4">
             <a href="{{ url_for('clientes.formularios') }}" class="btn btn-outline-secondary">Cancelar</a>
+            {% if form_data and form_data.id %}
+            <a href="{{ url_for('clientes.descargar_invoice_pdf', id=form_data.id) }}" class="btn btn-success">
+                <i class="bi bi-file-earmark-pdf me-2"></i>Descargar PDF
+            </a>
+            {% endif %}
             <button type="submit" class="btn btn-primary">
                 <i class="bi bi-check-circle me-2"></i>Guardar
             </button>
@@ -145,5 +338,58 @@
 
 <style>
 .text-rose { color: var(--clientes-rose, #e11d48); }
+#lineItemsTable input { font-size: 0.85rem; }
 </style>
+
+<script>
+function addLineItem() {
+    const tbody = document.getElementById('lineItemsBody');
+    tbody.insertAdjacentHTML('beforeend', `
+        <tr class="line-item-row">
+            <td><input type="date" class="form-control form-control-sm" name="li_date[]"></td>
+            <td><input type="text" class="form-control form-control-sm" name="li_units[]" value="1"></td>
+            <td><input type="text" class="form-control form-control-sm" name="li_desc[]"></td>
+            <td><input type="text" class="form-control form-control-sm li-rate" name="li_rate[]" oninput="calcLineItem(this)"></td>
+            <td><input type="text" class="form-control form-control-sm li-amount" name="li_amount[]" readonly style="background:#f1f5f9"></td>
+            <td><input type="text" class="form-control form-control-sm li-total" name="li_total[]" readonly style="background:#f1f5f9"></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLineItem(this)"><i class="bi bi-trash"></i></button></td>
+        </tr>
+    `);
+}
+
+function removeLineItem(btn) {
+    if (document.querySelectorAll('.line-item-row').length > 1) {
+        btn.closest('tr').remove();
+        calcTotals();
+    }
+}
+
+function calcLineItem(el) {
+    const row = el.closest('tr');
+    const units = parseFloat(row.querySelector('[name="li_units[]"]').value) || 0;
+    const rate = parseFloat(el.value) || 0;
+    const amount = units * rate;
+    row.querySelector('.li-amount').value = amount.toFixed(2);
+    row.querySelector('.li-total').value = amount.toFixed(2);
+    calcTotals();
+}
+
+function calcTotals() {
+    let sub = 0;
+    document.querySelectorAll('.li-total').forEach(el => {
+        sub += parseFloat(el.value) || 0;
+    });
+    document.getElementById('subtotal').value = sub.toFixed(2);
+    document.getElementById('invoiceTotal').value = sub.toFixed(2);
+}
+
+// Recalc on units change
+document.addEventListener('input', function(e) {
+    if (e.target.name === 'li_units[]') {
+        const row = e.target.closest('tr');
+        const rateInput = row.querySelector('.li-rate');
+        if (rateInput.value) calcLineItem(rateInput);
+    }
+});
+</script>
 {% endblock %}

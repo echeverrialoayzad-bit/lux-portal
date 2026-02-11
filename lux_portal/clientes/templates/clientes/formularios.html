@@ -234,9 +234,9 @@
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Etiqueta</th>
-                                    <th>FW Company</th>
-                                    <th>Client Company</th>
+                                    <th>Invoice #</th>
+                                    <th>Cliente</th>
+                                    <th>Total</th>
                                     <th>Fecha</th>
                                     <th>Acciones</th>
                                 </tr>
@@ -245,9 +245,9 @@
                                 {% for form in payment_forms %}
                                 <tr>
                                     <td>{{ form.id }}</td>
-                                    <td><strong class="text-primary">{{ form.label or '-' }}</strong></td>
-                                    <td>{{ form.fw_company or '-' }}</td>
-                                    <td>{{ form.cl_company or '-' }}</td>
+                                    <td><strong class="text-primary">{{ form.invoice_number or '-' }}</strong></td>
+                                    <td>{{ form.customer_name or '-' }}</td>
+                                    <td>{{ form.total or '-' }}</td>
                                     <td>
                                         <small class="text-muted">
                                             {{ form.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if form.fecha_actualizacion else '-' }}
@@ -258,6 +258,10 @@
                                             <a href="{{ url_for('clientes.payment_info_form', id=form.id) }}"
                                                class="btn btn-outline-primary" title="Editar">
                                                 <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{{ url_for('clientes.descargar_invoice_pdf', id=form.id) }}"
+                                               class="btn btn-outline-success" title="Descargar PDF">
+                                                <i class="bi bi-file-pdf"></i>
                                             </a>
                                             <form action="{{ url_for('clientes.eliminar_payment_info', id=form.id) }}"
                                                   method="POST" class="d-inline"
@@ -279,7 +283,7 @@
     </div>
     {% endif %}
 
-    {% if not customer_forms and not shipping_forms and not freight_forms %}
+    {% if not customer_forms and not shipping_forms and not payment_forms %}
     <div class="row">
         <div class="col-12">
             <div class="empty-state">
