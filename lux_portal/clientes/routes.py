@@ -334,7 +334,8 @@ def customer_associate_form(id=None):
             form.address = request.form.get('address', '').strip()
             form.city_country = request.form.get('city_country', '').strip()
             form.telephone = request.form.get('telephone', '').strip()
-            form.email = request.form.get('email', '').strip()
+            emails = [e.strip() for e in request.form.getlist('email[]') if e.strip()]
+            form.email = ', '.join(emails)
             form.website = request.form.get('website', '').strip()
             form.business_activity = request.form.get('business_activity', '').strip()
             form.annual_revenue = request.form.get('annual_revenue', '').strip()
@@ -349,9 +350,16 @@ def customer_associate_form(id=None):
             shareholders = []
             sh_names = request.form.getlist('shareholder_name[]')
             sh_ids = request.form.getlist('shareholder_id[]')
-            for name, sid in zip(sh_names, sh_ids):
+            sh_nationalities = request.form.getlist('shareholder_nationality[]')
+            sh_percentages = request.form.getlist('shareholder_percentage[]')
+            for i, name in enumerate(sh_names):
                 if name.strip():
-                    shareholders.append({'name': name.strip(), 'id_number': sid.strip()})
+                    shareholders.append({
+                        'name': name.strip(),
+                        'id_number': sh_ids[i].strip() if i < len(sh_ids) else '',
+                        'nationality': sh_nationalities[i].strip() if i < len(sh_nationalities) else '',
+                        'percentage': sh_percentages[i].strip() if i < len(sh_percentages) else '',
+                    })
             form.set_shareholders(shareholders)
 
             # Financial
