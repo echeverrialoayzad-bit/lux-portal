@@ -220,9 +220,13 @@
                     {% if form_data and form_data.get_suppliers %}
                         {% for sup in form_data.get_suppliers() %}
                         <div class="row g-3 mb-3 supplier-row">
-                            <div class="col-md-10">
+                            <div class="col-md-5">
                                 <input type="text" class="form-control" name="supplier_name[]"
                                        value="{{ sup.name }}" placeholder="Nombre del proveedor">
+                            </div>
+                            <div class="col-md-5">
+                                <input type="email" class="form-control" name="supplier_email[]"
+                                       value="{{ sup.email if sup.email is defined else '' }}" placeholder="Email del proveedor">
                             </div>
                             <div class="col-md-2">
                                 <button type="button" class="btn btn-outline-danger w-100" onclick="removeSupplier(this)">
@@ -233,8 +237,11 @@
                         {% endfor %}
                     {% else %}
                         <div class="row g-3 mb-3 supplier-row">
-                            <div class="col-md-10">
+                            <div class="col-md-5">
                                 <input type="text" class="form-control" name="supplier_name[]" placeholder="Nombre del proveedor">
+                            </div>
+                            <div class="col-md-5">
+                                <input type="email" class="form-control" name="supplier_email[]" placeholder="Email del proveedor">
                             </div>
                             <div class="col-md-2">
                                 <button type="button" class="btn btn-outline-danger w-100" onclick="removeSupplier(this)">
@@ -353,8 +360,11 @@ function addSupplier() {
     const container = document.getElementById('suppliers-container');
     const html = `
         <div class="row g-3 mb-3 supplier-row">
-            <div class="col-md-10">
+            <div class="col-md-5">
                 <input type="text" class="form-control" name="supplier_name[]" placeholder="Nombre del proveedor">
+            </div>
+            <div class="col-md-5">
+                <input type="email" class="form-control" name="supplier_email[]" placeholder="Email del proveedor">
             </div>
             <div class="col-md-2">
                 <button type="button" class="btn btn-outline-danger w-100" onclick="removeSupplier(this)">

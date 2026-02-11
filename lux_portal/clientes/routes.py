@@ -462,9 +462,13 @@ def shipping_instructions_form(id=None):
             # Suppliers
             suppliers = []
             sup_names = request.form.getlist('supplier_name[]')
-            for name in sup_names:
+            sup_emails = request.form.getlist('supplier_email[]')
+            for i, name in enumerate(sup_names):
                 if name.strip():
-                    suppliers.append({'name': name.strip()})
+                    suppliers.append({
+                        'name': name.strip(),
+                        'email': sup_emails[i].strip() if i < len(sup_emails) else '',
+                    })
             form.set_suppliers(suppliers)
 
             form.estado = 'completo'
