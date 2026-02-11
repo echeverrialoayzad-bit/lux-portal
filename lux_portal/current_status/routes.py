@@ -610,6 +610,46 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
                     cell.fill = gray_fill
             row += 1
 
+    # FreightWise Additional Charges
+    row += 1
+    fw_purple = PatternFill(start_color='5F259F', end_color='5F259F', fill_type='solid')
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=13)
+    cell = ws.cell(row=row, column=1, value='FreightWise Additional Charges')
+    cell.font = Font(bold=True, color='FFFFFF', size=11)
+    cell.fill = fw_purple
+    cell.alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[row].height = 25
+    row += 1
+
+    cargos_fw = [
+        ('Due Agent', '$ 50.00'),
+        ('Certificate', '$ 15.00'),
+        ('Phytosanitary', '$ 2.50'),
+    ]
+    no_side = Side(style=None)
+    thin_side = Side(style='thin', color='000000')
+    fw_start = row
+    for concepto, monto in cargos_fw:
+        ws.merge_cells(start_row=row, start_column=5, end_row=row, end_column=9)
+        c1 = ws.cell(row=row, column=5, value=concepto)
+        c1.font = Font(name='Arial', size=9)
+        c1.alignment = Alignment(horizontal='center', vertical='center')
+        ws.merge_cells(start_row=row, start_column=10, end_row=row, end_column=11)
+        c2 = ws.cell(row=row, column=10, value=monto)
+        c2.font = Font(name='Arial', size=9)
+        c2.alignment = Alignment(horizontal='center', vertical='center')
+        row += 1
+    fw_end = row - 1
+    # Outer border only for FreightWise section
+    for r in range(fw_start, fw_end + 1):
+        for c in range(1, 14):
+            left = thin_side if c == 1 else no_side
+            right = thin_side if c == 13 else no_side
+            top = thin_side if r == fw_start else no_side
+            bottom = thin_side if r == fw_end else no_side
+            ws.cell(row=r, column=c).border = Border(left=left, right=right, top=top, bottom=bottom)
+    row += 1
+
     # Auto-width: increase cap to 50 and set minimum of 15
     for col in ws.columns:
         max_len = 0
@@ -842,6 +882,38 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#E2E8F0')]),
             ] + common_style))
             elements.append(t3)
+
+    # FreightWise Additional Charges
+    elements.append(Spacer(1, 15))
+    fw_purple = colors.HexColor('#5F259F')
+    fw_header = [[Paragraph('<b>FreightWise Additional Charges</b>', cell_header)]]
+    fw_header_t = Table(fw_header, colWidths=[260*mm])
+    fw_header_t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), fw_purple),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+    ]))
+    elements.append(fw_header_t)
+
+    cargos_fw = [
+        ('Due Agent', '$ 50.00'),
+        ('Certificate', '$ 15.00'),
+        ('Phytosanitary', '$ 2.50'),
+    ]
+    fw_col_w = [60*mm, 70*mm, 70*mm, 60*mm]
+    fw_data = [[P(''), P(concepto), P(monto), P('')] for concepto, monto in cargos_fw]
+    fw_table = Table(fw_data, colWidths=fw_col_w)
+    fw_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+    ] + common_style))
+    elements.append(fw_table)
 
     doc.build(elements)
     output.seek(0)
