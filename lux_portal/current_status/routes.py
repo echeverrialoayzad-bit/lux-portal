@@ -612,11 +612,10 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
 
     # FreightWise Additional Charges
     row += 1
-    fw_purple = PatternFill(start_color='5F259F', end_color='5F259F', fill_type='solid')
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=13)
     cell = ws.cell(row=row, column=1, value='FreightWise Additional Charges')
     cell.font = Font(bold=True, color='FFFFFF', size=11)
-    cell.fill = fw_purple
+    cell.fill = purple_fill
     cell.alignment = Alignment(horizontal='center', vertical='center')
     ws.row_dimensions[row].height = 25
     row += 1
@@ -885,11 +884,10 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
 
     # FreightWise Additional Charges
     elements.append(Spacer(1, 15))
-    fw_purple = colors.HexColor('#5F259F')
     fw_header = [[Paragraph('<b>FreightWise Additional Charges</b>', cell_header)]]
     fw_header_t = Table(fw_header, colWidths=[260*mm])
     fw_header_t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), fw_purple),
+        ('BACKGROUND', (0, 0), (-1, -1), purple),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('TOPPADDING', (0, 0), (-1, -1), 5),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
