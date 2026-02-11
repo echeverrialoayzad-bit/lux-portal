@@ -271,6 +271,39 @@ class FreightQuoteForm(db.Model):
         return f'<FreightQuoteForm {self.id} - {self.ruta}>'
 
 
+# ============================================================================
+# FORMULARIO PAYMENT INFO
+# ============================================================================
+class PaymentInfoForm(db.Model):
+    """Formulario Payment - Datos bancarios FreightWise y Cliente"""
+    __tablename__ = 'payment_info_forms'
+
+    id = db.Column(db.Integer, primary_key=True)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    estado = db.Column(db.String(20), default='borrador')
+    label = db.Column(db.String(200), default='')
+
+    # FREIGHTWISE ACCOUNT
+    fw_bank = db.Column(db.String(200), default='Banco Pichincha')
+    fw_swift = db.Column(db.String(50), default='PICHECEQXXX')
+    fw_account = db.Column(db.String(50), default='2100339784')
+    fw_company = db.Column(db.String(200), default='FREIGHTWISE FORWARDING S.A')
+    fw_tax_id = db.Column(db.String(50), default='1793230131001')
+    fw_address = db.Column(db.String(300), default='Pedro de Alfaro y Francisco Ruiz')
+
+    # CLIENT ACCOUNT
+    cl_bank = db.Column(db.String(200), default='')
+    cl_swift = db.Column(db.String(50), default='')
+    cl_account = db.Column(db.String(50), default='')
+    cl_company = db.Column(db.String(200), default='')
+    cl_tax_id = db.Column(db.String(50), default='')
+    cl_address = db.Column(db.String(300), default='')
+
+    def __repr__(self):
+        return f'<PaymentInfoForm {self.id} - {self.label}>'
+
+
 # Estructura por defecto de una fila de ruta
 RUTA_TEMPLATE = {
     'airline': '',

@@ -69,18 +69,15 @@
             <div class="card form-type-card h-100">
                 <div class="card-body text-center p-4">
                     <div class="form-icon freight-icon mb-3">
-                        <i class="bi bi-calculator"></i>
+                        <i class="bi bi-credit-card"></i>
                     </div>
-                    <h5 class="mb-2">Freight Quote</h5>
+                    <h5 class="mb-2">Payment</h5>
                     <p class="text-muted small mb-3">
-                        Cotizacion de flete con costos, cargos y datos bancarios.
+                        Datos bancarios de FreightWise y del cliente.
                     </p>
                     <div class="d-flex gap-2 justify-content-center flex-wrap">
-                        <a href="{{ url_for('clientes.freight_quote_form') }}" class="btn btn-sm btn-primary">
-                            <i class="bi bi-pencil me-1"></i>Manual
-                        </a>
-                        <a href="{{ url_for('clientes.upload_form', form_type='freight-quote') }}" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-upload me-1"></i>Excel
+                        <a href="{{ url_for('clientes.payment_info_form') }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-pencil me-1"></i>Nuevo
                         </a>
                     </div>
                 </div>
@@ -220,16 +217,16 @@
     </div>
     {% endif %}
 
-    <!-- Recent Freight Quote Forms -->
-    {% if freight_forms %}
+    <!-- Recent Payment Forms -->
+    {% if payment_forms %}
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="bi bi-calculator me-2"></i>Freight Quote - Recientes
+                        <i class="bi bi-credit-card me-2"></i>Payment - Recientes
                     </h5>
-                    <span class="badge bg-rose-light">{{ freight_forms|length }}</span>
+                    <span class="badge bg-rose-light">{{ payment_forms|length }}</span>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -237,22 +234,20 @@
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Ruta</th>
-                                    <th>Net Weight</th>
-                                    <th>Rate</th>
-                                    <th>Total</th>
+                                    <th>Etiqueta</th>
+                                    <th>FW Company</th>
+                                    <th>Client Company</th>
                                     <th>Fecha</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for form in freight_forms %}
+                                {% for form in payment_forms %}
                                 <tr>
                                     <td>{{ form.id }}</td>
-                                    <td><strong class="text-primary">{{ form.ruta or '-' }}</strong></td>
-                                    <td>{{ form.net_weight or 0 }} kg</td>
-                                    <td>${{ "%.2f"|format(form.rate or 0) }}</td>
-                                    <td><strong class="text-success">${{ "%.2f"|format(form.total or 0) }}</strong></td>
+                                    <td><strong class="text-primary">{{ form.label or '-' }}</strong></td>
+                                    <td>{{ form.fw_company or '-' }}</td>
+                                    <td>{{ form.cl_company or '-' }}</td>
                                     <td>
                                         <small class="text-muted">
                                             {{ form.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if form.fecha_actualizacion else '-' }}
@@ -260,17 +255,13 @@
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{{ url_for('clientes.freight_quote_form', id=form.id) }}"
+                                            <a href="{{ url_for('clientes.payment_info_form', id=form.id) }}"
                                                class="btn btn-outline-primary" title="Editar">
                                                 <i class="bi bi-pencil"></i>
                                             </a>
-                                            <a href="{{ url_for('clientes.descargar_freight_quote', id=form.id) }}"
-                                               class="btn btn-outline-success" title="Descargar Excel">
-                                                <i class="bi bi-download"></i>
-                                            </a>
-                                            <form action="{{ url_for('clientes.eliminar_freight_quote', id=form.id) }}"
+                                            <form action="{{ url_for('clientes.eliminar_payment_info', id=form.id) }}"
                                                   method="POST" class="d-inline"
-                                                  onsubmit="return confirm('Eliminar esta cotizacion?')">
+                                                  onsubmit="return confirm('Eliminar este registro?')">
                                                 <button type="submit" class="btn btn-outline-danger" title="Eliminar">
                                                     <i class="bi bi-trash"></i>
                                                 </button>

@@ -1,0 +1,149 @@
+{% extends 'clientes/base_clientes.html' %}
+
+{% block title %}Payment Info - Clientes{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="bi bi-credit-card text-rose"></i>
+                        {% if form_data and form_data.id %}
+                            Editar Payment Info
+                        {% else %}
+                            Nuevo Payment Info
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">Datos bancarios de FreightWise y del Cliente</p>
+                </div>
+                <a href="{{ url_for('clientes.formularios') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Volver
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" id="paymentForm">
+        <!-- Label -->
+        <div class="card mb-4 fade-in">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Etiqueta / Label</label>
+                        <input type="text" class="form-control" name="label"
+                               value="{{ form_data.label if form_data else '' }}"
+                               placeholder="Ej: Pago cliente XYZ">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 1: FreightWise Account -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.1s">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-building me-2"></i>FreightWise Account
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Bank</label>
+                        <input type="text" class="form-control" name="fw_bank"
+                               value="{{ form_data.fw_bank if form_data else 'Banco Pichincha' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Swift</label>
+                        <input type="text" class="form-control" name="fw_swift"
+                               value="{{ form_data.fw_swift if form_data else 'PICHECEQXXX' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Account</label>
+                        <input type="text" class="form-control" name="fw_account"
+                               value="{{ form_data.fw_account if form_data else '2100339784' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Company</label>
+                        <input type="text" class="form-control" name="fw_company"
+                               value="{{ form_data.fw_company if form_data else 'FREIGHTWISE FORWARDING S.A' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Tax ID</label>
+                        <input type="text" class="form-control" name="fw_tax_id"
+                               value="{{ form_data.fw_tax_id if form_data else '1793230131001' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Address</label>
+                        <input type="text" class="form-control" name="fw_address"
+                               value="{{ form_data.fw_address if form_data else 'Pedro de Alfaro y Francisco Ruiz' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Client Account -->
+        <div class="card mb-4 fade-in" style="animation-delay: 0.2s">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-person-badge me-2"></i>Client Account
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Bank</label>
+                        <input type="text" class="form-control" name="cl_bank"
+                               value="{{ form_data.cl_bank if form_data else '' }}"
+                               placeholder="Nombre del banco">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Swift</label>
+                        <input type="text" class="form-control" name="cl_swift"
+                               value="{{ form_data.cl_swift if form_data else '' }}"
+                               placeholder="Codigo SWIFT">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Account</label>
+                        <input type="text" class="form-control" name="cl_account"
+                               value="{{ form_data.cl_account if form_data else '' }}"
+                               placeholder="Numero de cuenta">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Company</label>
+                        <input type="text" class="form-control" name="cl_company"
+                               value="{{ form_data.cl_company if form_data else '' }}"
+                               placeholder="Nombre de la empresa">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Tax ID</label>
+                        <input type="text" class="form-control" name="cl_tax_id"
+                               value="{{ form_data.cl_tax_id if form_data else '' }}"
+                               placeholder="RUC / Tax ID">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Address</label>
+                        <input type="text" class="form-control" name="cl_address"
+                               value="{{ form_data.cl_address if form_data else '' }}"
+                               placeholder="Direccion">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="d-flex justify-content-end gap-2 mb-4">
+            <a href="{{ url_for('clientes.formularios') }}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle me-2"></i>Guardar
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+.text-rose { color: var(--clientes-rose, #e11d48); }
+</style>
+{% endblock %}

@@ -8,7 +8,7 @@ from flask import render_template, request, redirect, url_for, flash, jsonify, s
 from lux_portal.clientes import clientes_bp
 from lux_portal.clientes.models import (
     Cliente, ClientePlanilla, RUTA_TEMPLATE,
-    CustomerAssociateForm, ShippingInstructionsForm, FreightQuoteForm
+    CustomerAssociateForm, ShippingInstructionsForm, FreightQuoteForm, PaymentInfoForm
 )
 from lux_portal.extensions import db
 from lux_portal.auth.decorators import login_required
@@ -290,15 +290,15 @@ def formularios():
         ShippingInstructionsForm.fecha_actualizacion.desc()
     ).limit(10).all()
 
-    freight_forms = FreightQuoteForm.query.order_by(
-        FreightQuoteForm.fecha_actualizacion.desc()
+    payment_forms = PaymentInfoForm.query.order_by(
+        PaymentInfoForm.fecha_actualizacion.desc()
     ).limit(10).all()
 
     return render_template(
         'clientes/formularios.html',
         customer_forms=customer_forms,
         shipping_forms=shipping_forms,
-        freight_forms=freight_forms
+        payment_forms=payment_forms
     )
 
 
@@ -710,6 +710,78 @@ def eliminar_shipping_instructions(id):
         db.session.delete(form)
         db.session.commit()
         flash('Formulario eliminado', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error: {str(e)}', 'danger')
+    return redirect(url_for('clientes.formularios'))
+
+
+# ============================================================================
+# RUTAS DE PAYMENT INFO FORM
+# ============================================================================
+
+@clientes_bp.route('/formularios/payment-info', methods=['GET', 'POST'])
+@clientes_bp.route('/formularios/payment-info/<int:id>', methods=['GET', 'POST'])
+@login_required
+def payment_info_form(id=None):
+    """Formulario Payment Info - nuevo o edicion"""
+    form_data = None
+    if id:
+        form_data = PaymentInfoForm.query.get_or_404(id)
+
+    if request.method == 'POST':
+        try:
+            if id:
+                form = PaymentInfoForm.query.get_or_404(id)
+            else:
+                form = PaymentInfoForm()
+
+            form.label = request.form.get('label', '').strip()
+
+            # FreightWise Account
+            form.fw_bank = request.form.get('fw_bank', '').strip()
+            form.fw_swift = request.form.get('fw_swift', '').strip()
+            form.fw_account = request.form.get('fw_account', '').strip()
+            form.fw_company = request.form.get('fw_company', '').strip()
+            form.fw_tax_id = request.form.get('fw_tax_id', '').strip()
+            form.fw_address = request.form.get('fw_address', '').strip()
+
+            # Client Account
+            form.cl_bank = request.form.get('cl_bank', '').strip()
+            form.cl_swift = request.form.get('cl_swift', '').strip()
+            form.cl_account = request.form.get('cl_account', '').strip()
+            form.cl_company = request.form.get('cl_company', '').strip()
+            form.cl_tax_id = request.form.get('cl_tax_id', '').strip()
+            form.cl_address = request.form.get('cl_address', '').strip()
+
+            form.estado = 'completo'
+
+            if not id:
+                db.session.add(form)
+
+            db.session.commit()
+            flash('Payment Info guardado exitosamente', 'success')
+            return redirect(url_for('clientes.formularios'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al guardar: {str(e)}', 'danger')
+
+    return render_template(
+        'clientes/form_payment_info.html',
+        form_data=form_data
+    )
+
+
+@clientes_bp.route('/formularios/payment-info/<int:id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_payment_info(id):
+    """Eliminar formulario Payment Info"""
+    try:
+        form = PaymentInfoForm.query.get_or_404(id)
+        db.session.delete(form)
+        db.session.commit()
+        flash('Registro eliminado', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Error: {str(e)}', 'danger')
