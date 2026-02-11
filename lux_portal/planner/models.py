@@ -239,6 +239,22 @@ class StickyNote(db.Model):
 
 
 # ============================================================================
+# GRATITUDE - Agradecimientos diarios
+# ============================================================================
+class GratitudeEntry(db.Model):
+    """Entrada de agradecimiento diario"""
+    __tablename__ = 'planner_gratitude'
+
+    id = db.Column(db.Integer, primary_key=True)
+    entry_date = db.Column(db.Date, nullable=False, default=date.today)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<GratitudeEntry {self.entry_date}: {self.content[:30]}>'
+
+
+# ============================================================================
 # MOTIVATIONAL QUOTE - Frase del dia
 # ============================================================================
 MOTIVATIONAL_QUOTES = [

@@ -1,0 +1,259 @@
+{% extends 'planner/base_planner.html' %}
+
+{% block title %}Gratitude Journal - Planner{% endblock %}
+
+{% block extra_css %}
+<style>
+.gratitude-header {
+    background: var(--gradient-primary);
+    color: white;
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.gratitude-header::before {
+    content: '\2764';
+    position: absolute;
+    top: -10px;
+    right: 30px;
+    font-size: 6rem;
+    opacity: 0.12;
+}
+
+.gratitude-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+}
+
+.day-card {
+    border: 2px solid rgba(236, 72, 153, 0.15);
+    border-radius: 16px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.day-card:hover {
+    border-color: rgba(236, 72, 153, 0.3);
+    box-shadow: var(--shadow-md);
+}
+
+.day-card-header {
+    background: linear-gradient(135deg, #FDF2F8 0%, #F3E8FF 100%);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.day-card-header.is-today {
+    background: var(--gradient-primary);
+    color: white;
+}
+
+.day-label {
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.day-count {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.day-entries {
+    padding: 16px 20px;
+}
+
+.entry-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.entry-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.entry-heart {
+    color: var(--planner-rose);
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+
+.entry-content {
+    flex: 1;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.entry-time {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+.entry-delete {
+    cursor: pointer;
+    color: var(--text-tertiary);
+    opacity: 0;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+}
+
+.entry-item:hover .entry-delete {
+    opacity: 1;
+}
+
+.empty-history {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-tertiary);
+}
+
+.empty-history i {
+    font-size: 4rem;
+    opacity: 0.3;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+.stats-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    flex: 1;
+    background: white;
+    border-radius: 14px;
+    padding: 1.2rem;
+    text-align: center;
+    border: 2px solid var(--border-color);
+}
+
+.stat-number {
+    font-size: 1.8rem;
+    font-weight: 800;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .stats-row {
+        flex-wrap: wrap;
+    }
+    .stat-card {
+        min-width: 45%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Header -->
+    <div class="gratitude-header fade-in">
+        <h2>Gratitude Journal</h2>
+        <p class="mb-0 opacity-75">Today I am grateful for...</p>
+    </div>
+
+    <!-- Stats -->
+    {% set total_entries = grouped.values()|map('length')|sum %}
+    {% set total_days = grouped|length %}
+    <div class="stats-row fade-in" style="animation-delay: 0.1s">
+        <div class="stat-card">
+            <div class="stat-number">{{ total_entries }}</div>
+            <div class="stat-label">Total Gratitudes</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ total_days }}</div>
+            <div class="stat-label">Days Recorded</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ (total_entries / total_days)|round(1) if total_days > 0 else 0 }}</div>
+            <div class="stat-label">Avg per Day</div>
+        </div>
+    </div>
+
+    <!-- Day Cards -->
+    {% if grouped %}
+        {% for entry_date, entries in grouped.items() %}
+        <div class="day-card fade-in" style="animation-delay: {{ loop.index * 0.05 }}s">
+            <div class="day-card-header {% if entry_date == today %}is-today{% endif %}">
+                <span class="day-label">
+                    {% if entry_date == today %}
+                        Hoy
+                    {% else %}
+                        {{ dias_es[entry_date.weekday()] }}
+                    {% endif %}
+                    - {{ entry_date.day }} {{ meses_es[entry_date.month] }} {{ entry_date.year }}
+                </span>
+                <span class="day-count">{{ entries|length }} gratitude{{ 's' if entries|length > 1 else '' }}</span>
+            </div>
+            <div class="day-entries">
+                {% for entry in entries %}
+                <div class="entry-item" id="grat-{{ entry.id }}">
+                    <i class="bi bi-heart-fill entry-heart"></i>
+                    <span class="entry-content">{{ entry.content }}</span>
+                    <span class="entry-time">{{ entry.created_at.strftime('%H:%M') }}</span>
+                    <i class="bi bi-x-lg entry-delete" onclick="deleteEntry({{ entry.id }})"></i>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-history">
+            <i class="bi bi-heart"></i>
+            <h5>No gratitude entries yet</h5>
+            <p>Start by adding what you're grateful for on the dashboard</p>
+            <a href="{{ url_for('planner.dashboard') }}" class="btn btn-primary mt-2">
+                <i class="bi bi-arrow-left me-2"></i>Go to Dashboard
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteEntry(id) {
+    if (!confirm('Eliminar esta entrada?')) return;
+
+    fetch(`/planner/api/gratitude/${id}`, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const el = document.getElementById(`grat-${id}`);
+            el.style.opacity = '0';
+            setTimeout(() => {
+                el.remove();
+                // If parent day-entries is now empty, remove the day-card
+                document.querySelectorAll('.day-entries').forEach(de => {
+                    if (de.children.length === 0) {
+                        de.closest('.day-card').remove();
+                    }
+                });
+            }, 300);
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -364,6 +364,79 @@
     opacity: 1;
 }
 
+/* Gratitude Section */
+.gratitude-card {
+    border: 2px solid rgba(236, 72, 153, 0.2);
+}
+
+.gratitude-date {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.gratitude-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    position: relative;
+}
+
+.gratitude-heart {
+    color: var(--planner-rose);
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.gratitude-text {
+    flex: 1;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+}
+
+.gratitude-delete {
+    opacity: 0;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    transition: opacity 0.2s;
+}
+
+.gratitude-item:hover .gratitude-delete {
+    opacity: 1;
+}
+
+.gratitude-input-wrap {
+    display: flex;
+    gap: 6px;
+}
+
+.gratitude-input {
+    border-radius: 10px;
+    border: 2px solid rgba(236, 72, 153, 0.2);
+    font-size: 0.85rem;
+}
+
+.gratitude-input:focus {
+    border-color: var(--planner-rose);
+    box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
+}
+
+.gratitude-add-btn {
+    background: var(--planner-rose);
+    color: white;
+    border-radius: 10px;
+    padding: 0 12px;
+}
+
+.gratitude-add-btn:hover {
+    background: #DB2777;
+    color: white;
+}
+
 /* Empty States */
 .empty-mini {
     text-align: center;
@@ -615,8 +688,49 @@
             </div>
         </div>
 
-        <!-- Right Column - Habits -->
+        <!-- Right Column -->
         <div class="col-lg-3">
+            <!-- Gratitude -->
+            <div class="card gratitude-card mb-4 fade-in" style="animation-delay: 0.18s">
+                <div class="card-body">
+                    <div class="section-header">
+                        <h5 class="section-title">
+                            <i class="bi bi-heart"></i>Grateful
+                        </h5>
+                        <a href="{{ url_for('planner.gratitude_history') }}" class="btn btn-sm btn-outline-primary" title="Historial">
+                            <i class="bi bi-clock-history"></i>
+                        </a>
+                    </div>
+
+                    <p class="gratitude-date mb-3">
+                        Today I am grateful for:
+                        <span class="text-muted small d-block">{{ today.strftime('%d/%m/%Y') }}</span>
+                    </p>
+
+                    <!-- Entradas de hoy -->
+                    <div id="gratitudeList">
+                        {% for g in today_gratitudes %}
+                        <div class="gratitude-item" id="grat-{{ g.id }}">
+                            <i class="bi bi-heart-fill gratitude-heart"></i>
+                            <span class="gratitude-text">{{ g.content }}</span>
+                            <i class="bi bi-x gratitude-delete" onclick="deleteGratitude({{ g.id }})"></i>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Input para agregar -->
+                    <div class="gratitude-input-wrap mt-2">
+                        <input type="text" class="form-control form-control-sm gratitude-input"
+                               id="gratitudeInput" placeholder="I am grateful for..."
+                               onkeydown="if(event.key==='Enter') addGratitude()">
+                        <button class="btn btn-sm gratitude-add-btn" onclick="addGratitude()">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Habits -->
             <div class="card fade-in" style="animation-delay: 0.2s">
                 <div class="card-body">
                     <div class="section-header">
@@ -775,6 +889,44 @@ function toggleSubgoal(id) {
     .then(data => {
         if (data.success) {
             location.reload();
+        }
+    });
+}
+
+function addGratitude() {
+    const input = document.getElementById('gratitudeInput');
+    const content = input.value.trim();
+    if (!content) return;
+
+    fetch('{{ url_for("planner.add_gratitude") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const list = document.getElementById('gratitudeList');
+            const item = document.createElement('div');
+            item.className = 'gratitude-item';
+            item.id = `grat-${data.id}`;
+            item.innerHTML = `
+                <i class="bi bi-heart-fill gratitude-heart"></i>
+                <span class="gratitude-text">${data.content}</span>
+                <i class="bi bi-x gratitude-delete" onclick="deleteGratitude(${data.id})"></i>
+            `;
+            list.appendChild(item);
+            input.value = '';
+        }
+    });
+}
+
+function deleteGratitude(id) {
+    fetch(`/planner/api/gratitude/${id}`, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById(`grat-${id}`).remove();
         }
     });
 }

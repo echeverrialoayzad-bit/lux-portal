@@ -8,7 +8,7 @@ from flask import render_template, request, redirect, url_for, flash, jsonify
 from lux_portal.planner import planner_bp
 from lux_portal.planner.models import (
     MonthlyGoal, SubGoal, Task, Event, Habit, HabitLog, StickyNote,
-    get_daily_quote
+    GratitudeEntry, get_daily_quote
 )
 from lux_portal.extensions import db
 from lux_portal.auth.decorators import login_required
@@ -75,6 +75,9 @@ def dashboard():
     # Sticky notes
     sticky_notes = StickyNote.query.order_by(StickyNote.pinned.desc(), StickyNote.updated_at.desc()).limit(6).all()
 
+    # Agradecimientos de hoy
+    today_gratitudes = GratitudeEntry.query.filter_by(entry_date=today).order_by(GratitudeEntry.created_at).all()
+
     # Frase motivacional
     quote = get_daily_quote()
 
@@ -97,6 +100,7 @@ def dashboard():
         events_by_day=events_by_day,
         habits=habits,
         sticky_notes=sticky_notes,
+        today_gratitudes=today_gratitudes,
         quote=quote,
         today=today,
         month_name=calendar.month_name[current_month],
@@ -634,3 +638,79 @@ def delete_note(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================================
+# GRATITUDE ROUTES
+# ============================================================================
+
+@planner_bp.route('/api/gratitude', methods=['POST'])
+@login_required
+def add_gratitude():
+    """Agregar entrada de agradecimiento"""
+    try:
+        data = request.get_json()
+        content = data.get('content', '').strip()
+        if not content:
+            return jsonify({'success': False, 'error': 'Contenido vacio'}), 400
+
+        entry = GratitudeEntry(
+            entry_date=date.today(),
+            content=content
+        )
+        db.session.add(entry)
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'id': entry.id,
+            'content': entry.content,
+            'time': entry.created_at.strftime('%H:%M')
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@planner_bp.route('/api/gratitude/<int:id>', methods=['DELETE'])
+@login_required
+def delete_gratitude(id):
+    """Eliminar entrada de agradecimiento"""
+    try:
+        entry = GratitudeEntry.query.get_or_404(id)
+        db.session.delete(entry)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@planner_bp.route('/gratitude')
+@login_required
+def gratitude_history():
+    """Historial de agradecimientos"""
+    # Obtener todos los agradecimientos agrupados por fecha
+    entries = GratitudeEntry.query.order_by(
+        GratitudeEntry.entry_date.desc(),
+        GratitudeEntry.created_at.desc()
+    ).all()
+
+    # Agrupar por fecha
+    grouped = {}
+    for entry in entries:
+        d = entry.entry_date
+        if d not in grouped:
+            grouped[d] = []
+        grouped[d].append(entry)
+
+    meses_es = {1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',
+                7:'Julio',8:'Agosto',9:'Septiembre',10:'Octubre',11:'Noviembre',12:'Diciembre'}
+    dias_es = {0:'Lunes',1:'Martes',2:'Miercoles',3:'Jueves',4:'Viernes',5:'Sabado',6:'Domingo'}
+
+    return render_template(
+        'planner/gratitude_history.html',
+        grouped=grouped,
+        today=date.today(),
+        meses_es=meses_es,
+        dias_es=dias_es
+    )
