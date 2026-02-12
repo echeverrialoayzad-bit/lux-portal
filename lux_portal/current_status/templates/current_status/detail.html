@@ -276,6 +276,23 @@
     .uppercase-field {
         text-transform: uppercase !important;
     }
+    /* Termografo select dropdown */
+    .termo-select {
+        border: none;
+        background: transparent;
+        width: 100%;
+        padding: 6px 3px;
+        font-size: 0.65rem;
+        color: var(--lux-text-primary);
+        outline: none;
+        text-align: center;
+        font-family: inherit;
+        cursor: pointer;
+        min-height: 28px;
+    }
+    .termo-select:focus {
+        background: rgba(173, 216, 230, 0.12);
+    }
     /* Merged airline cell (rowspan) */
     .col-airline { position: relative; }
     .col-airline[rowspan] {
@@ -852,7 +869,12 @@
                         <td class="editable-cell"><textarea data-field="due_carrier" onblur="guardarShipment(this)">{{ s.due_carrier }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="fito_venta" onblur="guardarShipment(this)">{{ s.fito_venta }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="co_venta" onblur="guardarShipment(this)">{{ s.co_venta }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="termografo_venta" onblur="guardarShipment(this)">{{ s.termografo_venta }}</textarea></td>
+                        <td class="editable-cell">
+                            <select data-field="termografo_venta" onchange="guardarShipmentSelect(this)" class="termo-select">
+                                <option value="35" {{ 'selected' if s.termografo_venta == '35' or not s.termografo_venta else '' }}>35</option>
+                                <option value="50" {{ 'selected' if s.termografo_venta == '50' else '' }}>50</option>
+                            </select>
+                        </td>
                         <td class="editable-cell"><textarea data-field="fitos_venta" onblur="guardarShipment(this)">{{ s.fitos_venta }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="dup_fito_venta" onblur="guardarShipment(this)">{{ s.dup_fito_venta }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="co_factura" onblur="guardarShipment(this)">{{ s.co_factura }}</textarea></td>
@@ -2157,6 +2179,18 @@ document.addEventListener('input', function(e) {
     e.target.value = v;
 });
 
+// --- Shipment select save (for dropdowns) ---
+function guardarShipmentSelect(el) {
+    const row = el.closest('tr');
+    const id = row.dataset.id;
+    const field = el.dataset.field;
+    fetch(`${BASE}/api/shipment/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ [field]: el.value })
+    });
+}
+
 // --- Shipment CRUD ---
 function guardarShipment(el) {
     const row = el.closest('tr');
@@ -2204,12 +2238,18 @@ function agregarShipment() {
         tr1.innerHTML = html1;
         document.querySelector('#shipmentTable tbody').appendChild(tr1);
 
-        // Factura table row
+        // Factura table row (with defaults for $ fields)
+        const FACT_DEFAULTS = { fito_venta: '2.50', co_venta: '15', termografo_venta: '35' };
         const tr2 = document.createElement('tr');
         tr2.dataset.id = data.id;
         let html2 = '';
         factFields.forEach(f => {
-            html2 += `<td class="editable-cell"><textarea data-field="${f}" onblur="guardarShipment(this)"></textarea></td>`;
+            if (f === 'termografo_venta') {
+                html2 += `<td class="editable-cell"><select data-field="termografo_venta" onchange="guardarShipmentSelect(this)" class="termo-select"><option value="35" selected>35</option><option value="50">50</option></select></td>`;
+            } else {
+                const defVal = FACT_DEFAULTS[f] || '';
+                html2 += `<td class="editable-cell"><textarea data-field="${f}" onblur="guardarShipment(this)">${defVal}</textarea></td>`;
+            }
         });
         tr2.innerHTML = html2;
         document.querySelector('#facturaTable tbody').appendChild(tr2);

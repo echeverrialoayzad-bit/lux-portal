@@ -227,7 +227,12 @@ FACTURA_FIELDS = ['flete', 'fsc', 'esc', 'due_agent', 'due_carrier', 'fito_venta
 @login_required
 def agregar_shipment(id):
     StatusClient.query.get_or_404(id)
-    shipment = ClientShipment(client_id=id)
+    shipment = ClientShipment(
+        client_id=id,
+        fito_venta='2.50',
+        co_venta='15',
+        termografo_venta='35'
+    )
     db.session.add(shipment)
     db.session.commit()
     return jsonify({'success': True, 'id': shipment.id})
