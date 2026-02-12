@@ -192,6 +192,90 @@
         border-color: #7c3aed;
         color: #7c3aed;
     }
+    /* ---- Shipment table (celeste) ---- */
+    .shipment-table {
+        width: 100%;
+        border: 1px solid #cbd5e1 !important;
+    }
+    .shipment-table th {
+        background: #ADD8E6 !important;
+        color: #1e3a5f !important;
+        font-size: 0.65rem !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        padding: 6px 10px 6px 4px !important;
+        text-align: center !important;
+        white-space: normal;
+        word-break: break-word;
+        line-height: 1.2;
+        position: relative;
+        overflow: hidden;
+        user-select: none;
+    }
+    .shipment-table td {
+        border: 1px solid #cbd5e1 !important;
+    }
+    .shipment-table .editable-cell textarea {
+        font-size: 0.65rem;
+        padding: 4px 2px;
+        min-height: 28px;
+        line-height: 1.3;
+    }
+    .shipment-table .editable-cell textarea:focus {
+        background: rgba(173, 216, 230, 0.12);
+    }
+    .shipment-table tbody tr:nth-child(even) td {
+        background-color: #e8f4f8 !important;
+    }
+    .shipment-table tbody tr:nth-child(odd) td {
+        background-color: #ffffff !important;
+    }
+    .shipment-table .resize-handle:hover,
+    .shipment-table .resize-handle.active {
+        background: rgba(30, 58, 95, 0.3);
+    }
+    /* ---- Factura table (blue) ---- */
+    .factura-table {
+        width: 100%;
+        border: 1px solid #cbd5e1 !important;
+    }
+    .factura-table th {
+        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+        color: #fff !important;
+        font-size: 0.65rem !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        padding: 6px 10px 6px 4px !important;
+        text-align: center !important;
+        white-space: normal;
+        word-break: break-word;
+        line-height: 1.2;
+        position: relative;
+        overflow: hidden;
+        user-select: none;
+    }
+    .factura-table td {
+        border: 1px solid #cbd5e1 !important;
+    }
+    .factura-table .editable-cell textarea {
+        font-size: 0.65rem;
+        padding: 4px 2px;
+        min-height: 28px;
+        line-height: 1.3;
+    }
+    .factura-table .editable-cell textarea:focus {
+        background: rgba(59, 130, 246, 0.06);
+    }
+    .factura-table tbody tr:nth-child(even) td {
+        background-color: #eff6ff !important;
+    }
+    .factura-table tbody tr:nth-child(odd) td {
+        background-color: #ffffff !important;
+    }
+    /* Auto-uppercase fields */
+    .uppercase-field {
+        text-transform: uppercase !important;
+    }
     /* Merged airline cell (rowspan) */
     .col-airline { position: relative; }
     .col-airline[rowspan] {
@@ -672,43 +756,43 @@
 
     <!-- TABLE 4: Shipment (Embarques) -->
     <div class="card mb-4 mt-4">
-        <div class="card-header" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; border-radius: 20px 20px 0 0; font-size: 1rem;">
+        <div class="card-header" style="background: #ADD8E6; color: #1e3a5f; border-radius: 20px 20px 0 0; font-size: 1rem;">
             <i class="bi bi-box-seam me-2"></i>Shipment <span>{{ cliente.nombre }}</span>
         </div>
         <div class="table-responsive">
-            <table class="table rate-table mb-0" id="shipmentTable" style="table-layout: auto;">
+            <table class="table shipment-table mb-0" id="shipmentTable">
                 <thead>
                     <tr>
-                        <th><span class="th-text">Date</span></th>
-                        <th><span class="th-text">Mark</span></th>
-                        <th><span class="th-text">AWB</span></th>
-                        <th><span class="th-text">Client</span></th>
-                        <th><span class="th-text">Origin</span></th>
-                        <th><span class="th-text">Destination</span></th>
-                        <th><span class="th-text">Airline</span></th>
-                        <th><span class="th-text">Fulles</span></th>
-                        <th><span class="th-text">Pieces Gross</span></th>
-                        <th><span class="th-text">Volume</span></th>
-                        <th><span class="th-text">Charge</span></th>
-                        <th><span class="th-text">Phyto</span></th>
-                        <th><span class="th-text">Dup. Phyto</span></th>
-                        <th><span class="th-text">C.Origin</span></th>
-                        <th><span class="th-text">Dup.C.O</span></th>
-                        <th><span class="th-text">Termografo</span></th>
-                        <th><span class="th-text">Transmision</span></th>
+                        <th><span class="th-text">Date</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Mark</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">AWB</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Client</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Origin</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Destination</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Airline</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Fulles</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Pieces Gross</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Volume</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Charge</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Phyto</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Dup. Phyto</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">C.Origin</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Dup.C.O</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Termografo</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Transmision</span><div class="resize-handle"></div></th>
                         <th class="col-del"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for s in cliente.shipments %}
                     <tr data-id="{{ s.id }}">
-                        <td class="editable-cell"><textarea data-field="ship_date" onblur="guardarShipment(this)">{{ s.ship_date }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="mark" onblur="guardarShipment(this)">{{ s.mark }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="ship_date" class="date-field" onblur="guardarShipment(this)">{{ s.ship_date }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="mark" class="uppercase-field" onblur="guardarShipment(this)">{{ s.mark }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="awb" onblur="guardarShipment(this)">{{ s.awb }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="client_name" onblur="guardarShipment(this)">{{ s.client_name }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="origin" onblur="guardarShipment(this)">{{ s.origin }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="destination" onblur="guardarShipment(this)">{{ s.destination }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="airline" onblur="guardarShipment(this)">{{ s.airline }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="client_name" class="uppercase-field" onblur="guardarShipment(this)">{{ s.client_name }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="origin" class="uppercase-field" onblur="guardarShipment(this)">{{ s.origin }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="destination" class="uppercase-field" onblur="guardarShipment(this)">{{ s.destination }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="airline" class="uppercase-field" onblur="guardarShipment(this)">{{ s.airline }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="fulles" onblur="guardarShipment(this)">{{ s.fulles }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="pieces_gross" onblur="guardarShipment(this)">{{ s.pieces_gross }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="volume" onblur="guardarShipment(this)">{{ s.volume }}</textarea></td>
@@ -738,24 +822,24 @@
             <i class="bi bi-receipt me-2"></i>Facturacion
         </div>
         <div class="table-responsive">
-            <table class="table rate-table mb-0" id="facturaTable" style="table-layout: auto;">
+            <table class="table factura-table mb-0" id="facturaTable">
                 <thead>
                     <tr>
-                        <th><span class="th-text">Flete</span></th>
-                        <th><span class="th-text">FSC</span></th>
-                        <th><span class="th-text">ESC</span></th>
-                        <th><span class="th-text">Due Agent</span></th>
-                        <th><span class="th-text">Due Carrier</span></th>
-                        <th><span class="th-text">$Fito Venta</span></th>
-                        <th><span class="th-text">$C.Origen Venta</span></th>
-                        <th><span class="th-text">$Termografo</span></th>
-                        <th><span class="th-text">Fitos Venta</span></th>
-                        <th><span class="th-text">Dup Fito Venta</span></th>
-                        <th><span class="th-text">C.Origen</span></th>
-                        <th><span class="th-text">Dup. C.O</span></th>
-                        <th><span class="th-text">Transmision</span></th>
-                        <th><span class="th-text">Beneficio</span></th>
-                        <th><span class="th-text">Beneficio X kg</span></th>
+                        <th><span class="th-text">Flete</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">FSC</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">ESC</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Due Agent</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Due Carrier</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">$Fito Venta</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">$C.Origen Venta</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">$Termografo</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Fitos Venta</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Dup Fito Venta</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">C.Origen</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Dup. C.O</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Transmision</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Beneficio</span><div class="resize-handle"></div></th>
+                        <th><span class="th-text">Beneficio X kg</span><div class="resize-handle"></div></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2029,11 +2113,43 @@ function eliminarPayment(btn, id) {
     .then(r => r.json()).then(data => { if (data.success) btn.closest('tr').remove(); });
 }
 
+// --- Shipment helpers ---
+const UPPERCASE_FIELDS = ['mark', 'client_name', 'origin', 'destination', 'airline'];
+
+function formatDateField(el) {
+    let v = el.value.trim();
+    // Try to parse various date formats and output DD/MM/YYYY
+    // Accept: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, DD.MM.YYYY, DDMMYYYY
+    let d = null;
+    let m;
+    if ((m = v.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/))) {
+        d = new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
+    } else if ((m = v.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/))) {
+        d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+    } else if ((m = v.match(/^(\d{2})(\d{2})(\d{4})$/))) {
+        d = new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
+    }
+    if (d && !isNaN(d.getTime())) {
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        el.value = `${dd}/${mm}/${yyyy}`;
+    }
+}
+
 // --- Shipment CRUD ---
 function guardarShipment(el) {
     const row = el.closest('tr');
     const id = row.dataset.id;
     const field = el.dataset.field;
+    // Auto-uppercase
+    if (UPPERCASE_FIELDS.includes(field)) {
+        el.value = el.value.toUpperCase();
+    }
+    // Auto-format date
+    if (field === 'ship_date') {
+        formatDateField(el);
+    }
     fetch(`${BASE}/api/shipment/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
@@ -2058,7 +2174,11 @@ function agregarShipment() {
         tr1.dataset.id = data.id;
         let html1 = '';
         shipFields.forEach(f => {
-            html1 += `<td class="editable-cell"><textarea data-field="${f}" onblur="guardarShipment(this)"></textarea></td>`;
+            let cls = 'editable-cell';
+            let extraCls = '';
+            if (UPPERCASE_FIELDS.includes(f)) extraCls = ' uppercase-field';
+            if (f === 'ship_date') extraCls = ' date-field';
+            html1 += `<td class="${cls}"><textarea data-field="${f}" class="${extraCls.trim()}" onblur="guardarShipment(this)"></textarea></td>`;
         });
         html1 += `<td class="col-del" style="vertical-align:middle;"><button class="btn-delete-row" onclick="eliminarShipment(this,${data.id})" title="Eliminar"><i class="bi bi-x-lg"></i></button></td>`;
         tr1.innerHTML = html1;
