@@ -114,6 +114,7 @@ class ClientShipment(db.Model):
     destination = db.Column(db.String(100), default='')
     airline = db.Column(db.String(200), default='')
     fulles = db.Column(db.String(100), default='')
+    piezas = db.Column(db.String(100), default='')
     pieces_gross = db.Column(db.String(100), default='')
     volume = db.Column(db.String(100), default='')
     charge = db.Column(db.String(100), default='')

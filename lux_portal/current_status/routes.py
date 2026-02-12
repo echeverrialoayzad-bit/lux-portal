@@ -215,7 +215,7 @@ def eliminar_payment(id):
 # ===================== API: SHIPMENTS (Table 4 & 5) =====================
 
 SHIPMENT_FIELDS = ['ship_date', 'mark', 'awb', 'client_name', 'origin', 'destination',
-                   'airline', 'fulles', 'pieces_gross', 'volume', 'charge', 'phyto',
+                   'airline', 'fulles', 'piezas', 'pieces_gross', 'volume', 'charge', 'phyto',
                    'dup_phyto', 'c_origin', 'dup_co', 'termografo', 'transmision']
 
 FACTURA_FIELDS = ['flete', 'fsc', 'esc', 'due_agent', 'due_carrier', 'fito_venta',

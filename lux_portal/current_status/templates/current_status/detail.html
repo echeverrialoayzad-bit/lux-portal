@@ -788,7 +788,8 @@
                         <th><span class="th-text">Dest</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         <th><span class="th-text">Airline</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         <th><span class="th-text">Fulles</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Pieces Gross</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span class="th-text">Piezas</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span class="th-text">Gross</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         <th><span class="th-text">Volume</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         <th><span class="th-text">Charge</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         <th><span class="th-text">Phyto</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
@@ -811,8 +812,9 @@
                         <td class="editable-cell"><textarea data-field="destination" class="uppercase-field" onblur="guardarShipment(this)">{{ s.destination }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="airline" class="uppercase-field" onblur="guardarShipment(this)">{{ s.airline }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="fulles" onblur="guardarShipment(this)">{{ s.fulles }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="pieces_gross" onblur="guardarShipment(this)">{{ s.pieces_gross }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="volume" onblur="guardarShipment(this)">{{ s.volume }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="piezas" class="charge-source" onblur="guardarShipment(this)">{{ s.piezas }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="pieces_gross" class="charge-source" onblur="guardarShipment(this)">{{ s.pieces_gross }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="volume" class="charge-source" onblur="guardarShipment(this)">{{ s.volume }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="charge" onblur="guardarShipment(this)">{{ s.charge }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="phyto" onblur="guardarShipment(this)">{{ s.phyto }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="dup_phyto" onblur="guardarShipment(this)">{{ s.dup_phyto }}</textarea></td>
@@ -2191,6 +2193,31 @@ function guardarShipmentSelect(el) {
     });
 }
 
+// --- Auto-calc Charge = max(Piezas, Gross, Volume) ---
+const CHARGE_SRC_FIELDS = ['piezas', 'pieces_gross', 'volume'];
+
+function autoCalcCharge(row) {
+    let maxVal = 0;
+    CHARGE_SRC_FIELDS.forEach(f => {
+        const ta = row.querySelector(`textarea[data-field="${f}"]`);
+        if (ta) {
+            const num = parseFloat(ta.value.replace(/,/g, '')) || 0;
+            if (num > maxVal) maxVal = num;
+        }
+    });
+    const chargeField = row.querySelector('textarea[data-field="charge"]');
+    if (chargeField && maxVal > 0) {
+        chargeField.value = maxVal % 1 === 0 ? String(maxVal) : maxVal.toFixed(2);
+        // Also save charge to server
+        const id = row.dataset.id;
+        fetch(`${BASE}/api/shipment/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ charge: chargeField.value })
+        });
+    }
+}
+
 // --- Shipment CRUD ---
 function guardarShipment(el) {
     const row = el.closest('tr');
@@ -2209,6 +2236,10 @@ function guardarShipment(el) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ [field]: el.value })
     });
+    // Auto-calc charge when piezas, gross or volume change
+    if (CHARGE_SRC_FIELDS.includes(field)) {
+        autoCalcCharge(row);
+    }
 }
 
 function agregarShipment() {
@@ -2217,8 +2248,9 @@ function agregarShipment() {
         if (!data.success) return;
         // Add row to shipment table
         const shipFields = ['ship_date','mark','awb','client_name','origin','destination','airline',
-                           'fulles','pieces_gross','volume','charge','phyto','dup_phyto',
+                           'fulles','piezas','pieces_gross','volume','charge','phyto','dup_phyto',
                            'c_origin','dup_co','termografo','transmision'];
+        const CHARGE_SOURCES = ['piezas', 'pieces_gross', 'volume'];
         const factFields = ['flete','fsc','esc','due_agent','due_carrier','fito_venta','co_venta',
                            'termografo_venta','fitos_venta','dup_fito_venta','co_factura',
                            'dup_co_factura','transmision_factura','beneficio','beneficio_x_kg'];
@@ -2230,8 +2262,9 @@ function agregarShipment() {
         shipFields.forEach(f => {
             let extraCls = '';
             let extraAttr = '';
-            if (UPPERCASE_FIELDS.includes(f)) extraCls = ' uppercase-field';
-            if (f === 'ship_date') { extraCls = ' date-field'; extraAttr = ' placeholder="DD/MM/YYYY"'; }
+            if (UPPERCASE_FIELDS.includes(f)) extraCls += ' uppercase-field';
+            if (f === 'ship_date') { extraCls += ' date-field'; extraAttr = ' placeholder="DD/MM/YYYY"'; }
+            if (CHARGE_SOURCES.includes(f)) extraCls += ' charge-source';
             html1 += `<td class="editable-cell"><textarea data-field="${f}" class="${extraCls.trim()}"${extraAttr} onblur="guardarShipment(this)"></textarea></td>`;
         });
         html1 += `<td class="col-del" style="vertical-align:middle;"><button class="btn-delete-row" onclick="eliminarShipment(this,${data.id})" title="Eliminar"><i class="bi bi-x-lg"></i></button></td>`;
