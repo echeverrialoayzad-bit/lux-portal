@@ -53,6 +53,32 @@
     .factura-table tbody tr:nth-child(even) td {
         background-color: #eff6ff;
     }
+    /* Filter inputs */
+    .filter-row th {
+        padding: 3px 2px !important;
+    }
+    .col-filter {
+        width: 100%;
+        border: 1px solid rgba(255,255,255,0.4);
+        border-radius: 3px;
+        background: rgba(255,255,255,0.15);
+        color: #fff;
+        font-size: 0.6rem;
+        padding: 3px 4px;
+        outline: none;
+        text-align: center;
+    }
+    .col-filter::placeholder {
+        color: rgba(255,255,255,0.6);
+    }
+    .col-filter:focus {
+        background: rgba(255,255,255,0.25);
+        border-color: rgba(255,255,255,0.7);
+    }
+    .filter-count {
+        font-size: 0.8rem;
+        color: #64748b;
+    }
 </style>
 {% endblock %}
 
@@ -67,6 +93,7 @@
             <p class="text-muted mt-1">
                 {{ entry.shipment_count }} embarque{{ 's' if entry.shipment_count > 1 else '' }}
                 &middot; Enviado: {{ entry.sent_at.strftime('%d/%m/%Y %H:%M') }}
+                &middot; <span class="filter-count" id="filterCount">Mostrando: {{ shipments|length }} de {{ shipments|length }}</span>
             </p>
         </div>
         <a href="{{ url_for('current_status.historial_clientes') }}" class="btn btn-outline-secondary">
@@ -98,17 +125,22 @@
             <i class="bi bi-box-seam me-2"></i>Shipment
         </div>
         <div class="table-responsive">
-            <table class="table detail-table mb-0">
+            <table class="table detail-table mb-0" id="shipHistTable">
                 <thead>
                     <tr>
                         {% for f in SHIPMENT_FIELDS %}
                         <th>{{ SHIP_LABELS.get(f, f) }}</th>
                         {% endfor %}
                     </tr>
+                    <tr class="filter-row">
+                        {% for f in SHIPMENT_FIELDS %}
+                        <th><input type="text" class="col-filter" data-table="ship" data-col="{{ loop.index0 }}" placeholder="Filtrar..." oninput="applyFilters()"></th>
+                        {% endfor %}
+                    </tr>
                 </thead>
                 <tbody>
                     {% for s in shipments %}
-                    <tr>
+                    <tr data-row="{{ loop.index0 }}">
                         {% for f in SHIPMENT_FIELDS %}
                         <td>{{ s.get(f, '') }}</td>
                         {% endfor %}
@@ -125,17 +157,22 @@
             <i class="bi bi-receipt me-2"></i>Facturacion
         </div>
         <div class="table-responsive">
-            <table class="table factura-table mb-0">
+            <table class="table factura-table mb-0" id="factHistTable">
                 <thead>
                     <tr>
                         {% for f in FACTURA_FIELDS %}
                         <th>{{ FACT_LABELS.get(f, f) }}</th>
                         {% endfor %}
                     </tr>
+                    <tr class="filter-row">
+                        {% for f in FACTURA_FIELDS %}
+                        <th><input type="text" class="col-filter" data-table="fact" data-col="{{ loop.index0 }}" placeholder="Filtrar..." oninput="applyFilters()"></th>
+                        {% endfor %}
+                    </tr>
                 </thead>
                 <tbody>
                     {% for s in shipments %}
-                    <tr>
+                    <tr data-row="{{ loop.index0 }}">
                         {% for f in FACTURA_FIELDS %}
                         <td>{{ s.get(f, '') }}</td>
                         {% endfor %}
@@ -146,4 +183,67 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const TOTAL_ROWS = {{ shipments|length }};
+
+function applyFilters() {
+    const shipFilters = {};
+    const factFilters = {};
+
+    // Collect ship filters
+    document.querySelectorAll('.col-filter[data-table="ship"]').forEach(input => {
+        const val = input.value.trim().toLowerCase();
+        if (val) shipFilters[parseInt(input.dataset.col)] = val;
+    });
+
+    // Collect fact filters
+    document.querySelectorAll('.col-filter[data-table="fact"]').forEach(input => {
+        const val = input.value.trim().toLowerCase();
+        if (val) factFilters[parseInt(input.dataset.col)] = val;
+    });
+
+    const shipRows = document.querySelectorAll('#shipHistTable tbody tr');
+    const factRows = document.querySelectorAll('#factHistTable tbody tr');
+    let visible = 0;
+
+    for (let i = 0; i < TOTAL_ROWS; i++) {
+        const shipRow = shipRows[i];
+        const factRow = factRows[i];
+        if (!shipRow || !factRow) continue;
+
+        let show = true;
+
+        // Check ship filters
+        const shipCells = shipRow.querySelectorAll('td');
+        for (const [col, val] of Object.entries(shipFilters)) {
+            const cell = shipCells[parseInt(col)];
+            if (cell && !cell.textContent.trim().toLowerCase().includes(val)) {
+                show = false;
+                break;
+            }
+        }
+
+        // Check fact filters
+        if (show) {
+            const factCells = factRow.querySelectorAll('td');
+            for (const [col, val] of Object.entries(factFilters)) {
+                const cell = factCells[parseInt(col)];
+                if (cell && !cell.textContent.trim().toLowerCase().includes(val)) {
+                    show = false;
+                    break;
+                }
+            }
+        }
+
+        shipRow.style.display = show ? '' : 'none';
+        factRow.style.display = show ? '' : 'none';
+        if (show) visible++;
+    }
+
+    document.getElementById('filterCount').textContent = `Mostrando: ${visible} de ${TOTAL_ROWS}`;
+}
+</script>
 {% endblock %}
