@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Historial Clientes - Current Status{% endblock %}
+{% block title %}Historial - Current Status{% endblock %}
 
 {% block nav_items %}
 <li class="nav-item">
@@ -17,100 +17,198 @@
 </li>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Combined spreadsheet table */
+    .hist-table {
+        width: max-content;
+        min-width: 100%;
+        border-collapse: collapse;
+    }
+    .hist-table th {
+        font-size: 0.62rem;
+        text-align: center;
+        padding: 5px 4px;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+    .hist-table td {
+        font-size: 0.7rem;
+        text-align: center;
+        padding: 4px 5px;
+        border: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+    /* Purple section (Shipment) */
+    .th-ship {
+        background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+        color: #fff !important;
+    }
+    /* Celeste section (Facturacion) */
+    .th-fact {
+        background: #ADD8E6 !important;
+        color: #fff !important;
+    }
+    /* Meta columns (Cliente, Fecha envio) */
+    .th-meta {
+        background: #334155 !important;
+        color: #fff !important;
+    }
+    /* Filter row */
+    .filter-row th {
+        padding: 2px 2px !important;
+    }
+    .col-filter {
+        width: 100%;
+        min-width: 50px;
+        border: 1px solid rgba(255,255,255,0.35);
+        border-radius: 3px;
+        background: rgba(255,255,255,0.15);
+        color: #fff;
+        font-size: 0.58rem;
+        padding: 2px 3px;
+        outline: none;
+        text-align: center;
+    }
+    .col-filter::placeholder { color: rgba(255,255,255,0.5); }
+    .col-filter:focus { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.7); }
+    /* Alternating rows */
+    .hist-table tbody tr:nth-child(even) td { background-color: #f8fafc; }
+    .hist-table tbody tr:nth-child(odd) td { background-color: #fff; }
+    .hist-table tbody tr:hover td { background-color: #ede9fe !important; }
+    /* Delete btn */
+    .btn-del-row {
+        background: none;
+        border: none;
+        color: #cbd5e1;
+        cursor: pointer;
+        font-size: 0.65rem;
+        padding: 0 2px;
+        transition: color 0.15s;
+    }
+    .btn-del-row:hover { color: #dc2626; }
+    /* Scrollable wrapper */
+    .hist-scroll {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 75vh;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+    }
+    /* Section divider */
+    .td-divider {
+        border-left: 3px solid #7c3aed !important;
+    }
+    .th-divider {
+        border-left: 3px solid rgba(255,255,255,0.5) !important;
+    }
+    /* Stats bar */
+    .stats-bar {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+    .stats-bar strong { color: #334155; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h1 class="section-title">
-                <i class="bi bi-clock-history me-2"></i>Historial Clientes
+                <i class="bi bi-clock-history me-2"></i>Historial
             </h1>
-            <p class="text-muted mt-1">Registro de embarques enviados por cliente</p>
-        </div>
-        <a href="{{ url_for('current_status.dashboard') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Volver
-        </a>
-    </div>
-
-    <!-- Search -->
-    <div class="card mb-4">
-        <div class="card-body py-3">
-            <form method="GET" class="d-flex gap-2">
-                <input type="text" name="q" class="form-control" placeholder="Buscar cliente..."
-                       value="{{ busqueda }}" style="max-width: 400px;">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-search"></i>
-                </button>
-                {% if busqueda %}
-                <a href="{{ url_for('current_status.historial_clientes') }}" class="btn btn-outline-secondary">Limpiar</a>
-                {% endif %}
-            </form>
-        </div>
-    </div>
-
-    <!-- Resumen por Cliente -->
-    {% if client_totals %}
-    <div class="row mb-4">
-        {% for cid, info in client_totals.items() %}
-        <div class="col-md-3 col-sm-6 mb-3">
-            <div class="card h-100" style="border-left: 4px solid #7c3aed;">
-                <div class="card-body text-center py-3">
-                    <h5 class="mb-1" style="color: #7c3aed;">{{ info.total }}</h5>
-                    <p class="text-muted small mb-1">embarques totales</p>
-                    <h6 class="mb-0">{{ info.name }}</h6>
-                    <small class="text-muted">{{ info.envios }} envio{{ 's' if info.envios > 1 else '' }}</small>
-                </div>
+            <div class="stats-bar mt-1">
+                <span><strong id="visibleCount">{{ total_rows }}</strong> de <strong>{{ total_rows }}</strong> filas</span>
+                <span>&middot; {{ total_entries }} envio{{ 's' if total_entries != 1 else '' }}</span>
             </div>
         </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Tabla de Historial -->
-    {% if entries %}
-    <div class="card">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr style="background: linear-gradient(135deg, #7c3aed, #6d28d9);">
-                        <th style="color: #fff;">#</th>
-                        <th style="color: #fff;">Cliente</th>
-                        <th style="color: #fff;">Embarques</th>
-                        <th style="color: #fff;">Fecha de Envio</th>
-                        <th style="color: #fff;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for e in entries %}
-                    <tr>
-                        <td>{{ e.id }}</td>
-                        <td>
-                            <strong>{{ e.client_name }}</strong>
-                            <br><small class="text-muted">Total acumulado: {{ client_totals[e.client_id].total }} embarques</small>
-                        </td>
-                        <td>
-                            <span class="badge" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); font-size: 0.9rem;">
-                                {{ e.shipment_count }}
-                            </span>
-                        </td>
-                        <td>{{ e.sent_at.strftime('%d/%m/%Y %H:%M') }}</td>
-                        <td>
-                            <div class="d-flex gap-1">
-                                <a href="{{ url_for('current_status.historial_detalle', id=e.id) }}"
-                                   class="btn btn-sm btn-outline-primary" title="Ver detalle">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                <a href="{{ url_for('current_status.detalle_cliente', id=e.client_id) }}"
-                                   class="btn btn-sm btn-outline-secondary" title="Ir al cliente">
-                                    <i class="bi bi-person"></i>
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="d-flex gap-2">
+            <form method="GET" class="d-flex gap-2">
+                <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar cliente..."
+                       value="{{ busqueda }}" style="width: 200px;">
+                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i></button>
+                {% if busqueda %}
+                <a href="{{ url_for('current_status.historial_clientes') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+                {% endif %}
+            </form>
+            <a href="{{ url_for('current_status.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Volver
+            </a>
         </div>
+    </div>
+
+    {% set SHIP_LABELS = {
+        'ship_date': 'Date', 'mark': 'Mark', 'awb': 'AWB', 'client_name': 'Client',
+        'origin': 'Orig', 'destination': 'Dest', 'airline': 'Airline',
+        'fulles': 'Fulles', 'pieces_gross': 'Pcs Gross', 'volume': 'Vol',
+        'charge': 'Charge', 'phyto': 'Phyto', 'dup_phyto': 'Dup.Phyto',
+        'c_origin': 'C.Orig', 'dup_co': 'Dup.CO', 'termografo': 'Termo',
+        'transmision': 'Trans'
+    } %}
+    {% set FACT_LABELS = {
+        'flete': 'Flete', 'fsc': 'FSC', 'esc': 'ESC', 'due_agent': 'Due Ag.',
+        'due_carrier': 'Due Car.', 'fito_venta': '$Fito', 'co_venta': '$C.Orig',
+        'termografo_venta': '$Termo', 'fitos_venta': 'Fitos V.', 'dup_fito_venta': 'Dup Fito',
+        'co_factura': 'C.Orig', 'dup_co_factura': 'Dup.CO', 'transmision_factura': 'Trans',
+        'beneficio': 'Benef.', 'beneficio_x_kg': 'Benef/kg'
+    } %}
+
+    {% if rows %}
+    <div class="hist-scroll">
+        <table class="hist-table" id="histTable">
+            <thead>
+                <!-- Column headers -->
+                <tr>
+                    <th class="th-meta" style="min-width:30px;"></th>
+                    <th class="th-meta">Cliente</th>
+                    <th class="th-meta">Enviado</th>
+                    {% for f in SHIPMENT_FIELDS %}
+                    <th class="th-ship{% if loop.first %} th-divider{% endif %}">{{ SHIP_LABELS.get(f, f) }}</th>
+                    {% endfor %}
+                    {% for f in FACTURA_FIELDS %}
+                    <th class="th-fact{% if loop.first %} th-divider{% endif %}">{{ FACT_LABELS.get(f, f) }}</th>
+                    {% endfor %}
+                </tr>
+                <!-- Filter row -->
+                <tr class="filter-row">
+                    <th class="th-meta"></th>
+                    <th class="th-meta"><input type="text" class="col-filter" data-col="0" placeholder="..." oninput="filterTable()"></th>
+                    <th class="th-meta"><input type="text" class="col-filter" data-col="1" placeholder="..." oninput="filterTable()"></th>
+                    {% for f in SHIPMENT_FIELDS %}
+                    <th class="th-ship{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 + 2 }}" placeholder="..." oninput="filterTable()"></th>
+                    {% endfor %}
+                    {% for f in FACTURA_FIELDS %}
+                    <th class="th-fact{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 + 2 + SHIPMENT_FIELDS|length }}" placeholder="..." oninput="filterTable()"></th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr data-hid="{{ row._history_id }}" data-ridx="{{ row._row_index }}">
+                    <td>
+                        <button class="btn-del-row" onclick="deleteRow(this, {{ row._history_id }}, {{ row._row_index }})" title="Eliminar fila">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </td>
+                    <td>{{ row._client }}</td>
+                    <td>{{ row._sent_at }}</td>
+                    {% for f in SHIPMENT_FIELDS %}
+                    <td{% if loop.first %} class="td-divider"{% endif %}>{{ row.get(f, '') }}</td>
+                    {% endfor %}
+                    {% for f in FACTURA_FIELDS %}
+                    <td{% if loop.first %} class="td-divider"{% endif %}>{{ row.get(f, '') }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% else %}
     <div class="card">
@@ -122,4 +220,52 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const TOTAL = {{ total_rows }};
+
+function filterTable() {
+    const filters = {};
+    document.querySelectorAll('.col-filter').forEach(input => {
+        const v = input.value.trim().toLowerCase();
+        if (v) filters[parseInt(input.dataset.col)] = v;
+    });
+
+    const rows = document.querySelectorAll('#histTable tbody tr');
+    let visible = 0;
+
+    rows.forEach(tr => {
+        const cells = tr.querySelectorAll('td');
+        let show = true;
+        for (const [col, val] of Object.entries(filters)) {
+            // +1 because first td is delete button (col 0 in filters maps to td index 1)
+            const cell = cells[parseInt(col) + 1];
+            if (cell && !cell.textContent.trim().toLowerCase().includes(val)) {
+                show = false;
+                break;
+            }
+        }
+        tr.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+
+    document.getElementById('visibleCount').textContent = visible;
+}
+
+function deleteRow(btn, historyId, rowIdx) {
+    if (!confirm('Eliminar esta fila del historial?')) return;
+    fetch(`/current-status/api/historial/${historyId}/row/${rowIdx}`, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            btn.closest('tr').remove();
+            // Update count
+            const remaining = document.querySelectorAll('#histTable tbody tr');
+            document.getElementById('visibleCount').textContent = remaining.length;
+        }
+    });
+}
+</script>
 {% endblock %}

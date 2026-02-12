@@ -295,7 +295,7 @@ def enviar_shipments(id):
 @current_status_bp.route('/historial')
 @login_required
 def historial_clientes():
-    """Historial de embarques enviados por cliente"""
+    """Historial combinado tipo Excel de todos los embarques enviados"""
     busqueda = request.args.get('q', '').strip()
     query = ShipmentHistory.query
 
@@ -304,35 +304,54 @@ def historial_clientes():
 
     entries = query.order_by(ShipmentHistory.sent_at.desc()).all()
 
-    # Acumular total embarques por cliente
-    client_totals = {}
-    for e in entries:
-        if e.client_id not in client_totals:
-            client_totals[e.client_id] = {'name': e.client_name, 'total': 0, 'envios': 0}
-        client_totals[e.client_id]['total'] += e.shipment_count
-        client_totals[e.client_id]['envios'] += 1
+    # Flatten all entries into individual rows
+    all_rows = []
+    for entry in entries:
+        shipments = entry.get_shipments()
+        for idx, s in enumerate(shipments):
+            s['_history_id'] = entry.id
+            s['_row_index'] = idx
+            s['_client'] = entry.client_name
+            s['_sent_at'] = entry.sent_at.strftime('%d/%m/%Y %H:%M')
+            all_rows.append(s)
 
     return render_template(
         'current_status/historial.html',
-        entries=entries,
-        client_totals=client_totals,
-        busqueda=busqueda
-    )
-
-
-@current_status_bp.route('/historial/<int:id>')
-@login_required
-def historial_detalle(id):
-    """Ver detalle de un envio del historial"""
-    entry = ShipmentHistory.query.get_or_404(id)
-    shipments = entry.get_shipments()
-    return render_template(
-        'current_status/historial_detalle.html',
-        entry=entry,
-        shipments=shipments,
+        rows=all_rows,
+        total_rows=len(all_rows),
+        total_entries=len(entries),
+        busqueda=busqueda,
         SHIPMENT_FIELDS=SHIPMENT_FIELDS,
         FACTURA_FIELDS=FACTURA_FIELDS
     )
+
+
+@current_status_bp.route('/api/historial/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_historial(id):
+    """Eliminar una entrada completa del historial"""
+    entry = ShipmentHistory.query.get_or_404(id)
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@current_status_bp.route('/api/historial/<int:id>/row/<int:row_idx>', methods=['DELETE'])
+@login_required
+def eliminar_historial_row(id, row_idx):
+    """Eliminar una fila individual de una entrada del historial"""
+    entry = ShipmentHistory.query.get_or_404(id)
+    shipments = entry.get_shipments()
+    if row_idx < 0 or row_idx >= len(shipments):
+        return jsonify({'success': False, 'error': 'Fila no encontrada'}), 404
+    shipments.pop(row_idx)
+    if not shipments:
+        db.session.delete(entry)
+    else:
+        entry.shipment_data = json.dumps(shipments)
+        entry.shipment_count = len(shipments)
+    db.session.commit()
+    return jsonify({'success': True})
 
 
 # ===================== API: CUSTOM COLUMNS =====================
