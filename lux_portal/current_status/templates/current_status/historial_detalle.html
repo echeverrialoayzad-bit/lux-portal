@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle Envio #{{ entry.id }} - Historial{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.dashboard') }}">
+        <i class="bi bi-speedometer2"></i>
+        <span>Dashboard</span>
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.historial_clientes') }}">
+        <i class="bi bi-clock-history"></i>
+        <span>Historial</span>
+    </a>
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-table th {
+        background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+        color: #fff !important;
+        font-size: 0.7rem;
+        text-align: center;
+        padding: 6px 4px;
+        white-space: nowrap;
+    }
+    .detail-table td {
+        font-size: 0.75rem;
+        text-align: center;
+        padding: 6px 4px;
+        border: 1px solid #e2e8f0;
+    }
+    .detail-table tbody tr:nth-child(even) td {
+        background-color: #f1f5f9;
+    }
+    .factura-table th {
+        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+        color: #fff !important;
+        font-size: 0.7rem;
+        text-align: center;
+        padding: 6px 4px;
+        white-space: nowrap;
+    }
+    .factura-table td {
+        font-size: 0.75rem;
+        text-align: center;
+        padding: 6px 4px;
+        border: 1px solid #e2e8f0;
+    }
+    .factura-table tbody tr:nth-child(even) td {
+        background-color: #eff6ff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="section-title">
+                <i class="bi bi-box-seam me-2"></i>Envio #{{ entry.id }} - {{ entry.client_name }}
+            </h1>
+            <p class="text-muted mt-1">
+                {{ entry.shipment_count }} embarque{{ 's' if entry.shipment_count > 1 else '' }}
+                &middot; Enviado: {{ entry.sent_at.strftime('%d/%m/%Y %H:%M') }}
+            </p>
+        </div>
+        <a href="{{ url_for('current_status.historial_clientes') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Volver al Historial
+        </a>
+    </div>
+
+    {% set SHIP_LABELS = {
+        'ship_date': 'Date', 'mark': 'Mark', 'awb': 'AWB', 'client_name': 'Client',
+        'origin': 'Origin', 'destination': 'Destination', 'airline': 'Airline',
+        'fulles': 'Fulles', 'pieces_gross': 'Pieces Gross', 'volume': 'Volume',
+        'charge': 'Charge', 'phyto': 'Phyto', 'dup_phyto': 'Dup. Phyto',
+        'c_origin': 'C.Origin', 'dup_co': 'Dup.C.O', 'termografo': 'Termografo',
+        'transmision': 'Transmision'
+    } %}
+
+    {% set FACT_LABELS = {
+        'flete': 'Flete', 'fsc': 'FSC', 'esc': 'ESC', 'due_agent': 'Due Agent',
+        'due_carrier': 'Due Carrier', 'fito_venta': '$Fito Venta', 'co_venta': '$C.Origen Venta',
+        'termografo_venta': '$Termografo', 'fitos_venta': 'Fitos Venta',
+        'dup_fito_venta': 'Dup Fito Venta', 'co_factura': 'C.Origen',
+        'dup_co_factura': 'Dup. C.O', 'transmision_factura': 'Transmision',
+        'beneficio': 'Beneficio', 'beneficio_x_kg': 'Beneficio X kg'
+    } %}
+
+    <!-- Shipment Table -->
+    <div class="card mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; border-radius: 20px 20px 0 0;">
+            <i class="bi bi-box-seam me-2"></i>Shipment
+        </div>
+        <div class="table-responsive">
+            <table class="table detail-table mb-0">
+                <thead>
+                    <tr>
+                        {% for f in SHIPMENT_FIELDS %}
+                        <th>{{ SHIP_LABELS.get(f, f) }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in shipments %}
+                    <tr>
+                        {% for f in SHIPMENT_FIELDS %}
+                        <td>{{ s.get(f, '') }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Facturacion Table -->
+    <div class="card mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; border-radius: 20px 20px 0 0;">
+            <i class="bi bi-receipt me-2"></i>Facturacion
+        </div>
+        <div class="table-responsive">
+            <table class="table factura-table mb-0">
+                <thead>
+                    <tr>
+                        {% for f in FACTURA_FIELDS %}
+                        <th>{{ FACT_LABELS.get(f, f) }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in shipments %}
+                    <tr>
+                        {% for f in FACTURA_FIELDS %}
+                        <td>{{ s.get(f, '') }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -21,6 +21,8 @@ class StatusClient(db.Model):
                                order_by='StatusAirline.id')
     payments = db.relationship('StatusPayment', backref='client', cascade='all, delete-orphan',
                                order_by='StatusPayment.id')
+    shipments = db.relationship('ClientShipment', backref='client', cascade='all, delete-orphan',
+                                order_by='ClientShipment.id')
 
     def get_custom_cols(self, table_type):
         try:
@@ -95,3 +97,71 @@ class StatusPayment(db.Model):
             return json.loads(self.extra_data or '{}')
         except Exception:
             return {}
+
+
+class ClientShipment(db.Model):
+    """Fila de embarque por cliente (Tabla 4 - datos de embarque)"""
+    __tablename__ = 'client_shipments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('status_clients.id'), nullable=False)
+    # Shipment fields
+    ship_date = db.Column(db.String(100), default='')
+    mark = db.Column(db.String(100), default='')
+    awb = db.Column(db.String(100), default='')
+    client_name = db.Column(db.String(200), default='')
+    origin = db.Column(db.String(100), default='')
+    destination = db.Column(db.String(100), default='')
+    airline = db.Column(db.String(200), default='')
+    fulles = db.Column(db.String(100), default='')
+    pieces_gross = db.Column(db.String(100), default='')
+    volume = db.Column(db.String(100), default='')
+    charge = db.Column(db.String(100), default='')
+    phyto = db.Column(db.String(100), default='')
+    dup_phyto = db.Column(db.String(100), default='')
+    c_origin = db.Column(db.String(100), default='')
+    dup_co = db.Column(db.String(100), default='')
+    termografo = db.Column(db.String(100), default='')
+    transmision = db.Column(db.String(100), default='')
+    # Facturacion fields
+    flete = db.Column(db.String(100), default='')
+    fsc = db.Column(db.String(100), default='')
+    esc = db.Column(db.String(100), default='')
+    due_agent = db.Column(db.String(100), default='')
+    due_carrier = db.Column(db.String(100), default='')
+    fito_venta = db.Column(db.String(100), default='')
+    co_venta = db.Column(db.String(100), default='')
+    termografo_venta = db.Column(db.String(100), default='')
+    fitos_venta = db.Column(db.String(100), default='')
+    dup_fito_venta = db.Column(db.String(100), default='')
+    co_factura = db.Column(db.String(100), default='')
+    dup_co_factura = db.Column(db.String(100), default='')
+    transmision_factura = db.Column(db.String(100), default='')
+    beneficio = db.Column(db.String(100), default='')
+    beneficio_x_kg = db.Column(db.String(100), default='')
+
+    def __repr__(self):
+        return f'<ClientShipment {self.id} client={self.client_id}>'
+
+
+class ShipmentHistory(db.Model):
+    """Historial de embarques enviados"""
+    __tablename__ = 'shipment_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('status_clients.id'), nullable=False)
+    client_name = db.Column(db.String(200), default='')
+    shipment_count = db.Column(db.Integer, default=0)
+    shipment_data = db.Column(db.Text, default='[]')  # JSON snapshot of shipments sent
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    client = db.relationship('StatusClient', backref=db.backref('shipment_history', lazy='dynamic'))
+
+    def get_shipments(self):
+        try:
+            return json.loads(self.shipment_data or '[]')
+        except Exception:
+            return []
+
+    def __repr__(self):
+        return f'<ShipmentHistory {self.client_name} count={self.shipment_count}>'

@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from flask import render_template, request, redirect, url_for, flash, jsonify, send_file
 from lux_portal.current_status import current_status_bp
-from lux_portal.current_status.models import StatusClient, AirlineRate, StatusAirline, StatusPayment
+from lux_portal.current_status.models import StatusClient, AirlineRate, StatusAirline, StatusPayment, ClientShipment, ShipmentHistory
 from lux_portal.extensions import db
 from lux_portal.auth.decorators import login_required
 
@@ -210,6 +210,124 @@ def eliminar_payment(id):
     db.session.delete(payment)
     db.session.commit()
     return jsonify({'success': True})
+
+
+# ===================== API: SHIPMENTS (Table 4 & 5) =====================
+
+SHIPMENT_FIELDS = ['ship_date', 'mark', 'awb', 'client_name', 'origin', 'destination',
+                   'airline', 'fulles', 'pieces_gross', 'volume', 'charge', 'phyto',
+                   'dup_phyto', 'c_origin', 'dup_co', 'termografo', 'transmision']
+
+FACTURA_FIELDS = ['flete', 'fsc', 'esc', 'due_agent', 'due_carrier', 'fito_venta',
+                  'co_venta', 'termografo_venta', 'fitos_venta', 'dup_fito_venta',
+                  'co_factura', 'dup_co_factura', 'transmision_factura', 'beneficio', 'beneficio_x_kg']
+
+
+@current_status_bp.route('/api/client/<int:id>/shipment', methods=['POST'])
+@login_required
+def agregar_shipment(id):
+    StatusClient.query.get_or_404(id)
+    shipment = ClientShipment(client_id=id)
+    db.session.add(shipment)
+    db.session.commit()
+    return jsonify({'success': True, 'id': shipment.id})
+
+
+@current_status_bp.route('/api/shipment/<int:id>', methods=['PUT'])
+@login_required
+def actualizar_shipment(id):
+    shipment = ClientShipment.query.get_or_404(id)
+    data = request.get_json()
+    for field in SHIPMENT_FIELDS + FACTURA_FIELDS:
+        if field in data:
+            setattr(shipment, field, data[field])
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@current_status_bp.route('/api/shipment/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_shipment(id):
+    shipment = ClientShipment.query.get_or_404(id)
+    db.session.delete(shipment)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@current_status_bp.route('/api/client/<int:id>/enviar-shipments', methods=['POST'])
+@login_required
+def enviar_shipments(id):
+    """Enviar embarques al historial y contar"""
+    cliente = StatusClient.query.get_or_404(id)
+    shipments = ClientShipment.query.filter_by(client_id=id).all()
+    if not shipments:
+        return jsonify({'success': False, 'error': 'No hay embarques para enviar'}), 400
+
+    # Snapshot data
+    snapshot = []
+    for s in shipments:
+        row = {}
+        for f in SHIPMENT_FIELDS + FACTURA_FIELDS:
+            row[f] = getattr(s, f, '') or ''
+        snapshot.append(row)
+
+    history = ShipmentHistory(
+        client_id=id,
+        client_name=cliente.nombre,
+        shipment_count=len(shipments),
+        shipment_data=json.dumps(snapshot)
+    )
+    db.session.add(history)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'history_id': history.id,
+        'count': len(shipments)
+    })
+
+
+@current_status_bp.route('/historial')
+@login_required
+def historial_clientes():
+    """Historial de embarques enviados por cliente"""
+    busqueda = request.args.get('q', '').strip()
+    query = ShipmentHistory.query
+
+    if busqueda:
+        query = query.filter(ShipmentHistory.client_name.ilike(f'%{busqueda}%'))
+
+    entries = query.order_by(ShipmentHistory.sent_at.desc()).all()
+
+    # Acumular total embarques por cliente
+    client_totals = {}
+    for e in entries:
+        if e.client_id not in client_totals:
+            client_totals[e.client_id] = {'name': e.client_name, 'total': 0, 'envios': 0}
+        client_totals[e.client_id]['total'] += e.shipment_count
+        client_totals[e.client_id]['envios'] += 1
+
+    return render_template(
+        'current_status/historial.html',
+        entries=entries,
+        client_totals=client_totals,
+        busqueda=busqueda
+    )
+
+
+@current_status_bp.route('/historial/<int:id>')
+@login_required
+def historial_detalle(id):
+    """Ver detalle de un envio del historial"""
+    entry = ShipmentHistory.query.get_or_404(id)
+    shipments = entry.get_shipments()
+    return render_template(
+        'current_status/historial_detalle.html',
+        entry=entry,
+        shipments=shipments,
+        SHIPMENT_FIELDS=SHIPMENT_FIELDS,
+        FACTURA_FIELDS=FACTURA_FIELDS
+    )
 
 
 # ===================== API: CUSTOM COLUMNS =====================

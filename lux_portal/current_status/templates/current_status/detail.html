@@ -9,6 +9,12 @@
         <span>Dashboard</span>
     </a>
 </li>
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.historial_clientes') }}">
+        <i class="bi bi-clock-history"></i>
+        <span>Historial</span>
+    </a>
+</li>
 {% endblock %}
 
 {% block extra_css %}
@@ -662,6 +668,129 @@
         <button class="btn-add-row" onclick="agregarPayment()">
             <i class="bi bi-plus-lg me-1"></i> Agregar pago
         </button>
+    </div>
+
+    <!-- TABLE 4: Shipment (Embarques) -->
+    <div class="card mb-4 mt-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; border-radius: 20px 20px 0 0; font-size: 1rem;">
+            <i class="bi bi-box-seam me-2"></i>Shipment <span>{{ cliente.nombre }}</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table rate-table mb-0" id="shipmentTable" style="table-layout: auto;">
+                <thead>
+                    <tr>
+                        <th><span class="th-text">Date</span></th>
+                        <th><span class="th-text">Mark</span></th>
+                        <th><span class="th-text">AWB</span></th>
+                        <th><span class="th-text">Client</span></th>
+                        <th><span class="th-text">Origin</span></th>
+                        <th><span class="th-text">Destination</span></th>
+                        <th><span class="th-text">Airline</span></th>
+                        <th><span class="th-text">Fulles</span></th>
+                        <th><span class="th-text">Pieces Gross</span></th>
+                        <th><span class="th-text">Volume</span></th>
+                        <th><span class="th-text">Charge</span></th>
+                        <th><span class="th-text">Phyto</span></th>
+                        <th><span class="th-text">Dup. Phyto</span></th>
+                        <th><span class="th-text">C.Origin</span></th>
+                        <th><span class="th-text">Dup.C.O</span></th>
+                        <th><span class="th-text">Termografo</span></th>
+                        <th><span class="th-text">Transmision</span></th>
+                        <th class="col-del"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in cliente.shipments %}
+                    <tr data-id="{{ s.id }}">
+                        <td class="editable-cell"><textarea data-field="ship_date" onblur="guardarShipment(this)">{{ s.ship_date }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="mark" onblur="guardarShipment(this)">{{ s.mark }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="awb" onblur="guardarShipment(this)">{{ s.awb }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="client_name" onblur="guardarShipment(this)">{{ s.client_name }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="origin" onblur="guardarShipment(this)">{{ s.origin }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="destination" onblur="guardarShipment(this)">{{ s.destination }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="airline" onblur="guardarShipment(this)">{{ s.airline }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="fulles" onblur="guardarShipment(this)">{{ s.fulles }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="pieces_gross" onblur="guardarShipment(this)">{{ s.pieces_gross }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="volume" onblur="guardarShipment(this)">{{ s.volume }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="charge" onblur="guardarShipment(this)">{{ s.charge }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="phyto" onblur="guardarShipment(this)">{{ s.phyto }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="dup_phyto" onblur="guardarShipment(this)">{{ s.dup_phyto }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="c_origin" onblur="guardarShipment(this)">{{ s.c_origin }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="dup_co" onblur="guardarShipment(this)">{{ s.dup_co }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="termografo" onblur="guardarShipment(this)">{{ s.termografo }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="transmision" onblur="guardarShipment(this)">{{ s.transmision }}</textarea></td>
+                        <td class="col-del" style="vertical-align: middle;">
+                            <button class="btn-delete-row" onclick="eliminarShipment(this, {{ s.id }})" title="Eliminar fila"><i class="bi bi-x-lg"></i></button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button class="btn-add-row" onclick="agregarShipment()">
+            <i class="bi bi-plus-lg me-1"></i> Agregar embarque
+        </button>
+    </div>
+
+    <!-- TABLE 5: Facturacion -->
+    <div class="card mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; border-radius: 20px 20px 0 0; font-size: 1rem;">
+            <i class="bi bi-receipt me-2"></i>Facturacion
+        </div>
+        <div class="table-responsive">
+            <table class="table rate-table mb-0" id="facturaTable" style="table-layout: auto;">
+                <thead>
+                    <tr>
+                        <th><span class="th-text">Flete</span></th>
+                        <th><span class="th-text">FSC</span></th>
+                        <th><span class="th-text">ESC</span></th>
+                        <th><span class="th-text">Due Agent</span></th>
+                        <th><span class="th-text">Due Carrier</span></th>
+                        <th><span class="th-text">$Fito Venta</span></th>
+                        <th><span class="th-text">$C.Origen Venta</span></th>
+                        <th><span class="th-text">$Termografo</span></th>
+                        <th><span class="th-text">Fitos Venta</span></th>
+                        <th><span class="th-text">Dup Fito Venta</span></th>
+                        <th><span class="th-text">C.Origen</span></th>
+                        <th><span class="th-text">Dup. C.O</span></th>
+                        <th><span class="th-text">Transmision</span></th>
+                        <th><span class="th-text">Beneficio</span></th>
+                        <th><span class="th-text">Beneficio X kg</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in cliente.shipments %}
+                    <tr data-id="{{ s.id }}">
+                        <td class="editable-cell"><textarea data-field="flete" onblur="guardarShipment(this)">{{ s.flete }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="fsc" onblur="guardarShipment(this)">{{ s.fsc }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="esc" onblur="guardarShipment(this)">{{ s.esc }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="due_agent" onblur="guardarShipment(this)">{{ s.due_agent }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="due_carrier" onblur="guardarShipment(this)">{{ s.due_carrier }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="fito_venta" onblur="guardarShipment(this)">{{ s.fito_venta }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="co_venta" onblur="guardarShipment(this)">{{ s.co_venta }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="termografo_venta" onblur="guardarShipment(this)">{{ s.termografo_venta }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="fitos_venta" onblur="guardarShipment(this)">{{ s.fitos_venta }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="dup_fito_venta" onblur="guardarShipment(this)">{{ s.dup_fito_venta }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="co_factura" onblur="guardarShipment(this)">{{ s.co_factura }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="dup_co_factura" onblur="guardarShipment(this)">{{ s.dup_co_factura }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="transmision_factura" onblur="guardarShipment(this)">{{ s.transmision_factura }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="beneficio" onblur="guardarShipment(this)">{{ s.beneficio }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="beneficio_x_kg" onblur="guardarShipment(this)">{{ s.beneficio_x_kg }}</textarea></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Enviar button -->
+    <div class="text-center mb-4">
+        <button class="btn btn-lg btn-primary px-5" onclick="enviarShipments()" id="btnEnviar">
+            <i class="bi bi-send me-2"></i>Enviar
+        </button>
+        <a href="{{ url_for('current_status.historial_clientes') }}" class="btn btn-lg btn-outline-secondary px-4 ms-2">
+            <i class="bi bi-clock-history me-2"></i>Historial
+        </a>
     </div>
 
     <!-- Right-click context menu (all tables) -->
@@ -1898,6 +2027,82 @@ function eliminarPayment(btn, id) {
     if (!confirm('¿Eliminar este pago?')) return;
     fetch(`${BASE}/api/payment/${id}`, {method: 'DELETE'})
     .then(r => r.json()).then(data => { if (data.success) btn.closest('tr').remove(); });
+}
+
+// --- Shipment CRUD ---
+function guardarShipment(el) {
+    const row = el.closest('tr');
+    const id = row.dataset.id;
+    const field = el.dataset.field;
+    fetch(`${BASE}/api/shipment/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ [field]: el.value })
+    });
+}
+
+function agregarShipment() {
+    fetch(`${BASE}/api/client/${CLIENT_ID}/shipment`, {method: 'POST'})
+    .then(r => r.json()).then(data => {
+        if (!data.success) return;
+        // Add row to shipment table
+        const shipFields = ['ship_date','mark','awb','client_name','origin','destination','airline',
+                           'fulles','pieces_gross','volume','charge','phyto','dup_phyto',
+                           'c_origin','dup_co','termografo','transmision'];
+        const factFields = ['flete','fsc','esc','due_agent','due_carrier','fito_venta','co_venta',
+                           'termografo_venta','fitos_venta','dup_fito_venta','co_factura',
+                           'dup_co_factura','transmision_factura','beneficio','beneficio_x_kg'];
+
+        // Shipment table row
+        const tr1 = document.createElement('tr');
+        tr1.dataset.id = data.id;
+        let html1 = '';
+        shipFields.forEach(f => {
+            html1 += `<td class="editable-cell"><textarea data-field="${f}" onblur="guardarShipment(this)"></textarea></td>`;
+        });
+        html1 += `<td class="col-del" style="vertical-align:middle;"><button class="btn-delete-row" onclick="eliminarShipment(this,${data.id})" title="Eliminar"><i class="bi bi-x-lg"></i></button></td>`;
+        tr1.innerHTML = html1;
+        document.querySelector('#shipmentTable tbody').appendChild(tr1);
+
+        // Factura table row
+        const tr2 = document.createElement('tr');
+        tr2.dataset.id = data.id;
+        let html2 = '';
+        factFields.forEach(f => {
+            html2 += `<td class="editable-cell"><textarea data-field="${f}" onblur="guardarShipment(this)"></textarea></td>`;
+        });
+        tr2.innerHTML = html2;
+        document.querySelector('#facturaTable tbody').appendChild(tr2);
+
+        tr1.querySelector('textarea').focus();
+        // Auto-resize
+        tr1.querySelectorAll('textarea').forEach(autoResize);
+        tr2.querySelectorAll('textarea').forEach(autoResize);
+    });
+}
+
+function eliminarShipment(btn, id) {
+    if (!confirm('¿Eliminar este embarque?')) return;
+    fetch(`${BASE}/api/shipment/${id}`, {method: 'DELETE'})
+    .then(r => r.json()).then(data => {
+        if (data.success) {
+            // Remove from both tables
+            document.querySelectorAll(`#shipmentTable tr[data-id="${id}"], #facturaTable tr[data-id="${id}"]`).forEach(tr => tr.remove());
+        }
+    });
+}
+
+function enviarShipments() {
+    if (!confirm('¿Enviar estos embarques al historial?')) return;
+    fetch(`${BASE}/api/client/${CLIENT_ID}/enviar-shipments`, {method: 'POST'})
+    .then(r => r.json()).then(data => {
+        if (data.success) {
+            alert(`Enviados ${data.count} embarque(s) al historial`);
+            window.location.href = '{{ url_for("current_status.historial_clientes") }}';
+        } else {
+            alert(data.error || 'Error al enviar');
+        }
+    });
 }
 
 // --- Upload Excel ---

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Historial Clientes - Current Status{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.dashboard') }}">
+        <i class="bi bi-speedometer2"></i>
+        <span>Dashboard</span>
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link active" href="{{ url_for('current_status.historial_clientes') }}">
+        <i class="bi bi-clock-history"></i>
+        <span>Historial</span>
+    </a>
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="section-title">
+                <i class="bi bi-clock-history me-2"></i>Historial Clientes
+            </h1>
+            <p class="text-muted mt-1">Registro de embarques enviados por cliente</p>
+        </div>
+        <a href="{{ url_for('current_status.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Volver
+        </a>
+    </div>
+
+    <!-- Search -->
+    <div class="card mb-4">
+        <div class="card-body py-3">
+            <form method="GET" class="d-flex gap-2">
+                <input type="text" name="q" class="form-control" placeholder="Buscar cliente..."
+                       value="{{ busqueda }}" style="max-width: 400px;">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i>
+                </button>
+                {% if busqueda %}
+                <a href="{{ url_for('current_status.historial_clientes') }}" class="btn btn-outline-secondary">Limpiar</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Resumen por Cliente -->
+    {% if client_totals %}
+    <div class="row mb-4">
+        {% for cid, info in client_totals.items() %}
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card h-100" style="border-left: 4px solid #7c3aed;">
+                <div class="card-body text-center py-3">
+                    <h5 class="mb-1" style="color: #7c3aed;">{{ info.total }}</h5>
+                    <p class="text-muted small mb-1">embarques totales</p>
+                    <h6 class="mb-0">{{ info.name }}</h6>
+                    <small class="text-muted">{{ info.envios }} envio{{ 's' if info.envios > 1 else '' }}</small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Tabla de Historial -->
+    {% if entries %}
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr style="background: linear-gradient(135deg, #7c3aed, #6d28d9);">
+                        <th style="color: #fff;">#</th>
+                        <th style="color: #fff;">Cliente</th>
+                        <th style="color: #fff;">Embarques</th>
+                        <th style="color: #fff;">Fecha de Envio</th>
+                        <th style="color: #fff;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in entries %}
+                    <tr>
+                        <td>{{ e.id }}</td>
+                        <td>
+                            <strong>{{ e.client_name }}</strong>
+                            <br><small class="text-muted">Total acumulado: {{ client_totals[e.client_id].total }} embarques</small>
+                        </td>
+                        <td>
+                            <span class="badge" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); font-size: 0.9rem;">
+                                {{ e.shipment_count }}
+                            </span>
+                        </td>
+                        <td>{{ e.sent_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{{ url_for('current_status.historial_detalle', id=e.id) }}"
+                                   class="btn btn-sm btn-outline-primary" title="Ver detalle">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{{ url_for('current_status.detalle_cliente', id=e.client_id) }}"
+                                   class="btn btn-sm btn-outline-secondary" title="Ir al cliente">
+                                    <i class="bi bi-person"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-inbox" style="font-size: 3rem; color: #94a3b8;"></i>
+            <h5 class="mt-3 text-muted">No hay historial de embarques</h5>
+            <p class="text-muted">Los embarques apareceran aqui cuando se presione "Enviar" en la pagina de un cliente</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
