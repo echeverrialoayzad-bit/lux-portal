@@ -867,8 +867,8 @@
                         <td class="editable-cell"><textarea data-field="esc" onblur="guardarShipment(this)">{{ s.esc }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="due_agent" onblur="guardarShipment(this)">{{ s.due_agent }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="due_carrier" onblur="guardarShipment(this)">{{ s.due_carrier }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="fito_venta" onblur="guardarShipment(this)">{{ s.fito_venta }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="co_venta" onblur="guardarShipment(this)">{{ s.co_venta }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="fito_venta" onblur="guardarShipment(this)">{{ s.fito_venta or '2.50' }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="co_venta" onblur="guardarShipment(this)">{{ s.co_venta or '15' }}</textarea></td>
                         <td class="editable-cell">
                             <select data-field="termografo_venta" onchange="guardarShipmentSelect(this)" class="termo-select">
                                 <option value="35" {{ 'selected' if s.termografo_venta == '35' or not s.termografo_venta else '' }}>35</option>
