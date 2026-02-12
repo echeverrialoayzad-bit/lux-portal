@@ -51,6 +51,11 @@
         background: #ADD8E6 !important;
         color: #fff !important;
     }
+    /* Green section (Costos) */
+    .th-cost {
+        background: linear-gradient(135deg, #059669, #047857) !important;
+        color: #fff !important;
+    }
     /* Meta columns (Cliente, Fecha envio) */
     .th-meta {
         background: #334155 !important;
@@ -145,7 +150,7 @@
     </div>
 
     {% set SHIP_LABELS = {
-        'ship_date': 'Date', 'mark': 'Mark', 'awb': 'AWB', 'client_name': 'Client',
+        'ship_date': 'Date', 'transport': 'Transport', 'mark': 'Mark', 'awb': 'AWB', 'client_name': 'Customer',
         'origin': 'Orig', 'destination': 'Dest', 'airline': 'Airline',
         'fulles': 'Fulles', 'piezas': 'Piezas', 'pieces_gross': 'Gross', 'volume': 'Vol',
         'charge': 'Charge', 'phyto': '#Fito', 'dup_phyto': '#Dup.Fito',
@@ -153,11 +158,23 @@
         'transmision': 'Trans'
     } %}
     {% set FACT_LABELS = {
+        'facturacion': 'Facturac.', 'handling_juni': 'H.Juni',
         'flete': 'Flete', 'fsc': 'FSC', 'esc': 'ESC', 'due_agent': 'Due Ag.',
         'due_carrier': 'Due Car.', 'fito_venta': '$Fito', 'co_venta': '$C.Orig',
         'termografo_venta': '$Termo', 'fitos_venta': 'Fitos V.', 'dup_fito_venta': 'Dup Fito',
-        'co_factura': 'C.Orig', 'dup_co_factura': 'Dup.CO', 'transmision_factura': 'Termo',
-        'beneficio': 'Benef.', 'beneficio_x_kg': 'Benef/kg'
+        'co_factura': 'C.Orig', 'dup_co_factura': 'Dup.CO', 'termografo_factura': 'Termo',
+        'transmision_factura': 'Trans.Fact', 'beneficio': 'Benef.', 'beneficio_x_kg': 'Benef/kg'
+    } %}
+    {% set COST_LABELS = {
+        'costos': 'Costos', 'costo_bodega': 'C.Bod', 'costo_guia': 'C.Guia',
+        'flete_costo': 'Flete C.', 'due_carrier_costo': 'DueC.C',
+        'fsc_costo': 'FSC C.', 'esc_costo': 'ESC C.', 'costo_x_kg': 'C/KG',
+        'costo_bod_unit': '$Bod', 'costo_guia_unit': '$Guia',
+        'fito_costo_unit': '$Fito C.', 'co_costo_unit': '$CO C.',
+        'termografo_costo_unit': '$Term C.', 'fitos_costo': 'Fitos C.',
+        'dup_fitos_costo': 'Dup.Fito C.', 'termografo_costo': 'Term.C',
+        'co_costo': 'CO C.', 'dup_co_costo': 'Dup.CO C.',
+        'transmision_costo': 'Trans.C', 'costos_fijos': 'C.Fijos', 'utilidad': 'Utilidad'
     } %}
 
     {% if rows %}
@@ -175,6 +192,9 @@
                     {% for f in FACTURA_FIELDS %}
                     <th class="th-fact{% if loop.first %} th-divider{% endif %}">{{ FACT_LABELS.get(f, f) }}</th>
                     {% endfor %}
+                    {% for f in COSTOS_FIELDS %}
+                    <th class="th-cost{% if loop.first %} th-divider{% endif %}">{{ COST_LABELS.get(f, f) }}</th>
+                    {% endfor %}
                 </tr>
                 <!-- Filter row -->
                 <tr class="filter-row">
@@ -186,6 +206,9 @@
                     {% endfor %}
                     {% for f in FACTURA_FIELDS %}
                     <th class="th-fact{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 + 2 + SHIPMENT_FIELDS|length }}" placeholder="..." oninput="filterTable()"></th>
+                    {% endfor %}
+                    {% for f in COSTOS_FIELDS %}
+                    <th class="th-cost{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 + 2 + SHIPMENT_FIELDS|length + FACTURA_FIELDS|length }}" placeholder="..." oninput="filterTable()"></th>
                     {% endfor %}
                 </tr>
             </thead>
@@ -203,6 +226,9 @@
                     <td{% if loop.first %} class="td-divider"{% endif %}>{{ row.get(f, '') }}</td>
                     {% endfor %}
                     {% for f in FACTURA_FIELDS %}
+                    <td{% if loop.first %} class="td-divider"{% endif %}>{{ row.get(f, '') }}</td>
+                    {% endfor %}
+                    {% for f in COSTOS_FIELDS %}
                     <td{% if loop.first %} class="td-divider"{% endif %}>{{ row.get(f, '') }}</td>
                     {% endfor %}
                 </tr>

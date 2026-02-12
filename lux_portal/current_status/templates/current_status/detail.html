@@ -276,22 +276,52 @@
     .uppercase-field {
         text-transform: uppercase !important;
     }
-    /* Termografo select dropdown */
-    .termo-select {
-        border: none;
-        background: transparent;
+    /* ---- Costos table (verde esmeralda) ---- */
+    .costos-table {
         width: 100%;
-        padding: 6px 3px;
-        font-size: 0.65rem;
-        color: var(--lux-text-primary);
-        outline: none;
-        text-align: center;
-        font-family: inherit;
-        cursor: pointer;
-        min-height: 28px;
+        border: 1px solid #cbd5e1 !important;
     }
-    .termo-select:focus {
-        background: rgba(173, 216, 230, 0.12);
+    .costos-table th {
+        background: linear-gradient(135deg, #059669, #047857) !important;
+        color: #fff !important;
+        font-size: 0.65rem !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        padding: 6px 10px 6px 4px !important;
+        text-align: center !important;
+        white-space: normal;
+        word-break: break-word;
+        line-height: 1.2;
+        position: relative;
+        overflow: hidden;
+        user-select: none;
+    }
+    .costos-table td {
+        border: 1px solid #cbd5e1 !important;
+    }
+    .costos-table .editable-cell textarea {
+        font-size: 0.65rem;
+        padding: 4px 2px;
+        min-height: 28px;
+        line-height: 1.3;
+    }
+    .costos-table .editable-cell textarea:focus {
+        background: rgba(5, 150, 105, 0.08);
+    }
+    .costos-table tbody tr:nth-child(even) td {
+        background-color: #ecfdf5 !important;
+    }
+    .costos-table tbody tr:nth-child(odd) td {
+        background-color: #ffffff !important;
+    }
+    /* Formula readonly cells (green background) */
+    .formula-cell textarea {
+        background: #d1fae5 !important;
+        font-weight: 600 !important;
+    }
+    /* Computed readonly cells (light yellow for date parts) */
+    .computed-cell textarea {
+        background: #fef9c3 !important;
     }
     /* Merged airline cell (rowspan) */
     .col-airline { position: relative; }
@@ -780,24 +810,28 @@
             <table class="table shipment-table mb-0" id="shipmentTable">
                 <thead>
                     <tr>
-                        <th><span class="th-text">Date</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Mark</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">AWB</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Client</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Orig</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Dest</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Airline</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Fulles</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Piezas</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Gross</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Volume</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Charge</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">#Fito</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">#Dup.Fito</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">#C.O</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">#Dup.C.O</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Termografo</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Transmision</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span class="th-text">Date</span></th>
+                        <th><span class="th-text">Ano</span></th>
+                        <th><span class="th-text">Mes</span></th>
+                        <th><span class="th-text">Dia</span></th>
+                        <th><span class="th-text">Transport</span></th>
+                        <th><span class="th-text">Mark</span></th>
+                        <th><span class="th-text">AWB</span></th>
+                        <th><span class="th-text">Customer</span></th>
+                        <th><span class="th-text">Orig</span></th>
+                        <th><span class="th-text">Dest</span></th>
+                        <th><span class="th-text">Airline</span></th>
+                        <th><span class="th-text">Fulles</span></th>
+                        <th><span class="th-text">Piezas</span></th>
+                        <th><span class="th-text">Gross</span></th>
+                        <th><span class="th-text">Volume</span></th>
+                        <th><span class="th-text">Charge</span></th>
+                        <th><span class="th-text">#Fito</span></th>
+                        <th><span class="th-text">#Dup.Fito</span></th>
+                        <th><span class="th-text">#C.O</span></th>
+                        <th><span class="th-text">#Dup.C.O</span></th>
+                        <th><span class="th-text">Termografo</span></th>
+                        <th><span class="th-text">Transmision</span></th>
                         <th class="col-del"></th>
                     </tr>
                 </thead>
@@ -805,6 +839,10 @@
                     {% for s in cliente.shipments %}
                     <tr data-id="{{ s.id }}">
                         <td class="editable-cell"><textarea data-field="ship_date" class="date-field" placeholder="DD/MM/YYYY" onblur="guardarShipment(this)">{{ s.ship_date }}</textarea></td>
+                        <td class="editable-cell computed-cell"><textarea data-field="_ano" readonly tabindex="-1"></textarea></td>
+                        <td class="editable-cell computed-cell"><textarea data-field="_mes" readonly tabindex="-1"></textarea></td>
+                        <td class="editable-cell computed-cell"><textarea data-field="_dia" readonly tabindex="-1"></textarea></td>
+                        <td class="editable-cell"><textarea data-field="transport" class="uppercase-field" onblur="guardarShipment(this)">{{ s.transport }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="mark" class="uppercase-field" onblur="guardarShipment(this)">{{ s.mark }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="awb" onblur="guardarShipment(this)">{{ s.awb }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="client_name" class="uppercase-field" onblur="guardarShipment(this)">{{ s.client_name }}</textarea></td>
@@ -812,10 +850,10 @@
                         <td class="editable-cell"><textarea data-field="destination" class="uppercase-field" onblur="guardarShipment(this)">{{ s.destination }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="airline" class="uppercase-field" onblur="guardarShipment(this)">{{ s.airline }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="fulles" onblur="guardarShipment(this)">{{ s.fulles }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="piezas" class="charge-source" onblur="guardarShipment(this)">{{ s.piezas }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="pieces_gross" class="charge-source" onblur="guardarShipment(this)">{{ s.pieces_gross }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="volume" class="charge-source" onblur="guardarShipment(this)">{{ s.volume }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="charge" onblur="guardarShipment(this)">{{ s.charge }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="piezas" onblur="guardarShipment(this)">{{ s.piezas }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="pieces_gross" onblur="guardarShipment(this)">{{ s.pieces_gross }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="volume" onblur="guardarShipment(this)">{{ s.volume }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="charge" readonly tabindex="-1">{{ s.charge }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="phyto" onblur="guardarShipment(this)">{{ s.phyto }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="dup_phyto" onblur="guardarShipment(this)">{{ s.dup_phyto }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="c_origin" onblur="guardarShipment(this)">{{ s.c_origin }}</textarea></td>
@@ -844,26 +882,28 @@
             <table class="table factura-table mb-0" id="facturaTable">
                 <thead>
                     <tr>
-                        <th><span class="th-text">Flete</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">FSC</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">ESC</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Due Agent</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Due Carrier</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">$Fito Venta</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">$C.Origen Venta</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">$Termografo</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Fitos Venta</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Dup Fito Venta</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">C.Origen</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Dup. C.O</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Termografo</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Beneficio</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th><span class="th-text">Beneficio X kg</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th><span class="th-text">Facturacion</span></th>
+                        <th><span class="th-text">Handling Juni</span></th>
+                        <th><span class="th-text">Flete</span></th>
+                        <th><span class="th-text">FSC</span></th>
+                        <th><span class="th-text">ESC</span></th>
+                        <th><span class="th-text">Due Agent</span></th>
+                        <th><span class="th-text">Due Carrier</span></th>
+                        <th><span class="th-text">$Fito Venta</span></th>
+                        <th><span class="th-text">$C.Origen Venta</span></th>
+                        <th><span class="th-text">$Termografo</span></th>
+                        <th><span class="th-text">Fitos Venta</span></th>
+                        <th><span class="th-text">Dup. Fitos</span></th>
+                        <th><span class="th-text">C. Origen</span></th>
+                        <th><span class="th-text">Dup. C.O</span></th>
+                        <th><span class="th-text">Termografo</span></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for s in cliente.shipments %}
                     <tr data-id="{{ s.id }}">
+                        <td class="editable-cell formula-cell"><textarea data-field="facturacion" readonly tabindex="-1">{{ s.facturacion }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="handling_juni" readonly tabindex="-1">{{ s.handling_juni }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="flete" onblur="guardarShipment(this)">{{ s.flete }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="fsc" onblur="guardarShipment(this)">{{ s.fsc }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="esc" onblur="guardarShipment(this)">{{ s.esc }}</textarea></td>
@@ -871,19 +911,79 @@
                         <td class="editable-cell"><textarea data-field="due_carrier" onblur="guardarShipment(this)">{{ s.due_carrier }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="fito_venta" onblur="guardarShipment(this)">{{ s.fito_venta or '2.50' }}</textarea></td>
                         <td class="editable-cell"><textarea data-field="co_venta" onblur="guardarShipment(this)">{{ s.co_venta or '15' }}</textarea></td>
-                        <td class="editable-cell">
-                            <select data-field="termografo_venta" onchange="guardarShipmentSelect(this)" class="termo-select">
-                                <option value="35" {{ 'selected' if s.termografo_venta == '35' or not s.termografo_venta else '' }}>35</option>
-                                <option value="50" {{ 'selected' if s.termografo_venta == '50' else '' }}>50</option>
-                            </select>
-                        </td>
-                        <td class="editable-cell"><textarea data-field="fitos_venta" onblur="guardarShipment(this)">{{ s.fitos_venta }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="dup_fito_venta" onblur="guardarShipment(this)">{{ s.dup_fito_venta }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="co_factura" onblur="guardarShipment(this)">{{ s.co_factura }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="dup_co_factura" onblur="guardarShipment(this)">{{ s.dup_co_factura }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="transmision_factura" onblur="guardarShipment(this)">{{ s.transmision_factura }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="beneficio" onblur="guardarShipment(this)">{{ s.beneficio }}</textarea></td>
-                        <td class="editable-cell"><textarea data-field="beneficio_x_kg" onblur="guardarShipment(this)">{{ s.beneficio_x_kg }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="termografo_venta" onblur="guardarShipment(this)">{{ s.termografo_venta or '35' }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="fitos_venta" readonly tabindex="-1">{{ s.fitos_venta }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="dup_fito_venta" readonly tabindex="-1">{{ s.dup_fito_venta }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="co_factura" readonly tabindex="-1">{{ s.co_factura }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="dup_co_factura" readonly tabindex="-1">{{ s.dup_co_factura }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="termografo_factura" readonly tabindex="-1">{{ s.termografo_factura }}</textarea></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TABLE 6: Costos y Resultado -->
+    <div class="card mb-4">
+        <div class="card-header" style="background: linear-gradient(135deg, #059669, #047857); color: #fff; border-radius: 20px 20px 0 0; font-size: 1rem;">
+            <i class="bi bi-calculator me-2"></i>Costos y Resultado
+        </div>
+        <div class="table-responsive">
+            <table class="table costos-table mb-0" id="costosTable">
+                <thead>
+                    <tr>
+                        <th><span class="th-text">Costos</span></th>
+                        <th><span class="th-text">Costo Bodega</span></th>
+                        <th><span class="th-text">Costo Guia</span></th>
+                        <th><span class="th-text">Flete</span></th>
+                        <th><span class="th-text">Due Carrier</span></th>
+                        <th><span class="th-text">FSC</span></th>
+                        <th><span class="th-text">ESC</span></th>
+                        <th><span class="th-text">Costo x KG</span></th>
+                        <th><span class="th-text">$Costo Bod</span></th>
+                        <th><span class="th-text">$Costo Guia</span></th>
+                        <th><span class="th-text">$Fito Costo</span></th>
+                        <th><span class="th-text">$C.Or Costo</span></th>
+                        <th><span class="th-text">$Termografo</span></th>
+                        <th><span class="th-text">Fitos Costo</span></th>
+                        <th><span class="th-text">Dup. Fitos</span></th>
+                        <th><span class="th-text">Termografo</span></th>
+                        <th><span class="th-text">C. Origen</span></th>
+                        <th><span class="th-text">Dup. C.O</span></th>
+                        <th><span class="th-text">Transmisiones</span></th>
+                        <th><span class="th-text">Beneficio</span></th>
+                        <th><span class="th-text">Benef. x KG</span></th>
+                        <th><span class="th-text">Costos Fijos</span></th>
+                        <th><span class="th-text">Utilidad</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in cliente.shipments %}
+                    <tr data-id="{{ s.id }}">
+                        <td class="editable-cell formula-cell"><textarea data-field="costos" readonly tabindex="-1">{{ s.costos }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="costo_bodega" readonly tabindex="-1">{{ s.costo_bodega }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="costo_guia" readonly tabindex="-1">{{ s.costo_guia }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="flete_costo" onblur="guardarShipment(this)">{{ s.flete_costo }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="due_carrier_costo" readonly tabindex="-1">{{ s.due_carrier_costo }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="fsc_costo" onblur="guardarShipment(this)">{{ s.fsc_costo }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="esc_costo" onblur="guardarShipment(this)">{{ s.esc_costo }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="costo_x_kg" readonly tabindex="-1">{{ s.costo_x_kg }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="costo_bod_unit" onblur="guardarShipment(this)">{{ s.costo_bod_unit or '0.069' }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="costo_guia_unit" onblur="guardarShipment(this)">{{ s.costo_guia_unit or '0.005' }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="fito_costo_unit" onblur="guardarShipment(this)">{{ s.fito_costo_unit or '1.7' }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="co_costo_unit" onblur="guardarShipment(this)">{{ s.co_costo_unit or '13' }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="termografo_costo_unit" onblur="guardarShipment(this)">{{ s.termografo_costo_unit }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="fitos_costo" readonly tabindex="-1">{{ s.fitos_costo }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="dup_fitos_costo" readonly tabindex="-1">{{ s.dup_fitos_costo }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="termografo_costo" readonly tabindex="-1">{{ s.termografo_costo }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="co_costo" readonly tabindex="-1">{{ s.co_costo }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="dup_co_costo" readonly tabindex="-1">{{ s.dup_co_costo }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="transmision_costo" readonly tabindex="-1">{{ s.transmision_costo }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="beneficio" readonly tabindex="-1">{{ s.beneficio }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="beneficio_x_kg" readonly tabindex="-1">{{ s.beneficio_x_kg }}</textarea></td>
+                        <td class="editable-cell"><textarea data-field="costos_fijos" onblur="guardarShipment(this)">{{ s.costos_fijos }}</textarea></td>
+                        <td class="editable-cell formula-cell"><textarea data-field="utilidad" readonly tabindex="-1">{{ s.utilidad }}</textarea></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -1000,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initColumnSelect();
     initContextMenu();
     initColumnDrag();
+    initRecalcAll();
 });
 
 // --- Table formatting (font size, per-column alignment, bold) - ALL TABLES ---
@@ -2181,41 +2282,182 @@ document.addEventListener('input', function(e) {
     e.target.value = v;
 });
 
-// --- Shipment select save (for dropdowns) ---
-function guardarShipmentSelect(el) {
-    const row = el.closest('tr');
-    const id = row.dataset.id;
-    const field = el.dataset.field;
-    fetch(`${BASE}/api/shipment/${id}`, {
+// ===================== SHIPMENT FORMULA ENGINE =====================
+
+// Get a numeric value from a textarea across all 3 shipment tables
+function getShipVal(shipId, field) {
+    const el = document.querySelector(`#shipmentTable tr[data-id="${shipId}"] textarea[data-field="${field}"],
+                                       #facturaTable tr[data-id="${shipId}"] textarea[data-field="${field}"],
+                                       #costosTable tr[data-id="${shipId}"] textarea[data-field="${field}"]`);
+    if (!el) return 0;
+    return parseFloat(el.value.replace(/,/g, '')) || 0;
+}
+
+// Set a computed value on a textarea
+function setShipVal(shipId, field, value) {
+    const el = document.querySelector(`#shipmentTable tr[data-id="${shipId}"] textarea[data-field="${field}"],
+                                       #facturaTable tr[data-id="${shipId}"] textarea[data-field="${field}"],
+                                       #costosTable tr[data-id="${shipId}"] textarea[data-field="${field}"]`);
+    if (!el) return;
+    el.value = (typeof value === 'number') ? (value % 1 === 0 ? String(value) : value.toFixed(2)) : value;
+}
+
+// Fill Ano/Mes/Dia from Date
+function fillDateParts(shipId) {
+    const dateEl = document.querySelector(`#shipmentTable tr[data-id="${shipId}"] textarea[data-field="ship_date"]`);
+    if (!dateEl) return;
+    const v = dateEl.value.trim();
+    const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    const anoEl = document.querySelector(`#shipmentTable tr[data-id="${shipId}"] textarea[data-field="_ano"]`);
+    const mesEl = document.querySelector(`#shipmentTable tr[data-id="${shipId}"] textarea[data-field="_mes"]`);
+    const diaEl = document.querySelector(`#shipmentTable tr[data-id="${shipId}"] textarea[data-field="_dia"]`);
+    if (m) {
+        if (anoEl) anoEl.value = m[3];
+        if (mesEl) mesEl.value = m[2].padStart(2, '0');
+        if (diaEl) diaEl.value = m[1].padStart(2, '0');
+    } else {
+        if (anoEl) anoEl.value = '';
+        if (mesEl) mesEl.value = '';
+        if (diaEl) diaEl.value = '';
+    }
+}
+
+// Central formula engine - recalculates ALL formulas for a shipment row
+function recalcAll(shipId) {
+    const gross = getShipVal(shipId, 'pieces_gross');
+    const vol = getShipVal(shipId, 'volume');
+    const phyto = getShipVal(shipId, 'phyto');
+    const dup_phyto = getShipVal(shipId, 'dup_phyto');
+    const c_origin = getShipVal(shipId, 'c_origin');
+    const dup_co = getShipVal(shipId, 'dup_co');
+    const termo = getShipVal(shipId, 'termografo');
+    const transmision = getShipVal(shipId, 'transmision');
+    const flete = getShipVal(shipId, 'flete');
+    const fsc = getShipVal(shipId, 'fsc');
+    const esc = getShipVal(shipId, 'esc');
+    const due_agent = getShipVal(shipId, 'due_agent');
+    const due_carrier = getShipVal(shipId, 'due_carrier');
+    const fito_venta = getShipVal(shipId, 'fito_venta');
+    const co_venta = getShipVal(shipId, 'co_venta');
+    const termografo_venta = getShipVal(shipId, 'termografo_venta');
+    const flete_costo = getShipVal(shipId, 'flete_costo');
+    const fsc_costo = getShipVal(shipId, 'fsc_costo');
+    const esc_costo = getShipVal(shipId, 'esc_costo');
+    const costo_bod_unit = getShipVal(shipId, 'costo_bod_unit');
+    const costo_guia_unit = getShipVal(shipId, 'costo_guia_unit');
+    const fito_costo_unit = getShipVal(shipId, 'fito_costo_unit');
+    const co_costo_unit = getShipVal(shipId, 'co_costo_unit');
+    const termografo_costo_unit = getShipVal(shipId, 'termografo_costo_unit');
+    const costos_fijos = getShipVal(shipId, 'costos_fijos');
+
+    // Check customer for JUNIFLOR
+    const clientEl = document.querySelector(`#shipmentTable tr[data-id="${shipId}"] textarea[data-field="client_name"]`);
+    const clientName = clientEl ? clientEl.value.trim().toUpperCase() : '';
+    const isJuniflor = clientName.includes('JUNIFLOR');
+
+    // Date parts (JS only, no DB save)
+    fillDateParts(shipId);
+
+    // TIER 1
+    const charge = (gross < vol) ? vol : ((vol < gross) ? gross : 0);
+    const handling_juni = isJuniflor ? 0.12 : 0;
+    const fitos_venta_calc = fito_venta * phyto;
+    const dup_fito_venta_calc = fito_venta * dup_phyto;
+    const co_factura_calc = co_venta * c_origin;
+    const dup_co_factura_calc = co_venta * dup_co;
+    const termografo_factura_calc = termografo_venta * termo;
+    const due_carrier_costo_calc = due_carrier;
+    const fitos_costo_calc = fito_costo_unit * phyto;
+    const dup_fitos_costo_calc = fito_costo_unit * dup_phyto;
+    const co_costo_calc = co_costo_unit * c_origin;
+    const dup_co_costo_calc = co_costo_unit * dup_co;
+    const termografo_costo_calc = termografo_costo_unit * termo;
+    const transmision_costo_calc = transmision * 0.3581;
+
+    // TIER 2
+    const costo_bodega_calc = charge * costo_bod_unit;
+    const costo_guia_calc = charge * costo_guia_unit;
+    const sumas_venta = fsc + esc + due_agent + due_carrier + fitos_venta_calc + dup_fito_venta_calc + co_factura_calc + dup_co_factura_calc + termografo_factura_calc;
+    let facturacion_calc;
+    if (isJuniflor) {
+        facturacion_calc = (charge * handling_juni) + sumas_venta;
+    } else {
+        facturacion_calc = (charge * handling_juni) + sumas_venta + (flete * charge);
+    }
+
+    // TIER 3
+    const costos_calc = costo_bodega_calc + costo_guia_calc + fitos_costo_calc + dup_fitos_costo_calc +
+                        co_costo_calc + dup_co_costo_calc + due_carrier_costo_calc + termografo_costo_calc +
+                        (charge * flete_costo) + fsc_costo + esc_costo + transmision_costo_calc;
+    const costo_x_kg_calc = (costo_bodega_calc === 0) ? 0 : (costo_bodega_calc + costo_guia_calc) / (charge || 1);
+
+    // TIER 4
+    const beneficio_calc = facturacion_calc - costos_calc;
+    const beneficio_x_kg_calc = (beneficio_calc === 0) ? 0 : beneficio_calc / (charge || 1);
+
+    // TIER 5
+    const utilidad_calc = beneficio_calc - costos_fijos;
+
+    // Set all computed values in the UI
+    setShipVal(shipId, 'charge', charge);
+    setShipVal(shipId, 'handling_juni', handling_juni);
+    setShipVal(shipId, 'facturacion', facturacion_calc);
+    setShipVal(shipId, 'fitos_venta', fitos_venta_calc);
+    setShipVal(shipId, 'dup_fito_venta', dup_fito_venta_calc);
+    setShipVal(shipId, 'co_factura', co_factura_calc);
+    setShipVal(shipId, 'dup_co_factura', dup_co_factura_calc);
+    setShipVal(shipId, 'termografo_factura', termografo_factura_calc);
+    setShipVal(shipId, 'due_carrier_costo', due_carrier_costo_calc);
+    setShipVal(shipId, 'costos', costos_calc);
+    setShipVal(shipId, 'costo_bodega', costo_bodega_calc);
+    setShipVal(shipId, 'costo_guia', costo_guia_calc);
+    setShipVal(shipId, 'costo_x_kg', costo_x_kg_calc);
+    setShipVal(shipId, 'fitos_costo', fitos_costo_calc);
+    setShipVal(shipId, 'dup_fitos_costo', dup_fitos_costo_calc);
+    setShipVal(shipId, 'termografo_costo', termografo_costo_calc);
+    setShipVal(shipId, 'co_costo', co_costo_calc);
+    setShipVal(shipId, 'dup_co_costo', dup_co_costo_calc);
+    setShipVal(shipId, 'transmision_costo', transmision_costo_calc);
+    setShipVal(shipId, 'beneficio', beneficio_calc);
+    setShipVal(shipId, 'beneficio_x_kg', beneficio_x_kg_calc);
+    setShipVal(shipId, 'utilidad', utilidad_calc);
+
+    // Save all computed values to server in one request
+    fetch(`${BASE}/api/shipment/${shipId}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ [field]: el.value })
+        body: JSON.stringify({
+            charge: charge % 1 === 0 ? String(charge) : charge.toFixed(2),
+            handling_juni: handling_juni.toFixed(2),
+            facturacion: facturacion_calc.toFixed(2),
+            fitos_venta: fitos_venta_calc.toFixed(2),
+            dup_fito_venta: dup_fito_venta_calc.toFixed(2),
+            co_factura: co_factura_calc.toFixed(2),
+            dup_co_factura: dup_co_factura_calc.toFixed(2),
+            termografo_factura: termografo_factura_calc.toFixed(2),
+            due_carrier_costo: due_carrier_costo_calc.toFixed(2),
+            costos: costos_calc.toFixed(2),
+            costo_bodega: costo_bodega_calc.toFixed(2),
+            costo_guia: costo_guia_calc.toFixed(2),
+            costo_x_kg: costo_x_kg_calc.toFixed(2),
+            fitos_costo: fitos_costo_calc.toFixed(2),
+            dup_fitos_costo: dup_fitos_costo_calc.toFixed(2),
+            termografo_costo: termografo_costo_calc.toFixed(2),
+            co_costo: co_costo_calc.toFixed(2),
+            dup_co_costo: dup_co_costo_calc.toFixed(2),
+            transmision_costo: transmision_costo_calc.toFixed(2),
+            beneficio: beneficio_calc.toFixed(2),
+            beneficio_x_kg: beneficio_x_kg_calc.toFixed(2),
+            utilidad: utilidad_calc.toFixed(2)
+        })
     });
 }
 
-// --- Auto-calc Charge = max(Piezas, Gross, Volume) ---
-const CHARGE_SRC_FIELDS = ['piezas', 'pieces_gross', 'volume'];
-
-function autoCalcCharge(row) {
-    let maxVal = 0;
-    CHARGE_SRC_FIELDS.forEach(f => {
-        const ta = row.querySelector(`textarea[data-field="${f}"]`);
-        if (ta) {
-            const num = parseFloat(ta.value.replace(/,/g, '')) || 0;
-            if (num > maxVal) maxVal = num;
-        }
+// Run recalcAll for all existing shipment rows on page load
+function initRecalcAll() {
+    document.querySelectorAll('#shipmentTable tbody tr[data-id]').forEach(tr => {
+        recalcAll(tr.dataset.id);
     });
-    const chargeField = row.querySelector('textarea[data-field="charge"]');
-    if (chargeField && maxVal > 0) {
-        chargeField.value = maxVal % 1 === 0 ? String(maxVal) : maxVal.toFixed(2);
-        // Also save charge to server
-        const id = row.dataset.id;
-        fetch(`${BASE}/api/shipment/${id}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ charge: chargeField.value })
-        });
-    }
 }
 
 // --- Shipment CRUD ---
@@ -2235,62 +2477,119 @@ function guardarShipment(el) {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ [field]: el.value })
+    }).then(() => {
+        // Recalc all formulas after any field save
+        recalcAll(id);
     });
-    // Auto-calc charge when piezas, gross or volume change
-    if (CHARGE_SRC_FIELDS.includes(field)) {
-        autoCalcCharge(row);
-    }
 }
 
 function agregarShipment() {
     fetch(`${BASE}/api/client/${CLIENT_ID}/shipment`, {method: 'POST'})
     .then(r => r.json()).then(data => {
         if (!data.success) return;
-        // Add row to shipment table
-        const shipFields = ['ship_date','mark','awb','client_name','origin','destination','airline',
-                           'fulles','piezas','pieces_gross','volume','charge','phyto','dup_phyto',
-                           'c_origin','dup_co','termografo','transmision'];
-        const CHARGE_SOURCES = ['piezas', 'pieces_gross', 'volume'];
-        const factFields = ['flete','fsc','esc','due_agent','due_carrier','fito_venta','co_venta',
-                           'termografo_venta','fitos_venta','dup_fito_venta','co_factura',
-                           'dup_co_factura','transmision_factura','beneficio','beneficio_x_kg'];
+        const sid = data.id;
 
         // Shipment table row
+        const shipFields = [
+            {f:'ship_date', cls:'date-field', ph:'DD/MM/YYYY'},
+            {f:'_ano', readonly:true, cls:'computed-cell'},
+            {f:'_mes', readonly:true, cls:'computed-cell'},
+            {f:'_dia', readonly:true, cls:'computed-cell'},
+            {f:'transport', cls:'uppercase-field'},
+            {f:'mark', cls:'uppercase-field'},
+            {f:'awb'},
+            {f:'client_name', cls:'uppercase-field'},
+            {f:'origin', cls:'uppercase-field'},
+            {f:'destination', cls:'uppercase-field'},
+            {f:'airline', cls:'uppercase-field'},
+            {f:'fulles'},
+            {f:'piezas'},
+            {f:'pieces_gross'},
+            {f:'volume'},
+            {f:'charge', readonly:true, formula:true},
+            {f:'phyto'},
+            {f:'dup_phyto'},
+            {f:'c_origin'},
+            {f:'dup_co'},
+            {f:'termografo'},
+            {f:'transmision'}
+        ];
         const tr1 = document.createElement('tr');
-        tr1.dataset.id = data.id;
+        tr1.dataset.id = sid;
         let html1 = '';
-        shipFields.forEach(f => {
-            let extraCls = '';
-            let extraAttr = '';
-            if (UPPERCASE_FIELDS.includes(f)) extraCls += ' uppercase-field';
-            if (f === 'ship_date') { extraCls += ' date-field'; extraAttr = ' placeholder="DD/MM/YYYY"'; }
-            if (CHARGE_SOURCES.includes(f)) extraCls += ' charge-source';
-            html1 += `<td class="editable-cell"><textarea data-field="${f}" class="${extraCls.trim()}"${extraAttr} onblur="guardarShipment(this)"></textarea></td>`;
+        shipFields.forEach(col => {
+            const tdCls = col.formula ? 'editable-cell formula-cell' : (col.cls === 'computed-cell' ? 'editable-cell computed-cell' : 'editable-cell');
+            const taCls = (col.cls && col.cls !== 'computed-cell') ? ` class="${col.cls}"` : '';
+            const ro = col.readonly ? ' readonly tabindex="-1"' : '';
+            const ph = col.ph ? ` placeholder="${col.ph}"` : '';
+            const blur = col.readonly ? '' : ' onblur="guardarShipment(this)"';
+            html1 += `<td class="${tdCls}"><textarea data-field="${col.f}"${taCls}${ro}${ph}${blur}></textarea></td>`;
         });
-        html1 += `<td class="col-del" style="vertical-align:middle;"><button class="btn-delete-row" onclick="eliminarShipment(this,${data.id})" title="Eliminar"><i class="bi bi-x-lg"></i></button></td>`;
+        html1 += `<td class="col-del" style="vertical-align:middle;"><button class="btn-delete-row" onclick="eliminarShipment(this,${sid})" title="Eliminar"><i class="bi bi-x-lg"></i></button></td>`;
         tr1.innerHTML = html1;
         document.querySelector('#shipmentTable tbody').appendChild(tr1);
 
-        // Factura table row (with defaults for $ fields)
-        const FACT_DEFAULTS = { fito_venta: '2.50', co_venta: '15', termografo_venta: '35' };
+        // Factura table row
+        const factCols = [
+            {f:'facturacion', readonly:true, formula:true},
+            {f:'handling_juni', readonly:true, formula:true},
+            {f:'flete'}, {f:'fsc'}, {f:'esc'}, {f:'due_agent'}, {f:'due_carrier'},
+            {f:'fito_venta', def:'2.50'}, {f:'co_venta', def:'15'}, {f:'termografo_venta', def:'35'},
+            {f:'fitos_venta', readonly:true, formula:true},
+            {f:'dup_fito_venta', readonly:true, formula:true},
+            {f:'co_factura', readonly:true, formula:true},
+            {f:'dup_co_factura', readonly:true, formula:true},
+            {f:'termografo_factura', readonly:true, formula:true}
+        ];
         const tr2 = document.createElement('tr');
-        tr2.dataset.id = data.id;
+        tr2.dataset.id = sid;
         let html2 = '';
-        factFields.forEach(f => {
-            if (f === 'termografo_venta') {
-                html2 += `<td class="editable-cell"><select data-field="termografo_venta" onchange="guardarShipmentSelect(this)" class="termo-select"><option value="35" selected>35</option><option value="50">50</option></select></td>`;
-            } else {
-                const defVal = FACT_DEFAULTS[f] || '';
-                html2 += `<td class="editable-cell"><textarea data-field="${f}" onblur="guardarShipment(this)">${defVal}</textarea></td>`;
-            }
+        factCols.forEach(col => {
+            const tdCls = col.formula ? 'editable-cell formula-cell' : 'editable-cell';
+            const ro = col.readonly ? ' readonly tabindex="-1"' : ' onblur="guardarShipment(this)"';
+            const val = col.def || '';
+            html2 += `<td class="${tdCls}"><textarea data-field="${col.f}"${ro}>${val}</textarea></td>`;
         });
         tr2.innerHTML = html2;
         document.querySelector('#facturaTable tbody').appendChild(tr2);
 
+        // Costos table row
+        const costCols = [
+            {f:'costos', readonly:true, formula:true},
+            {f:'costo_bodega', readonly:true, formula:true},
+            {f:'costo_guia', readonly:true, formula:true},
+            {f:'flete_costo'},
+            {f:'due_carrier_costo', readonly:true, formula:true},
+            {f:'fsc_costo'}, {f:'esc_costo'},
+            {f:'costo_x_kg', readonly:true, formula:true},
+            {f:'costo_bod_unit', def:'0.069'}, {f:'costo_guia_unit', def:'0.005'},
+            {f:'fito_costo_unit', def:'1.7'}, {f:'co_costo_unit', def:'13'}, {f:'termografo_costo_unit'},
+            {f:'fitos_costo', readonly:true, formula:true},
+            {f:'dup_fitos_costo', readonly:true, formula:true},
+            {f:'termografo_costo', readonly:true, formula:true},
+            {f:'co_costo', readonly:true, formula:true},
+            {f:'dup_co_costo', readonly:true, formula:true},
+            {f:'transmision_costo', readonly:true, formula:true},
+            {f:'beneficio', readonly:true, formula:true},
+            {f:'beneficio_x_kg', readonly:true, formula:true},
+            {f:'costos_fijos'},
+            {f:'utilidad', readonly:true, formula:true}
+        ];
+        const tr3 = document.createElement('tr');
+        tr3.dataset.id = sid;
+        let html3 = '';
+        costCols.forEach(col => {
+            const tdCls = col.formula ? 'editable-cell formula-cell' : 'editable-cell';
+            const ro = col.readonly ? ' readonly tabindex="-1"' : ' onblur="guardarShipment(this)"';
+            const val = col.def || '';
+            html3 += `<td class="${tdCls}"><textarea data-field="${col.f}"${ro}>${val}</textarea></td>`;
+        });
+        tr3.innerHTML = html3;
+        document.querySelector('#costosTable tbody').appendChild(tr3);
+
         tr1.querySelector('textarea').focus();
-        // Auto-resize
-        tr1.querySelectorAll('textarea').forEach(autoResize);
-        tr2.querySelectorAll('textarea').forEach(autoResize);
+        // Auto-resize all new textareas
+        [tr1, tr2, tr3].forEach(tr => tr.querySelectorAll('textarea').forEach(autoResize));
     });
 }
 
@@ -2299,8 +2598,8 @@ function eliminarShipment(btn, id) {
     fetch(`${BASE}/api/shipment/${id}`, {method: 'DELETE'})
     .then(r => r.json()).then(data => {
         if (data.success) {
-            // Remove from both tables
-            document.querySelectorAll(`#shipmentTable tr[data-id="${id}"], #facturaTable tr[data-id="${id}"]`).forEach(tr => tr.remove());
+            // Remove from all 3 tables
+            document.querySelectorAll(`#shipmentTable tr[data-id="${id}"], #facturaTable tr[data-id="${id}"], #costosTable tr[data-id="${id}"]`).forEach(tr => tr.remove());
         }
     });
 }

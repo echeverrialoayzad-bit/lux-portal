@@ -214,13 +214,20 @@ def eliminar_payment(id):
 
 # ===================== API: SHIPMENTS (Table 4 & 5) =====================
 
-SHIPMENT_FIELDS = ['ship_date', 'mark', 'awb', 'client_name', 'origin', 'destination',
+SHIPMENT_FIELDS = ['ship_date', 'transport', 'mark', 'awb', 'client_name', 'origin', 'destination',
                    'airline', 'fulles', 'piezas', 'pieces_gross', 'volume', 'charge', 'phyto',
                    'dup_phyto', 'c_origin', 'dup_co', 'termografo', 'transmision']
 
-FACTURA_FIELDS = ['flete', 'fsc', 'esc', 'due_agent', 'due_carrier', 'fito_venta',
-                  'co_venta', 'termografo_venta', 'fitos_venta', 'dup_fito_venta',
-                  'co_factura', 'dup_co_factura', 'transmision_factura', 'beneficio', 'beneficio_x_kg']
+FACTURA_FIELDS = ['facturacion', 'handling_juni', 'flete', 'fsc', 'esc', 'due_agent', 'due_carrier',
+                  'fito_venta', 'co_venta', 'termografo_venta', 'fitos_venta', 'dup_fito_venta',
+                  'co_factura', 'dup_co_factura', 'termografo_factura',
+                  'transmision_factura', 'beneficio', 'beneficio_x_kg']
+
+COSTOS_FIELDS = ['costos', 'costo_bodega', 'costo_guia', 'flete_costo', 'due_carrier_costo',
+                 'fsc_costo', 'esc_costo', 'costo_x_kg', 'costo_bod_unit', 'costo_guia_unit',
+                 'fito_costo_unit', 'co_costo_unit', 'termografo_costo_unit', 'fitos_costo',
+                 'dup_fitos_costo', 'termografo_costo', 'co_costo', 'dup_co_costo',
+                 'transmision_costo', 'costos_fijos', 'utilidad']
 
 
 @current_status_bp.route('/api/client/<int:id>/shipment', methods=['POST'])
@@ -231,7 +238,11 @@ def agregar_shipment(id):
         client_id=id,
         fito_venta='2.50',
         co_venta='15',
-        termografo_venta='35'
+        termografo_venta='35',
+        costo_bod_unit='0.069',
+        costo_guia_unit='0.005',
+        fito_costo_unit='1.7',
+        co_costo_unit='13'
     )
     db.session.add(shipment)
     db.session.commit()
@@ -243,7 +254,7 @@ def agregar_shipment(id):
 def actualizar_shipment(id):
     shipment = ClientShipment.query.get_or_404(id)
     data = request.get_json()
-    for field in SHIPMENT_FIELDS + FACTURA_FIELDS:
+    for field in SHIPMENT_FIELDS + FACTURA_FIELDS + COSTOS_FIELDS:
         if field in data:
             setattr(shipment, field, data[field])
     db.session.commit()
@@ -272,7 +283,7 @@ def enviar_shipments(id):
     snapshot = []
     for s in shipments:
         row = {}
-        for f in SHIPMENT_FIELDS + FACTURA_FIELDS:
+        for f in SHIPMENT_FIELDS + FACTURA_FIELDS + COSTOS_FIELDS:
             row[f] = getattr(s, f, '') or ''
         snapshot.append(row)
 
@@ -322,7 +333,8 @@ def historial_clientes():
         total_entries=len(entries),
         busqueda=busqueda,
         SHIPMENT_FIELDS=SHIPMENT_FIELDS,
-        FACTURA_FIELDS=FACTURA_FIELDS
+        FACTURA_FIELDS=FACTURA_FIELDS,
+        COSTOS_FIELDS=COSTOS_FIELDS
     )
 
 
