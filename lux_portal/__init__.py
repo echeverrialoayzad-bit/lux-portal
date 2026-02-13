@@ -135,6 +135,7 @@ def _migrate_db(app):
     # Drop NOT NULL constraints that were set initially
     nullable_fixes = [
         ('customer_associate_forms', 'legal_name'),
+        ('shipping_instructions_forms', 'contact_full_name'),
     ]
     for table, column in nullable_fixes:
         try:

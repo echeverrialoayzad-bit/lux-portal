@@ -101,7 +101,7 @@ class ShippingInstructionsForm(db.Model):
     estado = db.Column(db.String(20), default='borrador')
 
     # CONTACT INFORMATION
-    contact_full_name = db.Column(db.String(200), nullable=False)
+    contact_full_name = db.Column(db.String(200), default='')
     contact_job_title = db.Column(db.String(100))
     contact_email = db.Column(db.String(200))
     contact_phone = db.Column(db.String(100))
