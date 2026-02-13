@@ -1512,6 +1512,18 @@ def _extract_pdf_text(file_obj):
     return text
 
 
+def _clean_pdf_value(val):
+    """Limpia un valor extraido de PDF quitando bullets y caracteres especiales"""
+    import re
+    val = val.strip()
+    # Remove bullet characters
+    val = re.sub(r'^[•\-\*\u2022\u25CF\u25CB]+\s*', '', val)
+    val = re.sub(r'[•\u2022]+', '', val)
+    # Remove leading / or :
+    val = re.sub(r'^[/:\s]+', '', val)
+    return val.strip()
+
+
 def _find_value_after(text, label, default=''):
     """Busca un label en el texto y retorna el valor que sigue"""
     import re
@@ -1520,9 +1532,9 @@ def _find_value_after(text, label, default=''):
     match = pattern.search(text)
     if match:
         val = match.group(1).strip()
-        # Stop at next label (uppercase word followed by colon)
+        # Stop at newline
         val = re.split(r'\n', val)[0].strip()
-        return val
+        return _clean_pdf_value(val)
     return default
 
 
@@ -1531,39 +1543,73 @@ def parse_customer_associate_pdf(file_obj):
     text = _extract_pdf_text(file_obj)
     data = {}
 
-    # Map common labels to fields
-    label_map = {
-        'legal name': 'legal_name',
-        'company name': 'legal_name',
-        'tax id': 'tax_id',
-        'ruc': 'tax_id',
-        'company type': 'company_type',
-        'address': 'address',
-        'city': 'city_country',
-        'telephone': 'telephone',
-        'phone': 'telephone',
-        'email': 'email',
-        'website': 'website',
-        'business activity': 'business_activity',
-        'annual revenue': 'annual_revenue',
-        'legal representative': 'legal_rep_name',
-        'representative name': 'legal_rep_name',
-        'representative id': 'legal_rep_id',
-        'representative telephone': 'legal_rep_telephone',
-        'representative email': 'legal_rep_email',
-        'bank name': 'bank_name',
-        'bank': 'bank_name',
-        'account': 'bank_account',
-        'bank account': 'bank_account',
-        'bank address': 'bank_address',
-        'swift': 'swift_aba',
-        'aba': 'swift_aba',
-    }
+    # Map common labels to fields (Spanish + English)
+    # Order matters: more specific labels first to avoid partial matches
+    label_map = [
+        # Company info
+        ('legal name', 'legal_name'),
+        ('company name', 'legal_name'),
+        ('nombre legal', 'legal_name'),
+        ('razon social', 'legal_name'),
+        ('nombre de la empresa', 'legal_name'),
+        ('nombre empresa', 'legal_name'),
+        ('nit/rut', 'tax_id'),
+        ('tax id', 'tax_id'),
+        ('ruc', 'tax_id'),
+        ('vat', 'tax_id'),
+        ('company type', 'company_type'),
+        ('tipo de empresa', 'company_type'),
+        ('tipo empresa', 'company_type'),
+        ('direccion principal', 'address'),
+        ('address', 'address'),
+        ('direccion', 'address'),
+        ('city', 'city_country'),
+        ('ciudad', 'city_country'),
+        ('telefono de contacto', 'telephone'),
+        ('telephone', 'telephone'),
+        ('telefono', 'telephone'),
+        ('phone', 'telephone'),
+        ('e-mail', 'email'),
+        ('email', 'email'),
+        ('correo', 'email'),
+        ('website', 'website'),
+        ('pagina web', 'website'),
+        ('sitio web', 'website'),
+        ('www', 'website'),
+        ('business activity', 'business_activity'),
+        ('actividad comercial', 'business_activity'),
+        ('actividad', 'business_activity'),
+        ('ventas anuales', 'annual_revenue'),
+        ('annual revenue', 'annual_revenue'),
+        ('ingresos anuales', 'annual_revenue'),
+        # Legal representative
+        ('representante legal', 'legal_rep_name'),
+        ('legal representative', 'legal_rep_name'),
+        ('representative name', 'legal_rep_name'),
+        ('cedula representante', 'legal_rep_id'),
+        ('representative id', 'legal_rep_id'),
+        ('telefono representante', 'legal_rep_telephone'),
+        ('email representante', 'legal_rep_email'),
+        # Banking
+        ('nombre del banco', 'bank_name'),
+        ('bank name', 'bank_name'),
+        ('banco', 'bank_name'),
+        ('numero de cuenta', 'bank_account'),
+        ('bank account', 'bank_account'),
+        ('account number', 'bank_account'),
+        ('cuenta', 'bank_account'),
+        ('direccion del banco', 'bank_address'),
+        ('bank address', 'bank_address'),
+        ('swift', 'swift_aba'),
+        ('aba', 'swift_aba'),
+        ('asa', 'swift_aba'),
+    ]
 
-    for label, field in label_map.items():
-        val = _find_value_after(text, label)
-        if val and field not in data:
-            data[field] = val
+    for label, field in label_map:
+        if field not in data:
+            val = _find_value_after(text, label)
+            if val:
+                data[field] = val
 
     return data
 

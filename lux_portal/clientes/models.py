@@ -22,7 +22,7 @@ class CustomerAssociateForm(db.Model):
     estado = db.Column(db.String(20), default='borrador')  # borrador, completo
 
     # GENERAL INFORMATION
-    legal_name = db.Column(db.String(300), nullable=False)
+    legal_name = db.Column(db.String(300), default='')
     tax_id = db.Column(db.String(100))
     company_type = db.Column(db.String(100))  # public, private, non profit, other
     address = db.Column(db.String(500))

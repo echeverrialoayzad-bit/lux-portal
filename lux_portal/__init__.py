@@ -131,3 +131,16 @@ def _migrate_db(app):
             db.session.commit()
         except Exception:
             db.session.rollback()
+
+    # Drop NOT NULL constraints that were set initially
+    nullable_fixes = [
+        ('customer_associate_forms', 'legal_name'),
+    ]
+    for table, column in nullable_fixes:
+        try:
+            db.session.execute(db.text(
+                f'ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL'
+            ))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
