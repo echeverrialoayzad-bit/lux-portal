@@ -1296,105 +1296,111 @@ def eliminar_freight_quote(id):
 # FUNCIONES AUXILIARES PARA PARSEAR EXCEL
 # ============================================================================
 
+def _scan_excel_for_labels(df):
+    """Escanea un Excel buscando labels y sus valores adyacentes (derecha o abajo)"""
+    found = {}
+    nrows, ncols = df.shape
+    for r in range(nrows):
+        for c in range(ncols):
+            try:
+                cell = df.iloc[r, c]
+                if pd.isna(cell):
+                    continue
+                cell_str = str(cell).strip()
+                if not cell_str or len(cell_str) > 80:
+                    continue
+                # Try value to the right
+                val = ''
+                for dc in range(1, min(4, ncols - c)):
+                    try:
+                        v = df.iloc[r, c + dc]
+                        if pd.notna(v) and str(v).strip():
+                            val = str(v).strip()
+                            break
+                    except:
+                        pass
+                if val:
+                    found[cell_str.lower()] = val
+            except:
+                continue
+    return found
+
+
 def parse_customer_associate_excel(df):
-    """Parsea el Excel FW CUSTOMER ASSOCIATE FORMAT"""
+    """Parsea el Excel FW CUSTOMER ASSOCIATE FORMAT - busqueda inteligente por labels"""
+    labels = _scan_excel_for_labels(df)
     data = {}
 
-    def get_cell_value(row_idx, col_idx=2):
-        """Obtiene valor de celda de forma segura"""
-        try:
-            val = df.iloc[row_idx, col_idx]
-            return str(val).strip() if pd.notna(val) else ''
-        except:
-            return ''
+    # Map of possible Excel labels -> model field
+    label_map = [
+        (['legal name', 'company name', 'nombre legal', 'razon social', 'empresa'], 'legal_name'),
+        (['tax id', 'ruc', 'tax identification', 'nit', 'identificacion fiscal'], 'tax_id'),
+        (['company type', 'tipo de empresa', 'tipo empresa', 'type of company'], 'company_type'),
+        (['address', 'direccion', 'domicilio'], 'address'),
+        (['city', 'ciudad', 'city-country', 'city / country', 'ciudad-pais'], 'city_country'),
+        (['telephone', 'phone', 'telefono', 'tel'], 'telephone'),
+        (['email', 'e-mail', 'correo'], 'email'),
+        (['website', 'web', 'pagina web', 'sitio web'], 'website'),
+        (['business activity', 'actividad', 'giro', 'actividad comercial'], 'business_activity'),
+        (['annual revenue', 'ingresos', 'ingresos anuales', 'revenue'], 'annual_revenue'),
+        (['legal representative', 'representante legal', 'representative name'], 'legal_rep_name'),
+        (['representative id', 'cedula representante', 'id representante'], 'legal_rep_id'),
+        (['representative telephone', 'telefono representante'], 'legal_rep_telephone'),
+        (['representative email', 'email representante', 'correo representante'], 'legal_rep_email'),
+        (['financial contact', 'contacto financiero'], 'financial_contact'),
+        (['bank name', 'banco', 'bank', 'nombre del banco'], 'bank_name'),
+        (['bank account', 'cuenta bancaria', 'account number', 'cuenta', 'account'], 'bank_account'),
+        (['bank address', 'direccion del banco', 'direccion banco'], 'bank_address'),
+        (['swift', 'aba', 'swift/aba', 'codigo swift', 'swift code'], 'swift_aba'),
+    ]
 
-    # General Information
-    data['legal_name'] = get_cell_value(9)
-    data['tax_id'] = get_cell_value(10)
-    data['company_type'] = get_cell_value(11)
-    data['address'] = get_cell_value(12)
-    data['city_country'] = get_cell_value(13)
-    data['telephone'] = get_cell_value(14)
-    data['email'] = get_cell_value(15)
-    data['website'] = get_cell_value(16)
-    data['business_activity'] = get_cell_value(17)
-    data['annual_revenue'] = get_cell_value(18)
-
-    # Legal Representative
-    data['legal_rep_name'] = get_cell_value(20)
-    data['legal_rep_id'] = get_cell_value(21)
-    data['legal_rep_telephone'] = get_cell_value(22)
-    data['legal_rep_email'] = get_cell_value(23)
-
-    # Shareholders
-    shareholders = []
-    for i in range(28, 31):
-        name = get_cell_value(i, 1)
-        sid = get_cell_value(i, 2)
-        if name and name != 'NAME':
-            shareholders.append({'name': name, 'id_number': sid})
-    data['shareholders'] = shareholders
-
-    # Financial
-    data['financial_contact'] = get_cell_value(32)
-    data['bank_name'] = get_cell_value(33)
-    data['bank_account'] = get_cell_value(34)
-    data['bank_address'] = get_cell_value(35)
-    data['swift_aba'] = get_cell_value(36)
+    for possible_labels, field in label_map:
+        for lbl in possible_labels:
+            if lbl in labels and field not in data:
+                data[field] = labels[lbl]
+                break
 
     return data
 
 
 def parse_shipping_instructions_excel(df):
-    """Parsea el Excel FWCustomer Shipping Instructions"""
+    """Parsea el Excel FWCustomer Shipping Instructions - busqueda inteligente"""
+    labels = _scan_excel_for_labels(df)
     data = {}
 
-    def get_cell_value(row_idx, col_idx=1):
-        """Obtiene valor de celda de forma segura"""
-        try:
-            val = df.iloc[row_idx, col_idx]
-            return str(val).strip() if pd.notna(val) else ''
-        except:
-            return ''
+    label_map = [
+        (['full name', 'contact name', 'nombre completo', 'nombre', 'contact full name'], 'contact_full_name'),
+        (['job title', 'cargo', 'puesto', 'titulo'], 'contact_job_title'),
+        (['email', 'e-mail', 'correo', 'contact email'], 'contact_email'),
+        (['phone', 'telephone', 'telefono', 'contact phone'], 'contact_phone'),
+        (['whatsapp'], 'contact_whatsapp'),
+        (['billing address', 'direccion facturacion', 'direccion de facturacion'], 'billing_address'),
+        (['billing email', 'email facturacion'], 'billing_emails'),
+        (['customs broker', 'agente aduanal', 'broker'], 'uses_customs_broker'),
+        (['customs broker info', 'info agente'], 'customs_broker_info'),
+        (['customs broker email', 'email agente'], 'customs_broker_emails'),
+    ]
 
-    # Contact Information
-    data['contact_full_name'] = get_cell_value(8)
-    data['contact_job_title'] = get_cell_value(9)
-    data['contact_email'] = get_cell_value(10)
-    data['contact_phone'] = get_cell_value(11)
-    data['contact_whatsapp'] = get_cell_value(12)
+    for possible_labels, field in label_map:
+        for lbl in possible_labels:
+            if lbl in labels and field not in data:
+                data[field] = labels[lbl]
+                break
 
-    # Billing
-    data['billing_address'] = get_cell_value(15)
-
-    # Collect multiple billing emails
-    billing_emails = []
-    for i in range(16, 21):
-        email = get_cell_value(i)
-        if email and '@' in email:
-            billing_emails.append(email)
-    data['billing_emails'] = '\n'.join(billing_emails)
-
-    # Additional
-    data['uses_customs_broker'] = get_cell_value(23)
-    data['customs_broker_info'] = get_cell_value(24)
-    data['customs_broker_emails'] = get_cell_value(25)
-
-    # Documents
+    # Documents - scan for known doc keywords
     documents = {}
-    for i in range(29, 35):
-        label = get_cell_value(i, 0).lower()
-        value = get_cell_value(i, 1)
-        if 'invoice' in label and 'master' not in label:
-            documents['invoice'] = bool(value and value.lower() == 'x')
-        elif 'coa' in label:
-            documents['coa'] = bool(value and value.lower() == 'x')
-        elif 'phyto' in label and 'destination' not in label:
-            documents['phyto'] = bool(value and value.lower() == 'x')
-        elif 'phyto destination' in label:
-            documents['phyto_destination'] = bool(value and value.lower() == 'x')
-        elif 'master' in label:
-            documents['master_invoice'] = bool(value and value.lower() == 'x')
+    for key in labels:
+        val = labels[key].lower()
+        if 'invoice' in key and 'master' not in key:
+            documents['invoice'] = val in ('x', 'yes', 'si', 'true')
+        elif 'coa' in key:
+            documents['coa'] = val in ('x', 'yes', 'si', 'true')
+        elif 'phyto' in key and 'destination' not in key:
+            documents['phyto'] = val in ('x', 'yes', 'si', 'true')
+        elif 'phyto destination' in key or 'phyto dest' in key:
+            documents['phyto_destination'] = val in ('x', 'yes', 'si', 'true')
+        elif 'master' in key:
+            documents['master_invoice'] = val in ('x', 'yes', 'si', 'true')
     data['documents'] = documents
 
     return data
