@@ -308,17 +308,9 @@ def formularios():
 def customer_associate_form(id=None):
     """Formulario Customer Associate - manual o edicion"""
     form_data = None
-    uploaded_data = session.pop('uploaded_form_data', None)
-    uploaded_type = session.pop('uploaded_form_type', None)
 
     if id:
         form_data = CustomerAssociateForm.query.get_or_404(id)
-    elif uploaded_data and uploaded_type == 'customer-associate':
-        # Usar datos del Excel subido
-        form_data = type('FormData', (), uploaded_data)()
-        form_data.id = None
-        form_data.get_shareholders = lambda: uploaded_data.get('shareholders', [])
-        form_data.get_ethics = lambda: {}
 
     if request.method == 'POST':
         try:
@@ -412,17 +404,9 @@ def customer_associate_form(id=None):
 def shipping_instructions_form(id=None):
     """Formulario Shipping Instructions - manual o edicion"""
     form_data = None
-    uploaded_data = session.pop('uploaded_form_data', None)
-    uploaded_type = session.pop('uploaded_form_type', None)
 
     if id:
         form_data = ShippingInstructionsForm.query.get_or_404(id)
-    elif uploaded_data and uploaded_type == 'shipping-instructions':
-        # Usar datos del Excel subido
-        form_data = type('FormData', (), uploaded_data)()
-        form_data.id = None
-        form_data.get_documents = lambda: uploaded_data.get('documents', {})
-        form_data.get_suppliers = lambda: uploaded_data.get('suppliers', [])
 
     if request.method == 'POST':
         try:
@@ -493,7 +477,7 @@ def shipping_instructions_form(id=None):
 @clientes_bp.route('/formularios/upload/<form_type>', methods=['GET', 'POST'])
 @login_required
 def upload_form(form_type):
-    """Subir Excel para auto-llenar formulario"""
+    """Subir Excel o PDF para auto-llenar formulario"""
     if request.method == 'POST':
         if 'excel_file' not in request.files:
             flash('No se selecciono ningun archivo', 'danger')
@@ -504,32 +488,58 @@ def upload_form(form_type):
             flash('No se selecciono ningun archivo', 'danger')
             return redirect(request.url)
 
-        if not file.filename.endswith(('.xlsx', '.xls')):
-            flash('El archivo debe ser un Excel (.xlsx o .xls)', 'danger')
+        fname = file.filename.lower()
+        is_pdf = fname.endswith('.pdf')
+        is_excel = fname.endswith(('.xlsx', '.xls'))
+
+        if not is_pdf and not is_excel:
+            flash('El archivo debe ser Excel (.xlsx, .xls) o PDF (.pdf)', 'danger')
             return redirect(request.url)
 
         try:
-            df = pd.read_excel(file, header=None)
-
             if form_type == 'customer-associate':
-                form_data = parse_customer_associate_excel(df)
-                session['uploaded_form_data'] = form_data
-                session['uploaded_form_type'] = 'customer-associate'
-                return redirect(url_for('clientes.customer_associate_form'))
+                if is_pdf:
+                    form_data = parse_customer_associate_pdf(file)
+                else:
+                    df = pd.read_excel(file, header=None)
+                    form_data = parse_customer_associate_excel(df)
+                # Save directly to DB
+                form = CustomerAssociateForm()
+                for key, value in form_data.items():
+                    if key == 'shareholders':
+                        form.set_shareholders(value)
+                    elif key == 'ethics':
+                        form.set_ethics(value)
+                    elif hasattr(form, key):
+                        setattr(form, key, value)
+                form.estado = 'borrador'
+                db.session.add(form)
+                db.session.commit()
+                flash('Datos importados exitosamente. Revisa y guarda.', 'success')
+                return redirect(url_for('clientes.customer_associate_form', id=form.id))
 
             elif form_type == 'shipping-instructions':
-                form_data = parse_shipping_instructions_excel(df)
-                session['uploaded_form_data'] = form_data
-                session['uploaded_form_type'] = 'shipping-instructions'
-                return redirect(url_for('clientes.shipping_instructions_form'))
-
-            elif form_type == 'freight-quote':
-                form_data = parse_freight_quote_excel(df)
-                session['uploaded_form_data'] = form_data
-                session['uploaded_form_type'] = 'freight-quote'
-                return redirect(url_for('clientes.freight_quote_form'))
+                if is_pdf:
+                    form_data = parse_shipping_pdf(file)
+                else:
+                    df = pd.read_excel(file, header=None)
+                    form_data = parse_shipping_instructions_excel(df)
+                form = ShippingInstructionsForm()
+                for key, value in form_data.items():
+                    if key == 'documents':
+                        form.set_documents(value)
+                    elif key == 'suppliers':
+                        form.set_suppliers(value)
+                    elif hasattr(form, key):
+                        setattr(form, key, value)
+                form.estado = 'borrador'
+                db.session.add(form)
+                db.session.commit()
+                flash('Datos importados exitosamente. Revisa y guarda.', 'success')
+                return redirect(url_for('clientes.shipping_instructions_form', id=form.id))
 
         except Exception as e:
+            db.session.rollback()
             flash(f'Error al procesar el archivo: {str(e)}', 'danger')
             return redirect(request.url)
 
@@ -1476,5 +1486,102 @@ def parse_freight_quote_excel(df):
                 data['tax_id'] = get_cell_value(row, 1) or get_cell_value(row, 2)
             elif val_upper == 'ADDRESS':
                 data['company_address'] = get_cell_value(row, 1) or get_cell_value(row, 2)
+
+    return data
+
+
+# ============================================================================
+# PDF PARSERS
+# ============================================================================
+
+def _extract_pdf_text(file_obj):
+    """Extrae todo el texto de un PDF usando pdfplumber"""
+    import pdfplumber
+    text = ''
+    with pdfplumber.open(file_obj) as pdf:
+        for page in pdf.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + '\n'
+    return text
+
+
+def _find_value_after(text, label, default=''):
+    """Busca un label en el texto y retorna el valor que sigue"""
+    import re
+    # Try: "Label: value" or "Label value"
+    pattern = re.compile(re.escape(label) + r'\s*[:\-]?\s*(.+)', re.IGNORECASE)
+    match = pattern.search(text)
+    if match:
+        val = match.group(1).strip()
+        # Stop at next label (uppercase word followed by colon)
+        val = re.split(r'\n', val)[0].strip()
+        return val
+    return default
+
+
+def parse_customer_associate_pdf(file_obj):
+    """Parsea un PDF de Customer Associate"""
+    text = _extract_pdf_text(file_obj)
+    data = {}
+
+    # Map common labels to fields
+    label_map = {
+        'legal name': 'legal_name',
+        'company name': 'legal_name',
+        'tax id': 'tax_id',
+        'ruc': 'tax_id',
+        'company type': 'company_type',
+        'address': 'address',
+        'city': 'city_country',
+        'telephone': 'telephone',
+        'phone': 'telephone',
+        'email': 'email',
+        'website': 'website',
+        'business activity': 'business_activity',
+        'annual revenue': 'annual_revenue',
+        'legal representative': 'legal_rep_name',
+        'representative name': 'legal_rep_name',
+        'representative id': 'legal_rep_id',
+        'representative telephone': 'legal_rep_telephone',
+        'representative email': 'legal_rep_email',
+        'bank name': 'bank_name',
+        'bank': 'bank_name',
+        'account': 'bank_account',
+        'bank account': 'bank_account',
+        'bank address': 'bank_address',
+        'swift': 'swift_aba',
+        'aba': 'swift_aba',
+    }
+
+    for label, field in label_map.items():
+        val = _find_value_after(text, label)
+        if val and field not in data:
+            data[field] = val
+
+    return data
+
+
+def parse_shipping_pdf(file_obj):
+    """Parsea un PDF de Shipping Instructions"""
+    text = _extract_pdf_text(file_obj)
+    data = {}
+
+    label_map = {
+        'full name': 'contact_full_name',
+        'contact name': 'contact_full_name',
+        'job title': 'contact_job_title',
+        'email': 'contact_email',
+        'phone': 'contact_phone',
+        'telephone': 'contact_phone',
+        'whatsapp': 'contact_whatsapp',
+        'billing address': 'billing_address',
+        'customs broker': 'uses_customs_broker',
+    }
+
+    for label, field in label_map.items():
+        val = _find_value_after(text, label)
+        if val and field not in data:
+            data[field] = val
 
     return data
