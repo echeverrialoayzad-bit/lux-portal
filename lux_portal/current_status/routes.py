@@ -286,6 +286,7 @@ def agregar_shipment(id):
         dup_co='0',
         termografo='0',
         transmision='1',
+        due_agent='50',
         fito_venta='2.50',
         co_venta='15',
         termografo_venta='35',

@@ -2585,7 +2585,7 @@ function agregarShipment() {
         const factCols = [
             {f:'facturacion', readonly:true, formula:true},
             {f:'handling_juni', readonly:true, formula:true},
-            {f:'flete'}, {f:'fsc'}, {f:'esc'}, {f:'due_agent'}, {f:'due_carrier'},
+            {f:'flete'}, {f:'fsc'}, {f:'esc'}, {f:'due_agent', def:'50'}, {f:'due_carrier'},
             {f:'fito_venta', def:'2.50'}, {f:'co_venta', def:'15'}, {f:'termografo_venta', def:'35'},
             {f:'fitos_venta', readonly:true, formula:true},
             {f:'dup_fito_venta', readonly:true, formula:true},
