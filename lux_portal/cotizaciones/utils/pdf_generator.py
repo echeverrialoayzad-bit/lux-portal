@@ -311,7 +311,7 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     fw_data = []
     for cargo in cargos_fw:
         concepto = cargo['concepto_es'] if idioma == 'es' else cargo['concepto_en']
-        fw_data.append(['', '', '', '', concepto, f"$ {cargo['monto']}", '', '', '', '', '', '', ''])
+        fw_data.append(['', '', '', '', concepto, '', '', '', '', f"$ {cargo['monto']}", '', '', ''])
 
     fw_table = Table(fw_data, colWidths=col_widths)
     fw_table.setStyle(TableStyle([
