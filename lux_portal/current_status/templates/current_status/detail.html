@@ -897,7 +897,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for s in cliente.shipments %}
+                    {% for s in display_shipments %}
                     <tr data-id="{{ s.id }}">
                         <td class="editable-cell"><input type="date" data-field="ship_date" class="date-input" value="{% if s.ship_date and '/' in s.ship_date %}{{ s.ship_date.split('/')[2] }}-{{ s.ship_date.split('/')[1] }}-{{ s.ship_date.split('/')[0] }}{% else %}{{ s.ship_date }}{% endif %}" onchange="guardarShipmentDate(this)"></td>
                         <td class="editable-cell computed-cell"><textarea data-field="_ano" tabindex="-1"></textarea></td>
@@ -933,9 +933,9 @@
             <button class="btn-add-row" onclick="agregarShipment()">
                 <i class="bi bi-plus-lg me-1"></i> Agregar embarque
             </button>
-            {% if cliente.shipments|length > 0 %}
+            {% if total_shipments > 0 %}
             <button class="btn btn-sm btn-outline-danger" onclick="eliminarTodosShipments()" style="border-radius: 12px; padding: 6px 16px;">
-                <i class="bi bi-trash me-1"></i> Eliminar todos ({{ cliente.shipments|length }})
+                <i class="bi bi-trash me-1"></i> Eliminar todos ({{ total_shipments }})
             </button>
             {% endif %}
         </div>
@@ -968,7 +968,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for s in cliente.shipments %}
+                    {% for s in display_shipments %}
                     <tr data-id="{{ s.id }}">
                         <td class="editable-cell formula-cell"><textarea data-field="facturacion" readonly tabindex="-1">{{ s.facturacion }}</textarea></td>
                         <td class="editable-cell formula-cell"><textarea data-field="handling_juni" readonly tabindex="-1">{{ s.handling_juni }}</textarea></td>
@@ -1027,7 +1027,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for s in cliente.shipments %}
+                    {% for s in display_shipments %}
                     <tr data-id="{{ s.id }}">
                         <td class="editable-cell formula-cell"><textarea data-field="costos" readonly tabindex="-1">{{ s.costos }}</textarea></td>
                         <td class="editable-cell formula-cell"><textarea data-field="costo_bodega" readonly tabindex="-1">{{ s.costo_bodega }}</textarea></td>

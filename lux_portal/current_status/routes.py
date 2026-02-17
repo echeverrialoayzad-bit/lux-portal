@@ -115,7 +115,12 @@ def detalle_cliente(id):
     _ensure_payment_columns()
     cliente = StatusClient.query.get_or_404(id)
     _migrate_legacy_addcosts(cliente)
-    return render_template('current_status/detail.html', cliente=cliente)
+    # Only show the last shipment in detail; all others are in historial
+    last = ClientShipment.query.filter_by(client_id=id).order_by(ClientShipment.id.desc()).first()
+    display_shipments = [last] if last else []
+    total_shipments = ClientShipment.query.filter_by(client_id=id).count()
+    return render_template('current_status/detail.html', cliente=cliente,
+                           display_shipments=display_shipments, total_shipments=total_shipments)
 
 
 def _migrate_legacy_addcosts(cliente):
@@ -425,32 +430,27 @@ def enviar_shipments(id):
 @current_status_bp.route('/historial')
 @login_required
 def historial_clientes():
-    """Historial combinado tipo Excel de todos los embarques enviados"""
+    """Historial: todos los embarques de todos los clientes con paginacion"""
     busqueda = request.args.get('q', '').strip()
-    query = ShipmentHistory.query
+    page = request.args.get('page', 1, type=int)
+    per_page = 100
 
+    # Build client filter
+    client_query = StatusClient.query.filter_by(activo=True)
     if busqueda:
-        query = query.filter(ShipmentHistory.client_name.ilike(f'%{busqueda}%'))
+        client_query = client_query.filter(StatusClient.nombre.ilike(f'%{busqueda}%'))
+    client_ids = [c.id for c in client_query.all()]
 
-    entries = query.order_by(ShipmentHistory.sent_at.desc()).all()
-
-    # Flatten all entries into individual rows
-    all_rows = []
-    for entry in entries:
-        shipments = entry.get_shipments()
-        for idx, s in enumerate(shipments):
-            s['_history_id'] = entry.id
-            s['_row_index'] = idx
-            s['_client'] = entry.client_name
-            s['_sent_at'] = entry.sent_at.strftime('%d/%m/%Y %H:%M')
-            all_rows.append(s)
+    # Paginated shipments across all matching clients
+    shipments_q = ClientShipment.query.filter(ClientShipment.client_id.in_(client_ids)) if client_ids else ClientShipment.query.filter(False)
+    total = shipments_q.count()
+    shipments = shipments_q.order_by(ClientShipment.id).offset((page - 1) * per_page).limit(per_page).all()
+    total_pages = max(1, (total + per_page - 1) // per_page)
 
     return render_template(
         'current_status/historial.html',
-        rows=all_rows,
-        total_rows=len(all_rows),
-        total_entries=len(entries),
-        busqueda=busqueda,
+        shipments=shipments, busqueda=busqueda,
+        page=page, total_pages=total_pages, total=total, per_page=per_page,
         SHIPMENT_FIELDS=SHIPMENT_FIELDS,
         FACTURA_FIELDS=FACTURA_FIELDS,
         COSTOS_FIELDS=COSTOS_FIELDS

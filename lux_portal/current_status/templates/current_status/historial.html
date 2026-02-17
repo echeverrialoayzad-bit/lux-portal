@@ -10,6 +10,12 @@
     </a>
 </li>
 <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.facturacion') }}">
+        <i class="bi bi-receipt"></i>
+        <span>Facturacion</span>
+    </a>
+</li>
+<li class="nav-item">
     <a class="nav-link active" href="{{ url_for('current_status.historial_clientes') }}">
         <i class="bi bi-clock-history"></i>
         <span>Historial</span>
@@ -19,7 +25,6 @@
 
 {% block extra_css %}
 <style>
-    /* Combined spreadsheet table */
     .hist-table {
         width: max-content;
         min-width: 100%;
@@ -41,29 +46,17 @@
         border: 1px solid #e2e8f0;
         white-space: nowrap;
     }
-    /* Purple section (Shipment) */
     .th-ship {
         background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
         color: #fff !important;
     }
-    /* Celeste section (Facturacion) */
     .th-fact {
         background: #ADD8E6 !important;
         color: #fff !important;
     }
-    /* Green section (Costos) */
     .th-cost {
         background: linear-gradient(135deg, #059669, #047857) !important;
         color: #fff !important;
-    }
-    /* Meta columns (Cliente, Fecha envio) */
-    .th-meta {
-        background: #334155 !important;
-        color: #fff !important;
-    }
-    /* Filter row */
-    .filter-row th {
-        padding: 2px 2px !important;
     }
     .col-filter {
         width: 100%;
@@ -79,22 +72,12 @@
     }
     .col-filter::placeholder { color: rgba(255,255,255,0.5); }
     .col-filter:focus { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.7); }
-    /* Alternating rows */
+    .filter-row th { padding: 2px 2px !important; }
     .hist-table tbody tr:nth-child(even) td { background-color: #f8fafc; }
     .hist-table tbody tr:nth-child(odd) td { background-color: #fff; }
     .hist-table tbody tr:hover td { background-color: #ede9fe !important; }
-    /* Delete btn */
-    .btn-del-row {
-        background: none;
-        border: none;
-        color: #cbd5e1;
-        cursor: pointer;
-        font-size: 0.65rem;
-        padding: 0 2px;
-        transition: color 0.15s;
-    }
-    .btn-del-row:hover { color: #dc2626; }
-    /* Scrollable wrapper */
+    .td-divider { border-left: 3px solid #7c3aed !important; }
+    .th-divider { border-left: 3px solid rgba(255,255,255,0.5) !important; }
     .hist-scroll {
         overflow-x: auto;
         overflow-y: auto;
@@ -102,14 +85,6 @@
         border-radius: 12px;
         border: 1px solid #e2e8f0;
     }
-    /* Section divider */
-    .td-divider {
-        border-left: 3px solid #7c3aed !important;
-    }
-    .th-divider {
-        border-left: 3px solid rgba(255,255,255,0.5) !important;
-    }
-    /* Stats bar */
     .stats-bar {
         display: flex;
         gap: 20px;
@@ -118,6 +93,15 @@
         color: #64748b;
     }
     .stats-bar strong { color: #334155; }
+    .pagination-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px;
+    }
+    .pagination-bar .btn { min-width: 36px; }
+    .page-info { font-size: 0.85rem; color: #64748b; }
 </style>
 {% endblock %}
 
@@ -130,8 +114,7 @@
                 <i class="bi bi-clock-history me-2"></i>Historial
             </h1>
             <div class="stats-bar mt-1">
-                <span><strong id="visibleCount">{{ total_rows }}</strong> de <strong>{{ total_rows }}</strong> filas</span>
-                <span>&middot; {{ total_entries }} envio{{ 's' if total_entries != 1 else '' }}</span>
+                <span><strong id="visibleCount">{{ total }}</strong> embarques total</span>
             </div>
         </div>
         <div class="d-flex gap-2">
@@ -177,15 +160,11 @@
         'transmision_costo': 'Trans.C', 'costos_fijos': 'C.Fijos', 'utilidad': 'Utilidad'
     } %}
 
-    {% if rows %}
+    {% if shipments %}
     <div class="hist-scroll">
         <table class="hist-table" id="histTable">
             <thead>
-                <!-- Column headers -->
                 <tr>
-                    <th class="th-meta" style="min-width:30px;"></th>
-                    <th class="th-meta">Cliente</th>
-                    <th class="th-meta">Enviado</th>
                     {% for f in SHIPMENT_FIELDS %}
                     <th class="th-ship{% if loop.first %} th-divider{% endif %}">{{ SHIP_LABELS.get(f, f) }}</th>
                     {% endfor %}
@@ -198,50 +177,73 @@
                 </tr>
                 <!-- Filter row -->
                 <tr class="filter-row">
-                    <th class="th-meta"></th>
-                    <th class="th-meta"><input type="text" class="col-filter" data-col="0" placeholder="..." oninput="filterTable()"></th>
-                    <th class="th-meta"><input type="text" class="col-filter" data-col="1" placeholder="..." oninput="filterTable()"></th>
                     {% for f in SHIPMENT_FIELDS %}
-                    <th class="th-ship{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 + 2 }}" placeholder="..." oninput="filterTable()"></th>
+                    <th class="th-ship{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 }}" placeholder="..." oninput="filterTable()"></th>
                     {% endfor %}
                     {% for f in FACTURA_FIELDS %}
-                    <th class="th-fact{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 + 2 + SHIPMENT_FIELDS|length }}" placeholder="..." oninput="filterTable()"></th>
+                    <th class="th-fact{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 + SHIPMENT_FIELDS|length }}" placeholder="..." oninput="filterTable()"></th>
                     {% endfor %}
                     {% for f in COSTOS_FIELDS %}
-                    <th class="th-cost{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 + 2 + SHIPMENT_FIELDS|length + FACTURA_FIELDS|length }}" placeholder="..." oninput="filterTable()"></th>
+                    <th class="th-cost{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 + SHIPMENT_FIELDS|length + FACTURA_FIELDS|length }}" placeholder="..." oninput="filterTable()"></th>
                     {% endfor %}
                 </tr>
             </thead>
             <tbody>
-                {% for row in rows %}
-                <tr data-hid="{{ row._history_id }}" data-ridx="{{ row._row_index }}">
-                    <td>
-                        <button class="btn-del-row" onclick="deleteRow(this, {{ row._history_id }}, {{ row._row_index }})" title="Eliminar fila">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </td>
-                    <td>{{ row._client }}</td>
-                    <td>{{ row._sent_at }}</td>
+                {% for s in shipments %}
+                <tr>
                     {% for f in SHIPMENT_FIELDS %}
-                    <td{% if loop.first %} class="td-divider"{% endif %}>{{ row.get(f, '') }}</td>
+                    <td{% if loop.first %} class="td-divider"{% endif %}
+                        {% if f == 'client_name' %} style="font-weight:600; color: var(--lux-rose);"{% endif %}>{{ s[f] if s[f] is defined else (s|attr(f) or '') }}</td>
                     {% endfor %}
                     {% for f in FACTURA_FIELDS %}
-                    <td{% if loop.first %} class="td-divider"{% endif %}>{{ row.get(f, '') }}</td>
+                    <td{% if loop.first %} class="td-divider"{% endif %}>{{ s|attr(f) or '' }}</td>
                     {% endfor %}
                     {% for f in COSTOS_FIELDS %}
-                    <td{% if loop.first %} class="td-divider"{% endif %}>{{ row.get(f, '') }}</td>
+                    <td{% if loop.first %} class="td-divider"{% endif %}>{{ s|attr(f) or '' }}</td>
                     {% endfor %}
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="card mt-3">
+        <div class="pagination-bar">
+            {% if page > 1 %}
+            <a href="{{ url_for('current_status.historial_clientes', q=busqueda, page=1) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-chevron-double-left"></i>
+            </a>
+            <a href="{{ url_for('current_status.historial_clientes', q=busqueda, page=page-1) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            {% endif %}
+
+            <span class="page-info">
+                Pagina {{ page }} de {{ total_pages }}
+                &nbsp;|&nbsp;
+                Mostrando {{ (page-1)*per_page + 1 }}-{{ [page*per_page, total]|min }} de {{ total }}
+            </span>
+
+            {% if page < total_pages %}
+            <a href="{{ url_for('current_status.historial_clientes', q=busqueda, page=page+1) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+            <a href="{{ url_for('current_status.historial_clientes', q=busqueda, page=total_pages) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-chevron-double-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     {% else %}
     <div class="card">
         <div class="card-body text-center py-5">
             <i class="bi bi-inbox" style="font-size: 3rem; color: #94a3b8;"></i>
-            <h5 class="mt-3 text-muted">No hay historial de embarques</h5>
-            <p class="text-muted">Los embarques apareceran aqui cuando se presione "Enviar" en la pagina de un cliente</p>
+            <h5 class="mt-3 text-muted">No hay embarques registrados</h5>
+            <p class="text-muted">Sube un archivo de facturacion desde el Dashboard o agrega embarques en cada cliente</p>
         </div>
     </div>
     {% endif %}
@@ -250,8 +252,6 @@
 
 {% block extra_js %}
 <script>
-const TOTAL = {{ total_rows }};
-
 function filterTable() {
     const filters = {};
     document.querySelectorAll('.col-filter').forEach(input => {
@@ -266,8 +266,7 @@ function filterTable() {
         const cells = tr.querySelectorAll('td');
         let show = true;
         for (const [col, val] of Object.entries(filters)) {
-            // +1 because first td is delete button (col 0 in filters maps to td index 1)
-            const cell = cells[parseInt(col) + 1];
+            const cell = cells[parseInt(col)];
             if (cell && !cell.textContent.trim().toLowerCase().includes(val)) {
                 show = false;
                 break;
@@ -278,20 +277,6 @@ function filterTable() {
     });
 
     document.getElementById('visibleCount').textContent = visible;
-}
-
-function deleteRow(btn, historyId, rowIdx) {
-    if (!confirm('Eliminar esta fila del historial?')) return;
-    fetch(`/current-status/api/historial/${historyId}/row/${rowIdx}`, { method: 'DELETE' })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            btn.closest('tr').remove();
-            // Update count
-            const remaining = document.querySelectorAll('#histTable tbody tr');
-            document.getElementById('visibleCount').textContent = remaining.length;
-        }
-    });
 }
 </script>
 {% endblock %}
