@@ -29,6 +29,49 @@
 </li>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    .fact-table {
+        width: 100%;
+        table-layout: auto;
+        border: 1px solid #cbd5e1 !important;
+        font-size: 0.75rem;
+    }
+    .fact-table th {
+        background: #7C3AED;
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.7rem;
+        padding: 6px 4px;
+        text-align: center;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+    .fact-table td {
+        padding: 3px 4px;
+        text-align: center;
+        white-space: nowrap;
+        border: 1px solid #e2e8f0;
+    }
+    .fact-table tbody tr:nth-child(even) { background: #f8fafc; }
+    .fact-table tbody tr:hover { background: #ede9fe; }
+    .section-header-ship th { background: linear-gradient(135deg, #7c3aed, #6d28d9) !important; }
+    .section-header-fact th { background: #ADD8E6 !important; color: #333 !important; }
+    .section-header-cost th { background: linear-gradient(135deg, #059669, #047857) !important; }
+    .pagination-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px;
+    }
+    .pagination-bar .btn { min-width: 36px; }
+    .page-info { font-size: 0.85rem; color: #64748b; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
     <!-- Header -->
@@ -37,17 +80,11 @@
             <h1 class="section-title">
                 <i class="bi bi-receipt me-2"></i>Facturacion
             </h1>
-            <p class="text-muted mt-1">Informacion de pagos por cliente</p>
+            <p class="text-muted mt-1">Total Operacion - todos los clientes
+                <span class="badge bg-secondary ms-2">{{ total }} embarques</span>
+            </p>
         </div>
         <div class="d-flex gap-2">
-            {% if clientes %}
-            <a href="{{ url_for('current_status.descargar_todos', formato='excel') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-file-earmark-excel"></i> Excel
-            </a>
-            <a href="{{ url_for('current_status.descargar_todos', formato='pdf') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-file-earmark-pdf"></i> PDF
-            </a>
-            {% endif %}
             <a href="{{ url_for('current_status.dashboard') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Dashboard
             </a>
@@ -72,81 +109,228 @@
         </div>
     </div>
 
-    <!-- Clients Payment Table -->
-    {% if clientes %}
-    <div class="card">
-        <div class="table-responsive">
-            <table class="table mb-0">
+    {% if shipments %}
+    <!-- TABLE: Shipment -->
+    <div class="card mb-4">
+        <div class="card-header section-header-ship" style="color: #fff; border-radius: 20px 20px 0 0; font-size: 1rem;">
+            <i class="bi bi-box-seam me-2"></i>Shipment
+        </div>
+        <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+            <table class="table fact-table mb-0">
                 <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th>Valor</th>
-                        <th>Fecha</th>
-                        <th>Credito</th>
-                        <th>Estado</th>
+                    <tr class="section-header-ship">
+                        <th>Date</th>
+                        <th>Transport</th>
+                        <th>Mark</th>
+                        <th>AWB</th>
+                        <th>Customer</th>
+                        <th>Origin</th>
+                        <th>Dest</th>
+                        <th>Airline</th>
+                        <th>Fulles</th>
+                        <th>Piezas</th>
+                        <th>Gross</th>
+                        <th>Volume</th>
+                        <th>Charge</th>
+                        <th>#Fito</th>
+                        <th>#Dup.Fito</th>
+                        <th>#C.O</th>
+                        <th>#Dup.C.O</th>
+                        <th>Termografo</th>
+                        <th>Transmision</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for cliente in clientes %}
-                        {% if cliente.payments %}
-                            {% for payment in cliente.payments %}
-                            <tr>
-                                {% if loop.first %}
-                                <td rowspan="{{ cliente.payments|length }}" style="vertical-align: middle;">
-                                    <a href="{{ url_for('current_status.detalle_cliente', id=cliente.id) }}"
-                                       style="color: var(--lux-rose); font-weight: 600; text-decoration: none;">
-                                        {{ cliente.nombre }}
-                                    </a>
-                                </td>
-                                {% endif %}
-                                <td>{{ payment.valor }}</td>
-                                <td>{{ payment.fecha }}</td>
-                                <td>{{ payment.credito }}</td>
-                                {% if loop.first %}
-                                <td rowspan="{{ cliente.payments|length }}" style="vertical-align: middle;">
-                                    <span class="badge estado-badge"
-                                          style="padding: 8px 16px; font-size: 0.8rem;
-                                                 background: {{ 'linear-gradient(135deg, #10b981, #059669)' if cliente.estado == 'finalizado' else 'linear-gradient(135deg, #f59e0b, #d97706)' }};
-                                                 color: #fff;">
-                                        {{ cliente.estado|capitalize }}
-                                    </span>
-                                </td>
-                                {% endif %}
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td>
-                                    <a href="{{ url_for('current_status.detalle_cliente', id=cliente.id) }}"
-                                       style="color: var(--lux-rose); font-weight: 600; text-decoration: none;">
-                                        {{ cliente.nombre }}
-                                    </a>
-                                </td>
-                                <td>-</td>
-                                <td>-</td>
-                                <td>-</td>
-                                <td>
-                                    <span class="badge estado-badge"
-                                          style="padding: 8px 16px; font-size: 0.8rem;
-                                                 background: {{ 'linear-gradient(135deg, #10b981, #059669)' if cliente.estado == 'finalizado' else 'linear-gradient(135deg, #f59e0b, #d97706)' }};
-                                                 color: #fff;">
-                                        {{ cliente.estado|capitalize }}
-                                    </span>
-                                </td>
-                            </tr>
-                        {% endif %}
+                    {% for s in shipments %}
+                    <tr>
+                        <td>{{ s.ship_date }}</td>
+                        <td>{{ s.transport }}</td>
+                        <td>{{ s.mark }}</td>
+                        <td>{{ s.awb }}</td>
+                        <td style="font-weight:600; color: var(--lux-rose);">{{ s.client_name }}</td>
+                        <td>{{ s.origin }}</td>
+                        <td>{{ s.destination }}</td>
+                        <td>{{ s.airline }}</td>
+                        <td>{{ s.fulles }}</td>
+                        <td>{{ s.piezas }}</td>
+                        <td>{{ s.pieces_gross }}</td>
+                        <td>{{ s.volume }}</td>
+                        <td>{{ s.charge }}</td>
+                        <td>{{ s.phyto }}</td>
+                        <td>{{ s.dup_phyto }}</td>
+                        <td>{{ s.c_origin }}</td>
+                        <td>{{ s.dup_co }}</td>
+                        <td>{{ s.termografo }}</td>
+                        <td>{{ s.transmision }}</td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+
+    <!-- TABLE: Facturacion -->
+    <div class="card mb-4">
+        <div class="card-header section-header-fact" style="border-radius: 20px 20px 0 0; font-size: 1rem;">
+            <i class="bi bi-receipt me-2"></i>Facturacion
+        </div>
+        <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+            <table class="table fact-table mb-0">
+                <thead>
+                    <tr class="section-header-fact">
+                        <th>Customer</th>
+                        <th>Facturacion</th>
+                        <th>Handling Juni</th>
+                        <th>Flete</th>
+                        <th>FSC</th>
+                        <th>ESC</th>
+                        <th>Due Agent</th>
+                        <th>Due Carrier</th>
+                        <th>$Fito Venta</th>
+                        <th>$C.Origen Venta</th>
+                        <th>$Termografo</th>
+                        <th>Fitos Venta</th>
+                        <th>Dup. Fitos</th>
+                        <th>C. Origen</th>
+                        <th>Dup. C.O</th>
+                        <th>Termografo</th>
+                        <th>Transmision</th>
+                        <th>Beneficio</th>
+                        <th>Benef. x KG</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in shipments %}
+                    <tr>
+                        <td style="font-weight:600; color: var(--lux-rose);">{{ s.client_name }}</td>
+                        <td>{{ s.facturacion }}</td>
+                        <td>{{ s.handling_juni }}</td>
+                        <td>{{ s.flete }}</td>
+                        <td>{{ s.fsc }}</td>
+                        <td>{{ s.esc }}</td>
+                        <td>{{ s.due_agent }}</td>
+                        <td>{{ s.due_carrier }}</td>
+                        <td>{{ s.fito_venta }}</td>
+                        <td>{{ s.co_venta }}</td>
+                        <td>{{ s.termografo_venta }}</td>
+                        <td>{{ s.fitos_venta }}</td>
+                        <td>{{ s.dup_fito_venta }}</td>
+                        <td>{{ s.co_factura }}</td>
+                        <td>{{ s.dup_co_factura }}</td>
+                        <td>{{ s.termografo_factura }}</td>
+                        <td>{{ s.transmision_factura }}</td>
+                        <td>{{ s.beneficio }}</td>
+                        <td>{{ s.beneficio_x_kg }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TABLE: Costos y Resultado -->
+    <div class="card mb-4">
+        <div class="card-header section-header-cost" style="color: #fff; border-radius: 20px 20px 0 0; font-size: 1rem;">
+            <i class="bi bi-calculator me-2"></i>Costos y Resultado
+        </div>
+        <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+            <table class="table fact-table mb-0">
+                <thead>
+                    <tr class="section-header-cost">
+                        <th>Customer</th>
+                        <th>Costos</th>
+                        <th>Costo Bodega</th>
+                        <th>Costo Guia</th>
+                        <th>Flete</th>
+                        <th>Due Carrier</th>
+                        <th>FSC</th>
+                        <th>ESC</th>
+                        <th>Costo x KG</th>
+                        <th>$Costo Bod</th>
+                        <th>$Costo Guia</th>
+                        <th>$Fito Costo</th>
+                        <th>$C.Or Costo</th>
+                        <th>$Termografo</th>
+                        <th>Fitos Costo</th>
+                        <th>Dup. Fitos</th>
+                        <th>Termografo</th>
+                        <th>C. Origen</th>
+                        <th>Dup. C.O</th>
+                        <th>Transmisiones</th>
+                        <th>Costos Fijos</th>
+                        <th>Utilidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in shipments %}
+                    <tr>
+                        <td style="font-weight:600; color: var(--lux-rose);">{{ s.client_name }}</td>
+                        <td>{{ s.costos }}</td>
+                        <td>{{ s.costo_bodega }}</td>
+                        <td>{{ s.costo_guia }}</td>
+                        <td>{{ s.flete_costo }}</td>
+                        <td>{{ s.due_carrier_costo }}</td>
+                        <td>{{ s.fsc_costo }}</td>
+                        <td>{{ s.esc_costo }}</td>
+                        <td>{{ s.costo_x_kg }}</td>
+                        <td>{{ s.costo_bod_unit }}</td>
+                        <td>{{ s.costo_guia_unit }}</td>
+                        <td>{{ s.fito_costo_unit }}</td>
+                        <td>{{ s.co_costo_unit }}</td>
+                        <td>{{ s.termografo_costo_unit }}</td>
+                        <td>{{ s.fitos_costo }}</td>
+                        <td>{{ s.dup_fitos_costo }}</td>
+                        <td>{{ s.termografo_costo }}</td>
+                        <td>{{ s.co_costo }}</td>
+                        <td>{{ s.dup_co_costo }}</td>
+                        <td>{{ s.transmision_costo }}</td>
+                        <td>{{ s.costos_fijos }}</td>
+                        <td>{{ s.utilidad }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="card">
+        <div class="pagination-bar">
+            {% if page > 1 %}
+            <a href="{{ url_for('current_status.facturacion', q=busqueda, page=1) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-chevron-double-left"></i>
+            </a>
+            <a href="{{ url_for('current_status.facturacion', q=busqueda, page=page-1) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            {% endif %}
+
+            <span class="page-info">
+                Pagina {{ page }} de {{ total_pages }}
+                &nbsp;|&nbsp;
+                Mostrando {{ (page-1)*per_page + 1 }}-{{ [page*per_page, total]|min }} de {{ total }}
+            </span>
+
+            {% if page < total_pages %}
+            <a href="{{ url_for('current_status.facturacion', q=busqueda, page=page+1) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+            <a href="{{ url_for('current_status.facturacion', q=busqueda, page=total_pages) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-chevron-double-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     {% else %}
     <div class="empty-state">
         <i class="bi bi-receipt"></i>
-        <h5>No hay clientes registrados</h5>
-        <p>Crea tu primer cliente para ver su informacion de pago</p>
-        <a href="{{ url_for('current_status.nuevo_cliente') }}" class="btn btn-primary">
-            <i class="bi bi-plus-lg"></i> Nuevo Cliente
+        <h5>No hay embarques registrados</h5>
+        <p>Sube un archivo de facturacion desde el Dashboard o agrega embarques en cada cliente</p>
+        <a href="{{ url_for('current_status.dashboard') }}" class="btn btn-primary">
+            <i class="bi bi-arrow-left"></i> Ir al Dashboard
         </a>
     </div>
     {% endif %}

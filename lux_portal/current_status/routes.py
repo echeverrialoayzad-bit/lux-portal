@@ -69,13 +69,26 @@ def dashboard():
 @current_status_bp.route('/facturacion')
 @login_required
 def facturacion():
-    """Vista de facturacion con informacion de pagos por cliente"""
+    """Vista de facturacion con tablas Shipment/Facturacion/Costos de todos los clientes"""
     busqueda = request.args.get('q', '').strip()
-    query = StatusClient.query.filter_by(activo=True)
+    page = request.args.get('page', 1, type=int)
+    per_page = 100
+
+    # Build client filter
+    client_query = StatusClient.query.filter_by(activo=True)
     if busqueda:
-        query = query.filter(StatusClient.nombre.ilike(f'%{busqueda}%'))
-    clientes = query.order_by(StatusClient.nombre).all()
-    return render_template('current_status/facturacion.html', clientes=clientes, busqueda=busqueda)
+        client_query = client_query.filter(StatusClient.nombre.ilike(f'%{busqueda}%'))
+    client_ids = [c.id for c in client_query.all()]
+
+    # Paginated shipments across all matching clients
+    shipments_q = ClientShipment.query.filter(ClientShipment.client_id.in_(client_ids)) if client_ids else ClientShipment.query.filter(False)
+    total = shipments_q.count()
+    shipments = shipments_q.order_by(ClientShipment.id).offset((page - 1) * per_page).limit(per_page).all()
+    total_pages = max(1, (total + per_page - 1) // per_page)
+
+    return render_template('current_status/facturacion.html',
+                           shipments=shipments, busqueda=busqueda,
+                           page=page, total_pages=total_pages, total=total, per_page=per_page)
 
 
 @current_status_bp.route('/nuevo', methods=['GET', 'POST'])
@@ -364,6 +377,16 @@ def eliminar_shipment(id):
     db.session.delete(shipment)
     db.session.commit()
     return jsonify({'success': True})
+
+
+@current_status_bp.route('/api/client/<int:id>/clear-shipments', methods=['DELETE'])
+@login_required
+def clear_shipments(id):
+    """Delete ALL shipments for a client at once."""
+    StatusClient.query.get_or_404(id)
+    count = ClientShipment.query.filter_by(client_id=id).delete()
+    db.session.commit()
+    return jsonify({'success': True, 'deleted': count})
 
 
 @current_status_bp.route('/api/client/<int:id>/enviar-shipments', methods=['POST'])

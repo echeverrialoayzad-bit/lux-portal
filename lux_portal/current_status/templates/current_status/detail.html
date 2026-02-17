@@ -929,9 +929,16 @@
                 </tbody>
             </table>
         </div>
-        <button class="btn-add-row" onclick="agregarShipment()">
-            <i class="bi bi-plus-lg me-1"></i> Agregar embarque
-        </button>
+        <div class="d-flex gap-2 mt-2">
+            <button class="btn-add-row" onclick="agregarShipment()">
+                <i class="bi bi-plus-lg me-1"></i> Agregar embarque
+            </button>
+            {% if cliente.shipments|length > 0 %}
+            <button class="btn btn-sm btn-outline-danger" onclick="eliminarTodosShipments()" style="border-radius: 12px; padding: 6px 16px;">
+                <i class="bi bi-trash me-1"></i> Eliminar todos ({{ cliente.shipments|length }})
+            </button>
+            {% endif %}
+        </div>
     </div>
 
     <!-- TABLE 5: Facturacion -->
@@ -2731,6 +2738,19 @@ function eliminarShipment(btn, id) {
         if (data.success) {
             // Remove from all 3 tables
             document.querySelectorAll(`#shipmentTable tr[data-id="${id}"], #facturaTable tr[data-id="${id}"], #costosTable tr[data-id="${id}"]`).forEach(tr => tr.remove());
+        }
+    });
+}
+
+function eliminarTodosShipments() {
+    const count = document.querySelectorAll('#shipmentTable tbody tr').length;
+    if (!confirm(`¿Eliminar TODOS los ${count} embarques de este cliente? Esta accion no se puede deshacer.`)) return;
+    fetch(`${BASE}/api/client/${CLIENT_ID}/clear-shipments`, {method: 'DELETE'})
+    .then(r => r.json()).then(data => {
+        if (data.success) {
+            document.querySelectorAll('#shipmentTable tbody tr, #facturaTable tbody tr, #costosTable tbody tr').forEach(tr => tr.remove());
+            alert(`${data.deleted} embarques eliminados`);
+            location.reload();
         }
     });
 }
