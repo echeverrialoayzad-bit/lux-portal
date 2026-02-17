@@ -691,6 +691,7 @@ def upload_excel(id):
 @login_required
 def upload_facturacion():
     """Upload FACTURACION Excel and assign shipment data to clients by CUSTOMER match."""
+    import tempfile
     from openpyxl import load_workbook
     from collections import defaultdict
     from datetime import date as date_type
@@ -699,8 +700,14 @@ def upload_facturacion():
     if not file or not file.filename.endswith(('.xlsx', '.xls')):
         return jsonify({'success': False, 'error': 'Archivo Excel requerido (.xlsx)'}), 400
 
+    # Save to temp file for reliable reading
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+    tmp_path = tmp.name
     try:
-        wb = load_workbook(file, data_only=True)
+        file.save(tmp_path)
+        tmp.close()
+
+        wb = load_workbook(tmp_path, data_only=True, read_only=True)
         ws = wb['TOTAL OPERACION'] if 'TOTAL OPERACION' in wb.sheetnames else wb.active
 
         # --- Parse headers (row 1) ---
@@ -733,6 +740,7 @@ def upload_facturacion():
                         customer_col = i
                         break
                 if customer_col is None:
+                    wb.close()
                     return jsonify({'success': False, 'error': 'No se encontró columna CUSTOMER/CLIENTE'}), 400
 
                 # Find section boundaries
@@ -819,12 +827,14 @@ def upload_facturacion():
                     row_data[field] = _cell_to_str(cells[ci])
             customers_data[customer.strip().upper()].append(row_data)
 
+        wb.close()
+
         # --- Find or create clients, add shipments ---
         created = []
         updated = []
         total_shipments = 0
 
-        for customer_key, rows in customers_data.items():
+        for customer_key, rows_data in customers_data.items():
             client = StatusClient.query.filter(
                 db.func.upper(StatusClient.nombre) == customer_key,
                 StatusClient.activo == True
@@ -833,12 +843,12 @@ def upload_facturacion():
             if client:
                 updated.append(client.nombre)
             else:
-                client = StatusClient(nombre=rows[0]['client_name'])
+                client = StatusClient(nombre=rows_data[0]['client_name'])
                 db.session.add(client)
                 db.session.flush()
-                created.append(rows[0]['client_name'])
+                created.append(rows_data[0]['client_name'])
 
-            for row_data in rows:
+            for row_data in rows_data:
                 shipment = ClientShipment(client_id=client.id)
                 for field, val in row_data.items():
                     if hasattr(shipment, field):
@@ -861,7 +871,14 @@ def upload_facturacion():
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'{type(e).__name__}: {str(e)}'}), 500
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
 
 
 # ===================== EXPORT HELPERS =====================

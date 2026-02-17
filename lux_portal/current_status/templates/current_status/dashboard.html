@@ -143,6 +143,28 @@
     {% endif %}
 </div>
 
+<!-- Upload Progress Modal -->
+<div class="modal fade" id="uploadModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 16px; overflow: hidden;">
+            <div class="modal-body text-center py-4 px-4">
+                <div id="uploadIcon" style="font-size: 2.5rem; color: var(--lux-purple, #7C3AED); margin-bottom: 12px;">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                </div>
+                <h5 id="uploadStatus" class="fw-bold mb-3">Subiendo archivo...</h5>
+                <div class="progress mb-2" style="height: 22px; border-radius: 11px; background: #e9ecef;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         id="uploadProgress" role="progressbar"
+                         style="width: 0%; border-radius: 11px; background: linear-gradient(135deg, #7C3AED, #a855f7); font-weight: 600; font-size: 0.8rem;">
+                        0%
+                    </div>
+                </div>
+                <p class="text-muted mb-0 small" id="uploadDetail"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -180,41 +202,116 @@ function eliminarCliente(id, nombre) {
 function uploadFacturacion(input) {
     if (!input.files.length) return;
     const file = input.files[0];
-    if (!confirm(`¿Subir "${file.name}" y asignar datos de embarque a los clientes?\nEsto puede tomar unos minutos para archivos grandes.`)) {
-        input.value = '';
-        return;
-    }
+
+    const modal = new bootstrap.Modal(document.getElementById('uploadModal'));
+    const bar = document.getElementById('uploadProgress');
+    const status = document.getElementById('uploadStatus');
+    const detail = document.getElementById('uploadDetail');
+    const icon = document.getElementById('uploadIcon');
+
+    // Reset modal state
+    bar.style.width = '0%';
+    bar.textContent = '0%';
+    bar.style.background = 'linear-gradient(135deg, #7C3AED, #a855f7)';
+    status.textContent = 'Subiendo archivo...';
+    detail.textContent = '';
+    icon.innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+    modal.show();
 
     const formData = new FormData();
     formData.append('file', file);
 
-    const btn = document.getElementById('btnUploadFact');
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando...';
-    btn.disabled = true;
+    const xhr = new XMLHttpRequest();
 
-    fetch('{{ url_for("current_status.upload_facturacion") }}', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            let msg = `Carga exitosa!\n\nEmbarques creados: ${data.total_shipments}\nClientes: ${data.total_clients}`;
-            if (data.created.length) msg += `\n\nClientes nuevos:\n- ${data.created.join('\n- ')}`;
-            if (data.updated.length) msg += `\n\nClientes existentes actualizados:\n- ${data.updated.join('\n- ')}`;
-            alert(msg);
-            location.reload();
-        } else {
-            alert('Error: ' + (data.error || 'Error desconocido'));
+    // Track upload progress
+    xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            bar.style.width = pct + '%';
+            bar.textContent = pct + '%';
+            const loaded = (e.loaded / 1024 / 1024).toFixed(1);
+            const total = (e.total / 1024 / 1024).toFixed(1);
+            detail.textContent = `${loaded} MB / ${total} MB`;
         }
-    })
-    .catch(err => alert('Error al subir: ' + err.message))
-    .finally(() => {
-        btn.innerHTML = orig;
-        btn.disabled = false;
-        input.value = '';
     });
+
+    // Upload complete, now server is processing
+    xhr.upload.addEventListener('load', () => {
+        status.textContent = 'Procesando datos...';
+        icon.innerHTML = '<i class="bi bi-gear" style="animation: spin 1.5s linear infinite;"></i>';
+        bar.style.width = '100%';
+        bar.textContent = '';
+        bar.classList.add('progress-bar-animated');
+        detail.textContent = 'Leyendo filas y creando embarques...';
+    });
+
+    // Server responded
+    xhr.addEventListener('load', () => {
+        try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.success) {
+                // Show success in modal
+                bar.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                bar.style.width = '100%';
+                bar.textContent = 'Listo!';
+                bar.classList.remove('progress-bar-animated');
+                status.textContent = 'Carga exitosa!';
+                icon.innerHTML = '<i class="bi bi-check-circle" style="color: #10b981;"></i>';
+                let info = `Embarques: ${data.total_shipments} | Clientes: ${data.total_clients}`;
+                if (data.created.length) info += `\nNuevos: ${data.created.join(', ')}`;
+                if (data.updated.length) info += `\nActualizados: ${data.updated.join(', ')}`;
+                detail.textContent = info;
+                detail.style.whiteSpace = 'pre-line';
+                setTimeout(() => location.reload(), 2500);
+            } else {
+                bar.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                bar.style.width = '100%';
+                bar.textContent = 'Error';
+                bar.classList.remove('progress-bar-animated');
+                status.textContent = 'Error al procesar';
+                icon.innerHTML = '<i class="bi bi-exclamation-triangle" style="color: #ef4444;"></i>';
+                detail.textContent = data.error || 'Error desconocido';
+                setTimeout(() => modal.hide(), 5000);
+            }
+        } catch(e) {
+            modal.hide();
+            alert('Error al procesar respuesta del servidor');
+        }
+    });
+
+    xhr.addEventListener('error', () => {
+        bar.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+        bar.style.width = '100%';
+        bar.textContent = 'Error';
+        bar.classList.remove('progress-bar-animated');
+        status.textContent = 'Error de conexion';
+        icon.innerHTML = '<i class="bi bi-wifi-off" style="color: #ef4444;"></i>';
+        detail.textContent = 'No se pudo conectar al servidor. Intenta de nuevo.';
+        setTimeout(() => modal.hide(), 4000);
+    });
+
+    xhr.addEventListener('timeout', () => {
+        bar.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+        bar.style.width = '100%';
+        bar.textContent = 'Timeout';
+        bar.classList.remove('progress-bar-animated');
+        status.textContent = 'Tiempo agotado';
+        icon.innerHTML = '<i class="bi bi-clock" style="color: #f59e0b;"></i>';
+        detail.textContent = 'El archivo es muy grande. Intenta con un archivo mas pequeno.';
+        setTimeout(() => modal.hide(), 4000);
+    });
+
+    xhr.open('POST', '{{ url_for("current_status.upload_facturacion") }}');
+    xhr.timeout = 600000; // 10 minutes
+    xhr.send(formData);
+
+    input.value = '';
 }
 </script>
+<style>
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>
 {% endblock %}
