@@ -82,14 +82,25 @@ class StatusAirline(db.Model):
 
 
 class StatusPayment(db.Model):
-    """Fila de pago (Tabla 3)"""
+    """Fila de pago / invoice (Tabla 3)"""
     __tablename__ = 'status_payments'
 
     id = db.Column(db.Integer, primary_key=True)
     client_id = db.Column(db.Integer, db.ForeignKey('status_clients.id'), nullable=False)
+    # Legacy columns (kept for backward compat)
     valor = db.Column(db.String(200), default='')
     fecha = db.Column(db.String(200), default='')
     credito = db.Column(db.String(200), default='')
+    # New invoice fields
+    route = db.Column(db.String(200), default='')
+    net_weight = db.Column(db.String(100), default='')
+    volume_weight = db.Column(db.String(100), default='')
+    rate = db.Column(db.String(100), default='')
+    pay_due_agent = db.Column(db.String(100), default='50')
+    pay_due_carrier = db.Column(db.String(100), default='25')
+    certificate = db.Column(db.String(100), default='15')
+    pay_phyto = db.Column(db.String(100), default='2.50')
+    pay_notes = db.Column(db.Text, default='')
     extra_data = db.Column(db.Text, default='{}')
 
     def get_extra(self):

@@ -792,7 +792,7 @@
         </button>
     </div>
 
-    <!-- TABLE 3: Payment -->
+    <!-- TABLE 3: Payment / Invoice -->
     <div class="d-flex gap-1 mb-2">
         <a href="{{ url_for('current_status.descargar_cliente', id=cliente.id, formato='excel', table='payment') }}"
            class="btn btn-sm btn-outline-secondary">
@@ -811,9 +811,17 @@
             <table class="table payment-table mb-0" id="paymentTable">
                 <thead>
                     <tr>
-                        <th data-col="valor"><span contenteditable="true" class="th-text" draggable="false">Valor</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th data-col="fecha"><span contenteditable="true" class="th-text" draggable="false">Fecha</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
-                        <th data-col="credito"><span contenteditable="true" class="th-text" draggable="false">Credito</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="route"><span contenteditable="true" class="th-text" draggable="false">Route</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="net_weight"><span contenteditable="true" class="th-text" draggable="false">Net Weight</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="volume_weight"><span contenteditable="true" class="th-text" draggable="false">Volume Weight</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="rate"><span contenteditable="true" class="th-text" draggable="false">Rate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="_wxr"><span class="th-text" draggable="false">WeightxRate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="pay_due_agent"><span contenteditable="true" class="th-text" draggable="false">Due Agent</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="pay_due_carrier"><span contenteditable="true" class="th-text" draggable="false">Due Carrier</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="certificate"><span contenteditable="true" class="th-text" draggable="false">Certificate</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="pay_phyto"><span contenteditable="true" class="th-text" draggable="false">Phyto</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="_total"><span class="th-text" draggable="false" style="color:#7c3aed;font-weight:bold;">TOTAL</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
+                        <th data-col="pay_notes"><span contenteditable="true" class="th-text" draggable="false">Notes</span><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         {% for col in cliente.get_custom_cols('payments') %}
                         <th data-col="custom_{{ col }}"><span contenteditable="true" class="th-text custom-col-name" draggable="false" data-table="payments" data-col-name="{{ col }}">{{ col }}</span><button class="btn-del-col" onclick="deleteCustomCol('payments','{{ col }}',this)" title="Eliminar columna">&times;</button><div class="resize-handle"></div><div class="resize-handle-h"></div></th>
                         {% endfor %}
@@ -824,9 +832,17 @@
                 <tbody>
                     {% for p in cliente.payments %}
                     <tr data-id="{{ p.id }}">
-                        <td class="editable-cell" data-col="valor"><textarea data-field="valor" onblur="guardarPayment(this)">{{ p.valor }}</textarea></td>
-                        <td class="editable-cell" data-col="fecha"><textarea data-field="fecha" onblur="guardarPayment(this)">{{ p.fecha }}</textarea></td>
-                        <td class="editable-cell" data-col="credito"><textarea data-field="credito" onblur="guardarPayment(this)">{{ p.credito }}</textarea></td>
+                        <td class="editable-cell" data-col="route"><textarea data-field="route" onblur="guardarPayment(this)">{{ p.route }}</textarea></td>
+                        <td class="editable-cell" data-col="net_weight"><textarea data-field="net_weight" onblur="guardarPayment(this)">{{ p.net_weight }}</textarea></td>
+                        <td class="editable-cell" data-col="volume_weight"><textarea data-field="volume_weight" onblur="guardarPayment(this)">{{ p.volume_weight }}</textarea></td>
+                        <td class="editable-cell" data-col="rate"><textarea data-field="rate" onblur="guardarPayment(this)">{{ p.rate }}</textarea></td>
+                        <td class="editable-cell computed-cell" data-col="_wxr"><textarea data-field="_wxr" readonly tabindex="-1"></textarea></td>
+                        <td class="editable-cell" data-col="pay_due_agent"><textarea data-field="pay_due_agent" onblur="guardarPayment(this)">{{ p.pay_due_agent }}</textarea></td>
+                        <td class="editable-cell" data-col="pay_due_carrier"><textarea data-field="pay_due_carrier" onblur="guardarPayment(this)">{{ p.pay_due_carrier }}</textarea></td>
+                        <td class="editable-cell" data-col="certificate"><textarea data-field="certificate" onblur="guardarPayment(this)">{{ p.certificate }}</textarea></td>
+                        <td class="editable-cell" data-col="pay_phyto"><textarea data-field="pay_phyto" onblur="guardarPayment(this)">{{ p.pay_phyto }}</textarea></td>
+                        <td class="editable-cell computed-cell" data-col="_total"><textarea data-field="_total" readonly tabindex="-1" style="font-weight:bold;"></textarea></td>
+                        <td class="editable-cell" data-col="pay_notes"><textarea data-field="pay_notes" onblur="guardarPayment(this)">{{ p.pay_notes }}</textarea></td>
                         {% for col in cliente.get_custom_cols('payments') %}
                         <td class="editable-cell" data-col="custom_{{ col }}"><textarea data-field="extra:{{ col }}" onblur="guardarPayment(this)">{{ p.get_extra().get(col, '') }}</textarea></td>
                         {% endfor %}
@@ -1147,6 +1163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initContextMenu();
     initColumnDrag();
     initRecalcAll();
+    recalcAllPayments();
 });
 
 // --- Table formatting (font size, per-column alignment, bold) - ALL TABLES ---
@@ -1440,10 +1457,12 @@ function toggleEstado() {
 }
 
 // --- Dollar formatting ---
-const DOLLAR_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit', 'final_rate'];
+const DOLLAR_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit', 'final_rate',
+                       'rate', 'volume_weight', 'pay_due_agent', 'pay_due_carrier', 'certificate', 'pay_phyto'];
 const INTEGER_FIELDS = [];
-const TEXT_FIELDS = ['transit_time', 'kg_availability'];
-const NUMERIC_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit', 'final_rate', 'additional_costs_value', 'valor'];
+const TEXT_FIELDS = ['transit_time', 'kg_availability', 'route', 'pay_notes'];
+const NUMERIC_FIELDS = ['net_rate', 'operative', 'net_ops', 'profit', 'final_rate', 'additional_costs_value', 'valor',
+                        'net_weight', 'volume_weight', 'rate', 'pay_due_agent', 'pay_due_carrier', 'certificate', 'pay_phyto'];
 
 function stripDollar(str) {
     return str.replace(/[$,\s]/g, '');
@@ -2091,19 +2110,39 @@ function buildAirlineRow(id) {
     return tr;
 }
 
-function buildPaymentRow(id) {
-    const fields = ['valor','fecha','credito'];
+function buildPaymentRow(id, defaults) {
+    const cols = [
+        {f:'route'},
+        {f:'net_weight'},
+        {f:'volume_weight'},
+        {f:'rate'},
+        {f:'_wxr', computed:true},
+        {f:'pay_due_agent', def:'50'},
+        {f:'pay_due_carrier', def:'25'},
+        {f:'certificate', def:'15'},
+        {f:'pay_phyto', def:'2.50'},
+        {f:'_total', computed:true, bold:true},
+        {f:'pay_notes'}
+    ];
+    defaults = defaults || {};
     const tr = document.createElement('tr');
     tr.dataset.id = id;
-    fields.forEach(f => {
+    cols.forEach(col => {
         const td = document.createElement('td');
-        td.className = 'editable-cell';
-        td.dataset.col = f;
+        td.className = 'editable-cell' + (col.computed ? ' computed-cell' : '');
+        td.dataset.col = col.f;
         const ta = document.createElement('textarea');
-        ta.dataset.field = f;
-        ta.setAttribute('onblur', 'guardarPayment(this)');
-        ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
+        ta.dataset.field = col.f;
+        if (col.computed) {
+            ta.readOnly = true;
+            ta.tabIndex = -1;
+            if (col.bold) ta.style.fontWeight = 'bold';
+        } else {
+            ta.setAttribute('onblur', 'guardarPayment(this)');
+            ta.addEventListener('focus', () => { if (ta.dataset.formula) { ta.value = ta.dataset.formula; ta._hadFormula = true; } });
+        }
         ta.addEventListener('input', () => autoResize(ta));
+        ta.value = defaults[col.f] || col.def || '';
         td.appendChild(ta);
         tr.appendChild(td);
     });
@@ -2132,6 +2171,32 @@ function buildPaymentRow(id) {
     applyFormatToRow(tr, 'paymentTable');
     reorderNewRow(tr, 'paymentTable');
     return tr;
+}
+
+function recalcPaymentRow(row) {
+    const getVal = (field) => {
+        const el = row.querySelector(`textarea[data-field="${field}"]`);
+        if (!el) return 0;
+        const v = parseFloat(stripDollar(el.value));
+        return isNaN(v) ? 0 : v;
+    };
+    const nw = getVal('net_weight');
+    const vw = getVal('volume_weight');
+    const rate = getVal('rate');
+    const wxr = Math.max(nw, vw) * rate;
+    const da = getVal('pay_due_agent');
+    const dc = getVal('pay_due_carrier');
+    const cert = getVal('certificate');
+    const phyto = getVal('pay_phyto');
+    const total = wxr + da + dc + cert + phyto;
+    const wxrEl = row.querySelector('textarea[data-field="_wxr"]');
+    const totalEl = row.querySelector('textarea[data-field="_total"]');
+    if (wxrEl) wxrEl.value = wxr ? formatDollar(wxr) : '';
+    if (totalEl) totalEl.value = total ? formatDollar(total) : '';
+}
+
+function recalcAllPayments() {
+    document.querySelectorAll('#paymentTable tbody tr').forEach(row => recalcPaymentRow(row));
 }
 
 // --- Additional Costs (multiple per row) ---
@@ -2260,6 +2325,7 @@ function guardarPayment(el) {
     applyFormula(el);
     const row = el.closest('tr');
     const id = row.dataset.id;
+    recalcPaymentRow(row);
     fetch(`${BASE}/api/payment/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
@@ -2271,9 +2337,11 @@ function agregarPayment() {
     fetch(`${BASE}/api/client/${CLIENT_ID}/payment`, {method: 'POST'})
     .then(r => r.json()).then(data => {
         if (!data.success) return;
+        const defaults = {pay_due_agent:'50', pay_due_carrier:'25', certificate:'15', pay_phyto:'2.50'};
         const tbody = document.querySelector('#paymentTable tbody');
-        const tr = buildPaymentRow(data.id);
+        const tr = buildPaymentRow(data.id, defaults);
         tbody.appendChild(tr);
+        recalcPaymentRow(tr);
         tr.querySelector('textarea').focus();
     });
 }

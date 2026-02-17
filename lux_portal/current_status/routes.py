@@ -14,6 +14,44 @@ def get_logo_path():
     return os.path.join(current_dir, '..', 'static', 'images', 'freightwise_logo.png')
 
 
+PAYMENT_FIELDS = ['route', 'net_weight', 'volume_weight', 'rate',
+                  'pay_due_agent', 'pay_due_carrier', 'certificate', 'pay_phyto', 'pay_notes']
+
+
+_payment_cols_checked = False
+
+
+def _ensure_payment_columns():
+    """Add new payment columns if they don't exist yet (no-migration approach)."""
+    global _payment_cols_checked
+    if _payment_cols_checked:
+        return
+    _payment_cols_checked = True
+    new_cols = {
+        'route': "VARCHAR(200) DEFAULT ''",
+        'net_weight': "VARCHAR(100) DEFAULT ''",
+        'volume_weight': "VARCHAR(100) DEFAULT ''",
+        'rate': "VARCHAR(100) DEFAULT ''",
+        'pay_due_agent': "VARCHAR(100) DEFAULT '50'",
+        'pay_due_carrier': "VARCHAR(100) DEFAULT '25'",
+        'certificate': "VARCHAR(100) DEFAULT '15'",
+        'pay_phyto': "VARCHAR(100) DEFAULT '2.50'",
+        'pay_notes': "TEXT DEFAULT ''",
+    }
+    from sqlalchemy import text, inspect
+    try:
+        inspector = inspect(db.engine)
+        existing = {c['name'] for c in inspector.get_columns('status_payments')}
+        for col_name, col_type in new_cols.items():
+            if col_name not in existing:
+                db.session.execute(text(
+                    f'ALTER TABLE status_payments ADD COLUMN {col_name} {col_type}'
+                ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
 # ===================== PAGES =====================
 
 @current_status_bp.route('/')
@@ -61,6 +99,7 @@ def nuevo_cliente():
 @login_required
 def detalle_cliente(id):
     """Ver detalle del cliente con tablas editables"""
+    _ensure_payment_columns()
     cliente = StatusClient.query.get_or_404(id)
     _migrate_legacy_addcosts(cliente)
     return render_template('current_status/detail.html', cliente=cliente)
@@ -222,7 +261,13 @@ def eliminar_airline(id):
 @login_required
 def agregar_payment(id):
     StatusClient.query.get_or_404(id)
-    payment = StatusPayment(client_id=id)
+    payment = StatusPayment(
+        client_id=id,
+        pay_due_agent='50',
+        pay_due_carrier='25',
+        certificate='15',
+        pay_phyto='2.50'
+    )
     db.session.add(payment)
     db.session.commit()
     return jsonify({'success': True, 'id': payment.id})
@@ -238,7 +283,7 @@ def actualizar_payment(id):
         extra.update(data['extra'])
         payment.extra_data = json.dumps(extra)
     else:
-        for field in ['valor', 'fecha', 'credito']:
+        for field in ['valor', 'fecha', 'credito'] + PAYMENT_FIELDS:
             if field in data:
                 setattr(payment, field, data[field])
     db.session.commit()
@@ -509,6 +554,7 @@ def renombrar_custom_column(id):
 @login_required
 def descargar_cliente(id):
     """Descargar formulario de un cliente en Excel o PDF"""
+    _ensure_payment_columns()
     cliente = StatusClient.query.get_or_404(id)
     formato = request.args.get('formato', 'excel')
     hide_internal = request.args.get('hide_internal', '0') == '1'
@@ -654,6 +700,17 @@ def _fmt_dollar(val):
     except (ValueError, TypeError):
         return val
 
+def _safe_float(val):
+    """Parse a string to float, stripping $ and commas. Returns 0 on failure."""
+    if not val:
+        return 0.0
+    s = str(val).replace('$', '').replace(',', '').strip()
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return 0.0
+
+
 def _get_addcosts_display(rate):
     """Get addcosts names and values from extra_data, fallback to old columns."""
     extra = rate.get_extra()
@@ -793,66 +850,128 @@ def _generar_excel_cliente(cliente, hide_internal=False, tabla='all'):
             row += 1
         row += 1
 
-    # Table 3: Payment
+    # Table 3: Payment (invoice-style layout per payment)
     if tabla in ('all', 'payment'):
-        headers3 = [f'Payment {cliente.nombre}', 'Valor', 'Fecha', 'Credito'] + custom_payments
-        for col, h in enumerate(headers3, 1):
-            cell = ws.cell(row=row, column=col, value=h)
+        gold_fill = PatternFill(start_color='FFF8E1', end_color='FFF8E1', fill_type='solid')
+        total_fill = PatternFill(start_color='7C3AED', end_color='7C3AED', fill_type='solid')
+
+        for p in cliente.payments:
+            # --- Route header bar ---
+            route_text = p.route or ''
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=9)
+            cell = ws.cell(row=row, column=1, value=route_text)
             cell.fill = purple_fill
-            cell.font = header_font
-            cell.alignment = header_alignment
-            cell.border = thin_border
-        row += 1
-        for idx, p in enumerate(cliente.payments):
-            extra = p.get_extra()
-            vals = ['', p.valor, p.fecha, p.credito]
-            vals += [extra.get(c, '') for c in custom_payments]
-            for col, v in enumerate(vals, 1):
-                cell = ws.cell(row=row, column=col, value=v)
-                cell.border = thin_border
-                cell.alignment = data_alignment
-                if idx % 2 == 1:
-                    cell.fill = gray_fill
+            cell.font = Font(bold=True, color='FFFFFF', size=11)
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            for c in range(1, 10):
+                ws.cell(row=row, column=c).fill = purple_fill
+                ws.cell(row=row, column=c).border = thin_border
+            ws.row_dimensions[row].height = 25
             row += 1
 
-    # FreightWise Additional Charges
-    row += 1
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=13)
-    cell = ws.cell(row=row, column=1, value='FreightWise Additional Charges')
-    cell.font = Font(bold=True, color='FFFFFF', size=11)
-    cell.fill = purple_fill
-    cell.alignment = Alignment(horizontal='center', vertical='center')
-    ws.row_dimensions[row].height = 25
-    row += 1
+            # --- Headers row ---
+            pay_headers = ['NET WEIGHT', 'VOLUME WEIGHT', 'RATE', 'WeightxRate',
+                           'DUE AGENT', 'DUE CARRIER', 'CERTIFICATE', 'PHYTO', 'TOTAL']
+            for col, h in enumerate(pay_headers, 1):
+                cell = ws.cell(row=row, column=col, value=h)
+                cell.font = Font(bold=True, size=9)
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.border = thin_border
+                if h == 'TOTAL':
+                    cell.fill = total_fill
+                    cell.font = Font(bold=True, color='FFFFFF', size=9)
+            row += 1
 
-    cargos_fw = [
-        ('Due Agent', '$ 50.00'),
-        ('Certificate', '$ 15.00'),
-        ('Phytosanitary', '$ 2.50'),
-    ]
-    no_side = Side(style=None)
-    thin_side = Side(style='thin', color='000000')
-    fw_start = row
-    for concepto, monto in cargos_fw:
-        ws.merge_cells(start_row=row, start_column=5, end_row=row, end_column=9)
-        c1 = ws.cell(row=row, column=5, value=concepto)
-        c1.font = Font(name='Arial', size=9)
-        c1.alignment = Alignment(horizontal='center', vertical='center')
-        ws.merge_cells(start_row=row, start_column=10, end_row=row, end_column=11)
-        c2 = ws.cell(row=row, column=10, value=monto)
-        c2.font = Font(name='Arial', size=9)
-        c2.alignment = Alignment(horizontal='center', vertical='center')
-        row += 1
-    fw_end = row - 1
-    # Outer border only for FreightWise section
-    for r in range(fw_start, fw_end + 1):
-        for c in range(1, 14):
-            left = thin_side if c == 1 else no_side
-            right = thin_side if c == 13 else no_side
-            top = thin_side if r == fw_start else no_side
-            bottom = thin_side if r == fw_end else no_side
-            ws.cell(row=r, column=c).border = Border(left=left, right=right, top=top, bottom=bottom)
-    row += 1
+            # --- Data row ---
+            nw = _safe_float(p.net_weight)
+            vw = _safe_float(p.volume_weight)
+            rate_val = _safe_float(p.rate)
+            wxr = max(nw, vw) * rate_val
+            da = _safe_float(p.pay_due_agent)
+            dc = _safe_float(p.pay_due_carrier)
+            cert = _safe_float(p.certificate)
+            phyto = _safe_float(p.pay_phyto)
+            total = wxr + da + dc + cert + phyto
+
+            pay_vals = [
+                p.net_weight or '',
+                _fmt_dollar(p.volume_weight) if p.volume_weight else '',
+                _fmt_dollar(p.rate) if p.rate else '',
+                _fmt_dollar(str(round(wxr, 2))) if wxr else '',
+                _fmt_dollar(p.pay_due_agent) if p.pay_due_agent else '',
+                _fmt_dollar(p.pay_due_carrier) if p.pay_due_carrier else '',
+                _fmt_dollar(p.certificate) if p.certificate else '',
+                _fmt_dollar(p.pay_phyto) if p.pay_phyto else '',
+                _fmt_dollar(str(round(total, 2))) if total else '',
+            ]
+            for col, v in enumerate(pay_vals, 1):
+                cell = ws.cell(row=row, column=col, value=v)
+                cell.alignment = data_alignment
+                cell.border = thin_border
+                if col == 9:  # TOTAL column
+                    cell.font = Font(bold=True, size=10)
+            row += 1
+
+            # --- NOTES section ---
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=9)
+            cell = ws.cell(row=row, column=1, value='NOTES')
+            cell.fill = purple_fill
+            cell.font = Font(bold=True, color='FFFFFF', size=10)
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            for c in range(1, 10):
+                ws.cell(row=row, column=c).fill = purple_fill
+                ws.cell(row=row, column=c).border = thin_border
+            row += 1
+
+            notes_text = p.pay_notes or ''
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=9)
+            cell = ws.cell(row=row, column=1, value=notes_text)
+            cell.fill = gold_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell.font = Font(size=9)
+            for c in range(1, 10):
+                ws.cell(row=row, column=c).fill = gold_fill
+                ws.cell(row=row, column=c).border = thin_border
+            ws.row_dimensions[row].height = 45
+            row += 2
+
+        # --- ACCOUNT section (once, after all payments) ---
+        if cliente.payments:
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=9)
+            cell = ws.cell(row=row, column=1, value='ACCOUNT')
+            cell.fill = purple_fill
+            cell.font = Font(bold=True, color='FFFFFF', size=11)
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            for c in range(1, 10):
+                ws.cell(row=row, column=c).fill = purple_fill
+                ws.cell(row=row, column=c).border = thin_border
+            row += 1
+
+            account_info = [
+                ('BANK', 'Banco Pichincha'),
+                ('SWIFT', 'PICHECEQXXX'),
+                ('ACCOUNT', '2100339784'),
+                ('COMPANY', 'FREIGHTWISE FORWARDING S.A'),
+                ('TAXID', '1793231060012'),
+                ('ADDRESS', 'Pedro de Alfaro y Francisco Ruiz'),
+            ]
+            for label, value in account_info:
+                ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
+                c1 = ws.cell(row=row, column=1, value=label)
+                c1.font = Font(bold=True, size=9)
+                c1.alignment = Alignment(horizontal='center', vertical='center')
+                c1.fill = gray_fill
+                for c in range(1, 4):
+                    ws.cell(row=row, column=c).fill = gray_fill
+                    ws.cell(row=row, column=c).border = thin_border
+                ws.merge_cells(start_row=row, start_column=4, end_row=row, end_column=9)
+                c2 = ws.cell(row=row, column=4, value=value)
+                c2.font = Font(size=9)
+                c2.alignment = Alignment(horizontal='center', vertical='center')
+                for c in range(4, 10):
+                    ws.cell(row=row, column=c).border = thin_border
+                row += 1
+            row += 1
 
     # Auto-width: increase cap to 50 and set minimum of 15
     for col in ws.columns:
@@ -1069,54 +1188,123 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
             elements.append(t2)
             elements.append(Spacer(1, 15))
 
-    # Table 3: Payment
+    # Table 3: Payment (invoice-style, matching image layout)
     if tabla in ('all', 'payment'):
-        data3 = [[PH(f'Payment {cliente.nombre}'), PH('Valor'), PH('Fecha'), PH('Credito')]
-                  + [PH(c) for c in custom_payments]]
-        col_widths3 = [65*mm, 65*mm, 65*mm, 65*mm] + [40*mm] * len(custom_payments)
-        for p in cliente.payments:
-            extra = p.get_extra()
-            data3.append([P(''), P(p.valor), P(p.fecha), P(p.credito)]
-                         + [P(extra.get(c, '')) for c in custom_payments])
-        if len(data3) > 1:
-            t3 = Table(data3, repeatRows=1, colWidths=col_widths3)
-            t3.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), purple),
+        gold = colors.HexColor('#FFF8E1')
+        total_w = 260 * mm  # full page width for merged cells
+
+        cell_bold = ParagraphStyle('CellBold', parent=styles['Normal'],
+                                   fontSize=8, leading=10, alignment=TA_CENTER,
+                                   textColor=colors.black)
+
+        for p_item in cliente.payments:
+            # --- Route header bar ---
+            route_bar = [[Paragraph(f'<b>{p_item.route or ""}</b>', cell_header)]]
+            rt = Table(route_bar, colWidths=[total_w])
+            rt.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), purple),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+            ]))
+            elements.append(rt)
+
+            # --- Charges header + data ---
+            nw = _safe_float(p_item.net_weight)
+            vw = _safe_float(p_item.volume_weight)
+            rate_v = _safe_float(p_item.rate)
+            wxr = max(nw, vw) * rate_v
+            da = _safe_float(p_item.pay_due_agent)
+            dc = _safe_float(p_item.pay_due_carrier)
+            cert = _safe_float(p_item.certificate)
+            phyto = _safe_float(p_item.pay_phyto)
+            total_v = wxr + da + dc + cert + phyto
+
+            pay_h = ['NET WEIGHT', 'VOLUME WEIGHT', 'RATE', 'WeightxRate',
+                     'DUE AGENT', 'DUE CARRIER', 'CERTIFICATE', 'PHYTO', 'TOTAL']
+            pay_hdr = [PH(h) for h in pay_h[:-1]] + [Paragraph('<b>TOTAL</b>', cell_header)]
+            pay_data = [
+                P(p_item.net_weight or ''),
+                P(_fmt_dollar(p_item.volume_weight) if p_item.volume_weight else ''),
+                P(_fmt_dollar(p_item.rate) if p_item.rate else ''),
+                P(_fmt_dollar(str(round(wxr, 2))) if wxr else ''),
+                P(_fmt_dollar(p_item.pay_due_agent) if p_item.pay_due_agent else ''),
+                P(_fmt_dollar(p_item.pay_due_carrier) if p_item.pay_due_carrier else ''),
+                P(_fmt_dollar(p_item.certificate) if p_item.certificate else ''),
+                P(_fmt_dollar(p_item.pay_phyto) if p_item.pay_phyto else ''),
+                Paragraph(f'<b>{_fmt_dollar(str(round(total_v, 2))) if total_v else ""}</b>', cell_bold),
+            ]
+            cw = [29*mm, 29*mm, 29*mm, 29*mm, 29*mm, 29*mm, 29*mm, 29*mm, 29*mm]
+            charges_t = Table([pay_hdr, pay_data], colWidths=cw)
+            charges_t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-2, 0), colors.white),
+                ('BACKGROUND', (-1, 0), (-1, 0), purple),  # TOTAL header purple
+                ('TEXTCOLOR', (-1, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#E2E8F0')]),
             ] + common_style))
-            elements.append(t3)
+            elements.append(charges_t)
 
-    # FreightWise Additional Charges
-    elements.append(Spacer(1, 15))
-    fw_header = [[Paragraph('<b>FreightWise Additional Charges</b>', cell_header)]]
-    fw_header_t = Table(fw_header, colWidths=[260*mm])
-    fw_header_t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), purple),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
-    ]))
-    elements.append(fw_header_t)
+            # --- NOTES section ---
+            notes_hdr = [[Paragraph('<b>NOTES</b>', cell_header)]]
+            nt = Table(notes_hdr, colWidths=[total_w])
+            nt.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), purple),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+            ]))
+            elements.append(nt)
 
-    cargos_fw = [
-        ('Due Agent', '$ 50.00'),
-        ('Certificate', '$ 15.00'),
-        ('Phytosanitary', '$ 2.50'),
-    ]
-    fw_col_w = [60*mm, 70*mm, 70*mm, 60*mm]
-    fw_data = [[P(''), P(concepto), P(monto), P('')] for concepto, monto in cargos_fw]
-    fw_table = Table(fw_data, colWidths=fw_col_w)
-    fw_table.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 7),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
-    ] + common_style))
-    elements.append(fw_table)
+            notes_body = [[Paragraph(p_item.pay_notes or '', cell_style)]]
+            nb = Table(notes_body, colWidths=[total_w])
+            nb.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), gold),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+            ]))
+            elements.append(nb)
+            elements.append(Spacer(1, 15))
+
+        # --- ACCOUNT section (once) ---
+        if cliente.payments:
+            acct_hdr = [[Paragraph('<b>ACCOUNT</b>', cell_header)]]
+            at = Table(acct_hdr, colWidths=[total_w])
+            at.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), purple),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.black),
+            ]))
+            elements.append(at)
+
+            account_info = [
+                ('BANK', 'Banco Pichincha'),
+                ('SWIFT', 'PICHECEQXXX'),
+                ('ACCOUNT', '2100339784'),
+                ('COMPANY', 'FREIGHTWISE FORWARDING S.A'),
+                ('TAXID', '1793231060012'),
+                ('ADDRESS', 'Pedro de Alfaro y Francisco Ruiz'),
+            ]
+            acct_data = []
+            for label, value in account_info:
+                acct_data.append([
+                    Paragraph(f'<b>{label}</b>', cell_style),
+                    Paragraph(value, cell_style)
+                ])
+            acct_t = Table(acct_data, colWidths=[80*mm, 180*mm])
+            acct_t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#E2E8F0')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ] + common_style))
+            elements.append(acct_t)
 
     doc.build(elements)
     output.seek(0)
