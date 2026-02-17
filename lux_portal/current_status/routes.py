@@ -450,10 +450,7 @@ def historial_clientes():
     return render_template(
         'current_status/historial.html',
         shipments=shipments, busqueda=busqueda,
-        page=page, total_pages=total_pages, total=total, per_page=per_page,
-        SHIPMENT_FIELDS=SHIPMENT_FIELDS,
-        FACTURA_FIELDS=FACTURA_FIELDS,
-        COSTOS_FIELDS=COSTOS_FIELDS
+        page=page, total_pages=total_pages, total=total, per_page=per_page
     )
 
 

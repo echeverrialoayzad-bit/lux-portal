@@ -197,7 +197,13 @@
                 <!-- Transit Time -->
                 <div class="col-md-3">
                     <label class="form-label">Tiempo Transito</label>
-                    <select class="form-select transit-time">
+                    <div class="d-flex gap-1 mb-1">
+                        <button type="button" class="btn btn-sm btn-primary flex-fill transit-mode-btn active" data-mode="intervalo"
+                                style="font-size:0.65rem; padding:2px 4px;">Intervalo</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary flex-fill transit-mode-btn" data-mode="dias"
+                                style="font-size:0.65rem; padding:2px 4px;">+Dias</button>
+                    </div>
+                    <select class="form-select transit-time transit-select-intervalo">
                         <option value="1-2D">1-2D</option>
                         <option value="2-3D" selected>2-3D</option>
                         <option value="3-4D">3-4D</option>
@@ -208,6 +214,18 @@
                         <option value="8-9D">8-9D</option>
                         <option value="9-10D">9-10D</option>
                         <option value="10+D">10+D</option>
+                    </select>
+                    <select class="form-select transit-time transit-select-dias" style="display:none;">
+                        <option value="+1D">+1D</option>
+                        <option value="+2D">+2D</option>
+                        <option value="+3D">+3D</option>
+                        <option value="+4D">+4D</option>
+                        <option value="+5D">+5D</option>
+                        <option value="+6D">+6D</option>
+                        <option value="+7D">+7D</option>
+                        <option value="+8D">+8D</option>
+                        <option value="+9D">+9D</option>
+                        <option value="+10D">+10D</option>
                     </select>
                 </div>
 
@@ -366,6 +384,39 @@
 
 {% block extra_js %}
 <script>
+// ============ TRANSIT TIME MODE TOGGLE ============
+function setTransitMode(itinCard, mode) {
+    const intervaloSel = itinCard.querySelector('.transit-select-intervalo');
+    const diasSel = itinCard.querySelector('.transit-select-dias');
+    const btns = itinCard.querySelectorAll('.transit-mode-btn');
+    btns.forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+        b.classList.toggle('btn-primary', b.dataset.mode === mode);
+        b.classList.toggle('btn-outline-secondary', b.dataset.mode !== mode);
+    });
+    if (mode === 'dias') {
+        intervaloSel.style.display = 'none';
+        diasSel.style.display = '';
+    } else {
+        intervaloSel.style.display = '';
+        diasSel.style.display = 'none';
+    }
+}
+
+function getActiveTransitValue(itinCard) {
+    const diasSel = itinCard.querySelector('.transit-select-dias');
+    return diasSel.style.display === 'none'
+        ? itinCard.querySelector('.transit-select-intervalo').value
+        : diasSel.value;
+}
+
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.transit-mode-btn');
+    if (!btn) return;
+    const itinCard = btn.closest('.itinerario-card');
+    if (itinCard) setTransitMode(itinCard, btn.dataset.mode);
+});
+
 // ============ FORMULA ENGINE (reutilizado de current_status) ============
 function isFormula(str) {
     str = str.replace(/[$,]/g, '').trim();
@@ -623,7 +674,14 @@ function agregarAerolinea(datosExistentes = null) {
 
 function cargarDatosItinerario(itinCard, datos) {
     itinCard.querySelector('.itinerario-ruta').value = datos.itinerario || '';
-    itinCard.querySelector('.transit-time').value = datos.tiempo_transito || '2-3D';
+    const tt = datos.tiempo_transito || '2-3D';
+    if (tt.startsWith('+')) {
+        setTransitMode(itinCard, 'dias');
+        itinCard.querySelector('.transit-select-dias').value = tt;
+    } else {
+        setTransitMode(itinCard, 'intervalo');
+        itinCard.querySelector('.transit-select-intervalo').value = tt;
+    }
 
     if (datos.salida) {
         const lineas = datos.salida.split('\n');
@@ -921,8 +979,8 @@ function recopilarDatos() {
                 return diasSemana[(idx + 6) % 7];
             });
 
-            const transitTime = itinCard.querySelector('.transit-time').value;
-            const transitMatch = transitTime.match(/(\d+)[-+]?(\d+)?D/);
+            const transitTime = getActiveTransitValue(itinCard);
+            const transitMatch = transitTime.match(/\+?(\d+)[-]?(\d+)?D/);
             const transitDias = transitMatch ? parseInt(transitMatch[2] || transitMatch[1]) : 2;
             const diasLlegada = diasSalida.map(dia => {
                 const idx = diasMapping[dia];

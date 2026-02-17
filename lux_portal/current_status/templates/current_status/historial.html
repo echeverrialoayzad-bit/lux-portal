@@ -25,74 +25,33 @@
 
 {% block extra_css %}
 <style>
-    .hist-table {
-        width: max-content;
-        min-width: 100%;
-        border-collapse: collapse;
+    .fact-table {
+        width: 100%;
+        table-layout: auto;
+        border: 1px solid #cbd5e1 !important;
+        font-size: 0.75rem;
     }
-    .hist-table th {
-        font-size: 0.62rem;
+    .fact-table th {
+        font-weight: 600;
+        font-size: 0.7rem;
+        padding: 6px 4px;
         text-align: center;
-        padding: 5px 4px;
         white-space: nowrap;
         position: sticky;
         top: 0;
         z-index: 2;
     }
-    .hist-table td {
-        font-size: 0.7rem;
+    .fact-table td {
+        padding: 3px 4px;
         text-align: center;
-        padding: 4px 5px;
-        border: 1px solid #e2e8f0;
         white-space: nowrap;
-    }
-    .th-ship {
-        background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
-        color: #fff !important;
-    }
-    .th-fact {
-        background: #ADD8E6 !important;
-        color: #fff !important;
-    }
-    .th-cost {
-        background: linear-gradient(135deg, #059669, #047857) !important;
-        color: #fff !important;
-    }
-    .col-filter {
-        width: 100%;
-        min-width: 50px;
-        border: 1px solid rgba(255,255,255,0.35);
-        border-radius: 3px;
-        background: rgba(255,255,255,0.15);
-        color: #fff;
-        font-size: 0.58rem;
-        padding: 2px 3px;
-        outline: none;
-        text-align: center;
-    }
-    .col-filter::placeholder { color: rgba(255,255,255,0.5); }
-    .col-filter:focus { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.7); }
-    .filter-row th { padding: 2px 2px !important; }
-    .hist-table tbody tr:nth-child(even) td { background-color: #f8fafc; }
-    .hist-table tbody tr:nth-child(odd) td { background-color: #fff; }
-    .hist-table tbody tr:hover td { background-color: #ede9fe !important; }
-    .td-divider { border-left: 3px solid #7c3aed !important; }
-    .th-divider { border-left: 3px solid rgba(255,255,255,0.5) !important; }
-    .hist-scroll {
-        overflow-x: auto;
-        overflow-y: auto;
-        max-height: 75vh;
-        border-radius: 12px;
         border: 1px solid #e2e8f0;
     }
-    .stats-bar {
-        display: flex;
-        gap: 20px;
-        align-items: center;
-        font-size: 0.85rem;
-        color: #64748b;
-    }
-    .stats-bar strong { color: #334155; }
+    .fact-table tbody tr:nth-child(even) { background: #f8fafc; }
+    .fact-table tbody tr:hover { background: #ede9fe; }
+    .section-header-ship th { background: linear-gradient(135deg, #7c3aed, #6d28d9) !important; color: #fff !important; }
+    .section-header-fact th { background: #ADD8E6 !important; color: #333 !important; }
+    .section-header-cost th { background: linear-gradient(135deg, #059669, #047857) !important; color: #fff !important; }
     .pagination-bar {
         display: flex;
         align-items: center;
@@ -108,108 +67,227 @@
 {% block content %}
 <div class="fade-in">
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="section-title">
                 <i class="bi bi-clock-history me-2"></i>Historial
             </h1>
-            <div class="stats-bar mt-1">
-                <span><strong id="visibleCount">{{ total }}</strong> embarques total</span>
-            </div>
+            <p class="text-muted mt-1">Todos los embarques registrados
+                <span class="badge bg-secondary ms-2">{{ total }} embarques</span>
+            </p>
         </div>
         <div class="d-flex gap-2">
-            <form method="GET" class="d-flex gap-2">
-                <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar cliente..."
-                       value="{{ busqueda }}" style="width: 200px;">
-                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i></button>
-                {% if busqueda %}
-                <a href="{{ url_for('current_status.historial_clientes') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
-                {% endif %}
-            </form>
-            <a href="{{ url_for('current_status.dashboard') }}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>Volver
+            <a href="{{ url_for('current_status.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Dashboard
             </a>
         </div>
     </div>
 
-    {% set SHIP_LABELS = {
-        'ship_date': 'Date', 'transport': 'Transport', 'mark': 'Mark', 'awb': 'AWB', 'client_name': 'Customer',
-        'origin': 'Orig', 'destination': 'Dest', 'airline': 'Airline',
-        'fulles': 'Fulles', 'piezas': 'Piezas', 'pieces_gross': 'Gross', 'volume': 'Vol',
-        'charge': 'Charge', 'phyto': '#Fito', 'dup_phyto': '#Dup.Fito',
-        'c_origin': '#C.O', 'dup_co': '#Dup.C.O', 'termografo': 'Termo',
-        'transmision': 'Trans'
-    } %}
-    {% set FACT_LABELS = {
-        'facturacion': 'Facturac.', 'handling_juni': 'H.Juni',
-        'flete': 'Flete', 'fsc': 'FSC', 'esc': 'ESC', 'due_agent': 'Due Ag.',
-        'due_carrier': 'Due Car.', 'fito_venta': '$Fito', 'co_venta': '$C.Orig',
-        'termografo_venta': '$Termo', 'fitos_venta': 'Fitos V.', 'dup_fito_venta': 'Dup Fito',
-        'co_factura': 'C.Orig', 'dup_co_factura': 'Dup.CO', 'termografo_factura': 'Termo',
-        'transmision_factura': 'Trans.Fact', 'beneficio': 'Benef.', 'beneficio_x_kg': 'Benef/kg'
-    } %}
-    {% set COST_LABELS = {
-        'costos': 'Costos', 'costo_bodega': 'C.Bod', 'costo_guia': 'C.Guia',
-        'flete_costo': 'Flete C.', 'due_carrier_costo': 'DueC.C',
-        'fsc_costo': 'FSC C.', 'esc_costo': 'ESC C.', 'costo_x_kg': 'C/KG',
-        'costo_bod_unit': '$Bod', 'costo_guia_unit': '$Guia',
-        'fito_costo_unit': '$Fito C.', 'co_costo_unit': '$CO C.',
-        'termografo_costo_unit': '$Term C.', 'fitos_costo': 'Fitos C.',
-        'dup_fitos_costo': 'Dup.Fito C.', 'termografo_costo': 'Term.C',
-        'co_costo': 'CO C.', 'dup_co_costo': 'Dup.CO C.',
-        'transmision_costo': 'Trans.C', 'costos_fijos': 'C.Fijos', 'utilidad': 'Utilidad'
-    } %}
+    <!-- Search -->
+    <div class="card mb-4">
+        <div class="card-body py-3">
+            <form method="GET" class="d-flex gap-2">
+                <input type="text" name="q" class="form-control" placeholder="Buscar cliente..."
+                       value="{{ busqueda }}">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i>
+                </button>
+                {% if busqueda %}
+                <a href="{{ url_for('current_status.historial_clientes') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
 
     {% if shipments %}
-    <div class="hist-scroll">
-        <table class="hist-table" id="histTable">
-            <thead>
-                <tr>
-                    {% for f in SHIPMENT_FIELDS %}
-                    <th class="th-ship{% if loop.first %} th-divider{% endif %}">{{ SHIP_LABELS.get(f, f) }}</th>
+    <!-- TABLE: Shipment -->
+    <div class="card mb-4">
+        <div class="card-header section-header-ship" style="color: #fff; border-radius: 20px 20px 0 0; font-size: 1rem;">
+            <i class="bi bi-box-seam me-2"></i>Shipment
+        </div>
+        <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+            <table class="table fact-table mb-0">
+                <thead>
+                    <tr class="section-header-ship">
+                        <th>Date</th>
+                        <th>Transport</th>
+                        <th>Mark</th>
+                        <th>AWB</th>
+                        <th>Customer</th>
+                        <th>Origin</th>
+                        <th>Dest</th>
+                        <th>Airline</th>
+                        <th>Fulles</th>
+                        <th>Piezas</th>
+                        <th>Gross</th>
+                        <th>Volume</th>
+                        <th>Charge</th>
+                        <th>#Fito</th>
+                        <th>#Dup.Fito</th>
+                        <th>#C.O</th>
+                        <th>#Dup.C.O</th>
+                        <th>Termografo</th>
+                        <th>Transmision</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in shipments %}
+                    <tr>
+                        <td>{{ s.ship_date }}</td>
+                        <td>{{ s.transport }}</td>
+                        <td>{{ s.mark }}</td>
+                        <td>{{ s.awb }}</td>
+                        <td style="font-weight:600; color: var(--lux-rose);">{{ s.client_name }}</td>
+                        <td>{{ s.origin }}</td>
+                        <td>{{ s.destination }}</td>
+                        <td>{{ s.airline }}</td>
+                        <td>{{ s.fulles }}</td>
+                        <td>{{ s.piezas }}</td>
+                        <td>{{ s.pieces_gross }}</td>
+                        <td>{{ s.volume }}</td>
+                        <td>{{ s.charge }}</td>
+                        <td>{{ s.phyto }}</td>
+                        <td>{{ s.dup_phyto }}</td>
+                        <td>{{ s.c_origin }}</td>
+                        <td>{{ s.dup_co }}</td>
+                        <td>{{ s.termografo }}</td>
+                        <td>{{ s.transmision }}</td>
+                    </tr>
                     {% endfor %}
-                    {% for f in FACTURA_FIELDS %}
-                    <th class="th-fact{% if loop.first %} th-divider{% endif %}">{{ FACT_LABELS.get(f, f) }}</th>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TABLE: Facturacion -->
+    <div class="card mb-4">
+        <div class="card-header section-header-fact" style="border-radius: 20px 20px 0 0; font-size: 1rem;">
+            <i class="bi bi-receipt me-2"></i>Facturacion
+        </div>
+        <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+            <table class="table fact-table mb-0">
+                <thead>
+                    <tr class="section-header-fact">
+                        <th>Customer</th>
+                        <th>Facturacion</th>
+                        <th>Handling Juni</th>
+                        <th>Flete</th>
+                        <th>FSC</th>
+                        <th>ESC</th>
+                        <th>Due Agent</th>
+                        <th>Due Carrier</th>
+                        <th>$Fito Venta</th>
+                        <th>$C.Origen Venta</th>
+                        <th>$Termografo</th>
+                        <th>Fitos Venta</th>
+                        <th>Dup. Fitos</th>
+                        <th>C. Origen</th>
+                        <th>Dup. C.O</th>
+                        <th>Termografo</th>
+                        <th>Transmision</th>
+                        <th>Beneficio</th>
+                        <th>Benef. x KG</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in shipments %}
+                    <tr>
+                        <td style="font-weight:600; color: var(--lux-rose);">{{ s.client_name }}</td>
+                        <td>{{ s.facturacion }}</td>
+                        <td>{{ s.handling_juni }}</td>
+                        <td>{{ s.flete }}</td>
+                        <td>{{ s.fsc }}</td>
+                        <td>{{ s.esc }}</td>
+                        <td>{{ s.due_agent }}</td>
+                        <td>{{ s.due_carrier }}</td>
+                        <td>{{ s.fito_venta }}</td>
+                        <td>{{ s.co_venta }}</td>
+                        <td>{{ s.termografo_venta }}</td>
+                        <td>{{ s.fitos_venta }}</td>
+                        <td>{{ s.dup_fito_venta }}</td>
+                        <td>{{ s.co_factura }}</td>
+                        <td>{{ s.dup_co_factura }}</td>
+                        <td>{{ s.termografo_factura }}</td>
+                        <td>{{ s.transmision_factura }}</td>
+                        <td>{{ s.beneficio }}</td>
+                        <td>{{ s.beneficio_x_kg }}</td>
+                    </tr>
                     {% endfor %}
-                    {% for f in COSTOS_FIELDS %}
-                    <th class="th-cost{% if loop.first %} th-divider{% endif %}">{{ COST_LABELS.get(f, f) }}</th>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TABLE: Costos y Resultado -->
+    <div class="card mb-4">
+        <div class="card-header section-header-cost" style="color: #fff; border-radius: 20px 20px 0 0; font-size: 1rem;">
+            <i class="bi bi-calculator me-2"></i>Costos y Resultado
+        </div>
+        <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+            <table class="table fact-table mb-0">
+                <thead>
+                    <tr class="section-header-cost">
+                        <th>Customer</th>
+                        <th>Costos</th>
+                        <th>Costo Bodega</th>
+                        <th>Costo Guia</th>
+                        <th>Flete</th>
+                        <th>Due Carrier</th>
+                        <th>FSC</th>
+                        <th>ESC</th>
+                        <th>Costo x KG</th>
+                        <th>$Costo Bod</th>
+                        <th>$Costo Guia</th>
+                        <th>$Fito Costo</th>
+                        <th>$C.Or Costo</th>
+                        <th>$Termografo</th>
+                        <th>Fitos Costo</th>
+                        <th>Dup. Fitos</th>
+                        <th>Termografo</th>
+                        <th>C. Origen</th>
+                        <th>Dup. C.O</th>
+                        <th>Transmisiones</th>
+                        <th>Costos Fijos</th>
+                        <th>Utilidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in shipments %}
+                    <tr>
+                        <td style="font-weight:600; color: var(--lux-rose);">{{ s.client_name }}</td>
+                        <td>{{ s.costos }}</td>
+                        <td>{{ s.costo_bodega }}</td>
+                        <td>{{ s.costo_guia }}</td>
+                        <td>{{ s.flete_costo }}</td>
+                        <td>{{ s.due_carrier_costo }}</td>
+                        <td>{{ s.fsc_costo }}</td>
+                        <td>{{ s.esc_costo }}</td>
+                        <td>{{ s.costo_x_kg }}</td>
+                        <td>{{ s.costo_bod_unit }}</td>
+                        <td>{{ s.costo_guia_unit }}</td>
+                        <td>{{ s.fito_costo_unit }}</td>
+                        <td>{{ s.co_costo_unit }}</td>
+                        <td>{{ s.termografo_costo_unit }}</td>
+                        <td>{{ s.fitos_costo }}</td>
+                        <td>{{ s.dup_fitos_costo }}</td>
+                        <td>{{ s.termografo_costo }}</td>
+                        <td>{{ s.co_costo }}</td>
+                        <td>{{ s.dup_co_costo }}</td>
+                        <td>{{ s.transmision_costo }}</td>
+                        <td>{{ s.costos_fijos }}</td>
+                        <td>{{ s.utilidad }}</td>
+                    </tr>
                     {% endfor %}
-                </tr>
-                <!-- Filter row -->
-                <tr class="filter-row">
-                    {% for f in SHIPMENT_FIELDS %}
-                    <th class="th-ship{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 }}" placeholder="..." oninput="filterTable()"></th>
-                    {% endfor %}
-                    {% for f in FACTURA_FIELDS %}
-                    <th class="th-fact{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 + SHIPMENT_FIELDS|length }}" placeholder="..." oninput="filterTable()"></th>
-                    {% endfor %}
-                    {% for f in COSTOS_FIELDS %}
-                    <th class="th-cost{% if loop.first %} th-divider{% endif %}"><input type="text" class="col-filter" data-col="{{ loop.index0 + SHIPMENT_FIELDS|length + FACTURA_FIELDS|length }}" placeholder="..." oninput="filterTable()"></th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for s in shipments %}
-                <tr>
-                    {% for f in SHIPMENT_FIELDS %}
-                    <td{% if loop.first %} class="td-divider"{% endif %}
-                        {% if f == 'client_name' %} style="font-weight:600; color: var(--lux-rose);"{% endif %}>{{ s[f] if s[f] is defined else (s|attr(f) or '') }}</td>
-                    {% endfor %}
-                    {% for f in FACTURA_FIELDS %}
-                    <td{% if loop.first %} class="td-divider"{% endif %}>{{ s|attr(f) or '' }}</td>
-                    {% endfor %}
-                    {% for f in COSTOS_FIELDS %}
-                    <td{% if loop.first %} class="td-divider"{% endif %}>{{ s|attr(f) or '' }}</td>
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Pagination -->
     {% if total_pages > 1 %}
-    <div class="card mt-3">
+    <div class="card">
         <div class="pagination-bar">
             {% if page > 1 %}
             <a href="{{ url_for('current_status.historial_clientes', q=busqueda, page=1) }}" class="btn btn-sm btn-outline-secondary">
@@ -239,44 +317,14 @@
     {% endif %}
 
     {% else %}
-    <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="bi bi-inbox" style="font-size: 3rem; color: #94a3b8;"></i>
-            <h5 class="mt-3 text-muted">No hay embarques registrados</h5>
-            <p class="text-muted">Sube un archivo de facturacion desde el Dashboard o agrega embarques en cada cliente</p>
-        </div>
+    <div class="empty-state">
+        <i class="bi bi-clock-history"></i>
+        <h5>No hay embarques registrados</h5>
+        <p>Sube un archivo de facturacion desde el Dashboard o agrega embarques en cada cliente</p>
+        <a href="{{ url_for('current_status.dashboard') }}" class="btn btn-primary">
+            <i class="bi bi-arrow-left"></i> Ir al Dashboard
+        </a>
     </div>
     {% endif %}
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function filterTable() {
-    const filters = {};
-    document.querySelectorAll('.col-filter').forEach(input => {
-        const v = input.value.trim().toLowerCase();
-        if (v) filters[parseInt(input.dataset.col)] = v;
-    });
-
-    const rows = document.querySelectorAll('#histTable tbody tr');
-    let visible = 0;
-
-    rows.forEach(tr => {
-        const cells = tr.querySelectorAll('td');
-        let show = true;
-        for (const [col, val] of Object.entries(filters)) {
-            const cell = cells[parseInt(col)];
-            if (cell && !cell.textContent.trim().toLowerCase().includes(val)) {
-                show = false;
-                break;
-            }
-        }
-        tr.style.display = show ? '' : 'none';
-        if (show) visible++;
-    });
-
-    document.getElementById('visibleCount').textContent = visible;
-}
-</script>
 {% endblock %}
