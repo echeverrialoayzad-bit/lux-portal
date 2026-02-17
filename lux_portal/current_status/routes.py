@@ -62,7 +62,49 @@ def nuevo_cliente():
 def detalle_cliente(id):
     """Ver detalle del cliente con tablas editables"""
     cliente = StatusClient.query.get_or_404(id)
+    _migrate_legacy_addcosts(cliente)
     return render_template('current_status/detail.html', cliente=cliente)
+
+
+def _migrate_legacy_addcosts(cliente):
+    """Convert legacy additional_costs columns to addcosts array in extra_data."""
+    import re
+    dirty = False
+    for rate in cliente.rates:
+        extra = rate.get_extra()
+        if extra.get('addcosts'):
+            continue  # already migrated
+        names_str = (rate.additional_costs or '').strip()
+        values_str = (rate.additional_costs_value or '').strip()
+        if not names_str and not values_str:
+            continue
+        # Parse values: split by $ sign to get individual amounts
+        values = re.findall(r'\$?([\d.,]+)', values_str)
+        n_values = len(values) if values else 1
+        # Parse names: split by spaces, last (n-1) tokens are individual names,
+        # remaining tokens joined form the first name
+        name_tokens = names_str.split() if names_str else []
+        if n_values <= 1:
+            names = [names_str]
+        elif len(name_tokens) <= n_values:
+            names = name_tokens
+        else:
+            tail = name_tokens[-(n_values - 1):]
+            head = ' '.join(name_tokens[:len(name_tokens) - (n_values - 1)])
+            names = [head] + tail
+        # Build addcosts array
+        addcosts = []
+        for i in range(max(len(names), len(values))):
+            name = names[i] if i < len(names) else ''
+            val = values[i] if i < len(values) else ''
+            addcosts.append({'name': name, 'value': val})
+        extra['addcosts'] = addcosts
+        rate.extra_data = json.dumps(extra)
+        rate.additional_costs = ''
+        rate.additional_costs_value = ''
+        dirty = True
+    if dirty:
+        db.session.commit()
 
 
 # ===================== API: CLIENT =====================
@@ -233,9 +275,17 @@ COSTOS_FIELDS = ['costos', 'costo_bodega', 'costo_guia', 'flete_costo', 'due_car
 @current_status_bp.route('/api/client/<int:id>/shipment', methods=['POST'])
 @login_required
 def agregar_shipment(id):
-    StatusClient.query.get_or_404(id)
+    client = StatusClient.query.get_or_404(id)
     shipment = ClientShipment(
         client_id=id,
+        mark='NO',
+        client_name=client.nombre.upper() if client.nombre else '',
+        phyto='1',
+        dup_phyto='0',
+        c_origin='1',
+        dup_co='0',
+        termografo='0',
+        transmision='1',
         fito_venta='2.50',
         co_venta='15',
         termografo_venta='35',
