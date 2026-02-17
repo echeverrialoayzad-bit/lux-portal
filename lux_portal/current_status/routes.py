@@ -685,6 +685,185 @@ def upload_excel(id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ===================== UPLOAD FACTURACION (BULK) =====================
+
+@current_status_bp.route('/api/upload-facturacion', methods=['POST'])
+@login_required
+def upload_facturacion():
+    """Upload FACTURACION Excel and assign shipment data to clients by CUSTOMER match."""
+    from openpyxl import load_workbook
+    from collections import defaultdict
+    from datetime import date as date_type
+
+    file = request.files.get('file')
+    if not file or not file.filename.endswith(('.xlsx', '.xls')):
+        return jsonify({'success': False, 'error': 'Archivo Excel requerido (.xlsx)'}), 400
+
+    try:
+        wb = load_workbook(file, data_only=True)
+        ws = wb['TOTAL OPERACION'] if 'TOTAL OPERACION' in wb.sheetnames else wb.active
+
+        # --- Parse headers (row 1) ---
+        headers = None
+        customer_col = None
+        col_map = {}
+        valid_fields = set(SHIPMENT_FIELDS + FACTURA_FIELDS + COSTOS_FIELDS)
+
+        def _cell_to_str(val):
+            if val is None:
+                return ''
+            if isinstance(val, (datetime, date_type)):
+                return val.strftime('%d/%m/%Y')
+            if isinstance(val, float):
+                return str(int(val)) if val == int(val) else f'{val:.2f}'
+            if isinstance(val, int):
+                return str(val)
+            s = str(val).strip()
+            return '' if s == 'None' else s
+
+        customers_data = defaultdict(list)
+
+        for row_idx, row in enumerate(ws.iter_rows(values_only=True)):
+            if row_idx == 0:
+                # Parse headers
+                headers = [str(c or '').strip().upper() for c in row]
+                # Find CUSTOMER column
+                for i, h in enumerate(headers):
+                    if 'CUSTOMER' in h or 'CLIENTE' in h:
+                        customer_col = i
+                        break
+                if customer_col is None:
+                    return jsonify({'success': False, 'error': 'No se encontró columna CUSTOMER/CLIENTE'}), 400
+
+                # Find section boundaries
+                factura_col = costos_col = beneficio_col = None
+                for i, h in enumerate(headers):
+                    if factura_col is None and ('FACTURACION' in h or 'FACTURACIÓN' in h):
+                        factura_col = i
+                    elif factura_col is not None and costos_col is None and h == 'COSTOS':
+                        costos_col = i
+                    elif costos_col is not None and beneficio_col is None and h == 'BENEFICIO':
+                        beneficio_col = i
+
+                # --- Shipment section (before FACTURACION) ---
+                ship_map = {
+                    'FECHA': 'ship_date', 'TRANSPORT': 'transport', 'MARK': 'mark',
+                    'AWB': 'awb', 'ORIGIN': 'origin', 'DEST': 'destination',
+                    'AIRLINE': 'airline', 'FULL': 'fulles', 'PIECES': 'piezas',
+                    'GROSS': 'pieces_gross', 'VOL': 'volume', 'CHARGE': 'charge',
+                }
+                end_ship = factura_col or len(headers)
+                for i in range(end_ship):
+                    h = headers[i]
+                    if h in ship_map:
+                        col_map[i] = ship_map[h]
+                    elif 'DUP' in h and 'FITO' in h:
+                        col_map[i] = 'dup_phyto'
+                    elif 'FITO' in h and 'phyto' not in col_map.values():
+                        col_map[i] = 'phyto'
+                    elif 'DUP' in h and ('C.' in h or 'ORIGEN' in h):
+                        col_map[i] = 'dup_co'
+                    elif ('C. ORIGEN' in h or 'C.ORIGEN' in h) and 'c_origin' not in col_map.values():
+                        col_map[i] = 'c_origin'
+                    elif ('TERMOGRAFO' in h or 'TERMÓGRAFO' in h) and 'termografo' not in col_map.values():
+                        col_map[i] = 'termografo'
+                    elif 'TRANSMISI' in h and 'transmision' not in col_map.values():
+                        col_map[i] = 'transmision'
+
+                # --- Facturacion section (positional) ---
+                if factura_col is not None:
+                    end_fact = costos_col or len(headers)
+                    fact_fields = ['facturacion', 'handling_juni', 'flete', 'fsc', 'esc',
+                                   'due_agent', 'due_carrier', 'fito_venta', 'co_venta',
+                                   'termografo_venta', 'fitos_venta', 'dup_fito_venta',
+                                   'co_factura', 'dup_co_factura', 'termografo_factura',
+                                   'transmision_factura']
+                    for j, i in enumerate(range(factura_col, end_fact)):
+                        if j < len(fact_fields):
+                            col_map[i] = fact_fields[j]
+
+                # --- Costos section (positional) ---
+                if costos_col is not None:
+                    end_cost = beneficio_col or len(headers)
+                    cost_fields = ['costos', 'costo_bodega', 'costo_guia', 'flete_costo',
+                                   'due_carrier_costo', 'fsc_costo', 'esc_costo', 'costo_x_kg',
+                                   'costo_bod_unit', 'costo_guia_unit', 'fito_costo_unit',
+                                   'co_costo_unit', 'termografo_costo_unit', 'fitos_costo',
+                                   'dup_fitos_costo', 'termografo_costo', 'co_costo', 'dup_co_costo',
+                                   'transmision_costo']
+                    for j, i in enumerate(range(costos_col, end_cost)):
+                        if j < len(cost_fields):
+                            col_map[i] = cost_fields[j]
+
+                # --- Results section (from BENEFICIO) ---
+                if beneficio_col is not None:
+                    res_fields = ['beneficio', 'beneficio_x_kg', 'costos_fijos', 'utilidad']
+                    for j, i in enumerate(range(beneficio_col, min(beneficio_col + len(res_fields), len(headers)))):
+                        if j < len(res_fields):
+                            col_map[i] = res_fields[j]
+                continue
+
+            # --- Process data rows ---
+            cells = list(row)
+            if customer_col >= len(cells):
+                continue
+            customer = _cell_to_str(cells[customer_col])
+            if not customer:
+                continue
+
+            row_data = {'client_name': customer}
+            for ci, field in col_map.items():
+                if field not in valid_fields:
+                    continue
+                if ci < len(cells):
+                    row_data[field] = _cell_to_str(cells[ci])
+            customers_data[customer.strip().upper()].append(row_data)
+
+        # --- Find or create clients, add shipments ---
+        created = []
+        updated = []
+        total_shipments = 0
+
+        for customer_key, rows in customers_data.items():
+            client = StatusClient.query.filter(
+                db.func.upper(StatusClient.nombre) == customer_key,
+                StatusClient.activo == True
+            ).first()
+
+            if client:
+                updated.append(client.nombre)
+            else:
+                client = StatusClient(nombre=rows[0]['client_name'])
+                db.session.add(client)
+                db.session.flush()
+                created.append(rows[0]['client_name'])
+
+            for row_data in rows:
+                shipment = ClientShipment(client_id=client.id)
+                for field, val in row_data.items():
+                    if hasattr(shipment, field):
+                        setattr(shipment, field, val)
+                db.session.add(shipment)
+                total_shipments += 1
+
+            if total_shipments % 1000 == 0:
+                db.session.flush()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'created': created,
+            'updated': updated,
+            'total_shipments': total_shipments,
+            'total_clients': len(created) + len(updated)
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ===================== EXPORT HELPERS =====================
 
 def _fmt_dollar(val):

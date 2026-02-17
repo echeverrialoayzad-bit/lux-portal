@@ -48,6 +48,12 @@
                 <i class="bi bi-file-earmark-pdf"></i> PDF
             </a>
             {% endif %}
+            <button class="btn btn-outline-success" id="btnUploadFact"
+                    onclick="document.getElementById('facturacionUpload').click()">
+                <i class="bi bi-upload"></i> Subir Facturación
+            </button>
+            <input type="file" id="facturacionUpload" accept=".xlsx,.xls" style="display:none"
+                   onchange="uploadFacturacion(this)">
             <a href="{{ url_for('current_status.historial_clientes') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-clock-history"></i> Historial
             </a>
@@ -168,6 +174,46 @@ function eliminarCliente(id, nombre) {
     .then(r => r.json())
     .then(data => {
         if (data.success) location.reload();
+    });
+}
+
+function uploadFacturacion(input) {
+    if (!input.files.length) return;
+    const file = input.files[0];
+    if (!confirm(`¿Subir "${file.name}" y asignar datos de embarque a los clientes?\nEsto puede tomar unos minutos para archivos grandes.`)) {
+        input.value = '';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const btn = document.getElementById('btnUploadFact');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Procesando...';
+    btn.disabled = true;
+
+    fetch('{{ url_for("current_status.upload_facturacion") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            let msg = `Carga exitosa!\n\nEmbarques creados: ${data.total_shipments}\nClientes: ${data.total_clients}`;
+            if (data.created.length) msg += `\n\nClientes nuevos:\n- ${data.created.join('\n- ')}`;
+            if (data.updated.length) msg += `\n\nClientes existentes actualizados:\n- ${data.updated.join('\n- ')}`;
+            alert(msg);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(err => alert('Error al subir: ' + err.message))
+    .finally(() => {
+        btn.innerHTML = orig;
+        btn.disabled = false;
+        input.value = '';
     });
 }
 </script>
