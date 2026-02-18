@@ -18,6 +18,9 @@ import os
 import io
 import re
 
+# Importar funciones de traduccion del excel_generator
+from lux_portal.cotizaciones.utils.excel_generator import detectar_idioma, traducir_texto_auto
+
 # Ruta del logo (relativa al proyecto)
 def get_logo_path():
     """Obtiene la ruta del logo de forma compatible con cualquier entorno."""
@@ -228,7 +231,19 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                 ri_amounts = ''
                 ri_dates = ''
 
-            notas_texto = aero.get('notas', '')
+            notas_originales = aero.get('notas', '')
+            if idioma == 'en':
+                idioma_notas = detectar_idioma(notas_originales)
+                if idioma_notas == 'es':
+                    notas_texto = traducir_texto_auto(notas_originales, 'en')
+                else:
+                    notas_texto = notas_originales
+            else:
+                idioma_notas = detectar_idioma(notas_originales)
+                if idioma_notas == 'en':
+                    notas_texto = traducir_texto_auto(notas_originales, 'es')
+                else:
+                    notas_texto = notas_originales
 
             # Usar Paragraph para cargos, notas, rate increase y date (word-wrap)
             cargos_para = _make_cell_paragraph(cargos_texto, font_size=6, alignment=TA_CENTER, text_color=text_color)
