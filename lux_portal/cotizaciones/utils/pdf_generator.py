@@ -143,7 +143,7 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     elements.append(ruta_table)
 
     # Encabezados de tabla
-    col_proportions = [0.07, 0.05, 0.09, 0.05, 0.06, 0.06, 0.06, 0.04, 0.05, 0.04, 0.05, 0.11, 0.02, 0.04, 0.21]
+    col_proportions = [0.07, 0.05, 0.08, 0.05, 0.06, 0.06, 0.06, 0.04, 0.05, 0.06, 0.07, 0.10, 0.02, 0.04, 0.19]
     col_widths = [available_width * p for p in col_proportions]
 
     if idioma == 'es':
@@ -230,9 +230,11 @@ def _generar_elementos_pdf(datos, idioma, available_width):
 
             notas_texto = aero.get('notas', '')
 
-            # Usar Paragraph para cargos y notas (word-wrap)
+            # Usar Paragraph para cargos, notas, rate increase y date (word-wrap)
             cargos_para = _make_cell_paragraph(cargos_texto, font_size=6, alignment=TA_CENTER, text_color=text_color)
             notas_para = _make_cell_paragraph(notas_texto, font_size=6, alignment=TA_CENTER, text_color=text_color)
+            ri_amounts_para = _make_cell_paragraph(ri_amounts, font_size=6, alignment=TA_CENTER, text_color=text_color)
+            ri_dates_para = _make_cell_paragraph(ri_dates, font_size=6, alignment=TA_CENTER, text_color=text_color)
 
             row = [
                 aero.get('aerolinea', ''),
@@ -244,8 +246,8 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                 llegada,
                 kg_texto,
                 tarifa_texto,
-                ri_amounts,
-                ri_dates,
+                ri_amounts_para,
+                ri_dates_para,
                 cargos_para,
                 '',
                 '',
