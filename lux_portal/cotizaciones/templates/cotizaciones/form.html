@@ -286,6 +286,18 @@
                     </button>
                 </div>
 
+                <!-- Rate Increases -->
+                <div class="col-12">
+                    <label class="form-label">Rate Increase</label>
+                    <div class="rate-increases-container">
+                        <!-- Rate increase rows go here -->
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2"
+                            onclick="agregarRateIncrease(this)">
+                        <i class="bi bi-plus me-1"></i>Agregar Aumento
+                    </button>
+                </div>
+
                 <!-- Cargos Adicionales -->
                 <div class="col-12">
                     <label class="form-label">Cargos Adicionales</label>
@@ -348,6 +360,24 @@
         <input type="text" class="form-control form-control-sm cargo-monto formula-input" style="width: 100px;">
         <button type="button" class="btn btn-outline-danger btn-sm cargo-delete d-none"
                 onclick="eliminarCargo(this)">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>
+</template>
+
+<!-- Template para Rate Increase Row -->
+<template id="rateIncreaseTemplate">
+    <div class="rate-increase-row d-flex align-items-center gap-2">
+        <div class="flex-grow-1">
+            <label class="form-label small mb-1">Aumento</label>
+            <input type="text" class="form-control form-control-sm increase-amount formula-input" placeholder="0.30">
+        </div>
+        <div class="flex-grow-1">
+            <label class="form-label small mb-1">Fecha</label>
+            <input type="text" class="form-control form-control-sm increase-date" placeholder="01/03/2025">
+        </div>
+        <button type="button" class="btn btn-outline-danger btn-sm align-self-end"
+                onclick="eliminarRateIncrease(this)">
             <i class="bi bi-trash"></i>
         </button>
     </div>
@@ -716,6 +746,15 @@ function cargarDatosItinerario(itinCard, datos) {
         agregarKgRate(kgRatesContainer.closest('.col-12').querySelector('button'));
     }
 
+    // Rate increases
+    const riContainer = itinCard.querySelector('.rate-increases-container');
+    riContainer.innerHTML = '';
+    if (datos.rate_increases && datos.rate_increases.length > 0) {
+        datos.rate_increases.forEach(ri => {
+            agregarRateIncrease(riContainer.closest('.col-12').querySelector('button'), ri);
+        });
+    }
+
     const cargosContainer = itinCard.querySelector('.cargos-container');
     cargosContainer.innerHTML = '';
     cargarCargosEnItinerario(itinCard, datos.cargos_adicionales || []);
@@ -831,6 +870,23 @@ function eliminarKgRate(btn) {
     } else {
         alert('Debe haber al menos un rango de KG');
     }
+}
+
+function agregarRateIncrease(btn, datos = null) {
+    const container = btn.closest('.col-12').querySelector('.rate-increases-container');
+    const template = document.getElementById('rateIncreaseTemplate');
+    const clone = template.content.cloneNode(true);
+    const row = clone.querySelector('.rate-increase-row');
+    if (datos) {
+        row.querySelector('.increase-amount').value = datos.amount || '';
+        row.querySelector('.increase-date').value = datos.date || '';
+    }
+    attachFormulaHandlers(row.querySelector('.increase-amount'));
+    container.appendChild(clone);
+}
+
+function eliminarRateIncrease(btn) {
+    btn.closest('.rate-increase-row').remove();
 }
 
 function calcularPrecioFinal(row) {
@@ -972,6 +1028,15 @@ function recopilarDatos() {
                 }
             });
 
+            const rateIncreases = [];
+            itinCard.querySelectorAll('.rate-increase-row').forEach(row => {
+                const amount = row.querySelector('.increase-amount').value.replace(/[$,]/g, '').trim();
+                const date = row.querySelector('.increase-date').value.trim();
+                if (amount || date) {
+                    rateIncreases.push({ amount, date });
+                }
+            });
+
             const diasMapping = { 'LUN': 0, 'MAR': 1, 'MIE': 2, 'JUE': 3, 'VIE': 4, 'SAB': 5, 'DOM': 6 };
             const diasSemana = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
             const diasFarms = diasSalida.map(dia => {
@@ -996,6 +1061,7 @@ function recopilarDatos() {
                 salida: diasSalida.join('\n') + '\n' + itinCard.querySelector('.departure-time').value,
                 llegada: diasLlegada.join('\n') + '\n' + itinCard.querySelector('.arrival-time').value,
                 kg_rates: kgRates,
+                rate_increases: rateIncreases,
                 cargos_adicionales: cargos,
                 notas: itinCard.querySelector('.notas-text').value,
                 es_continuacion: idx > 0

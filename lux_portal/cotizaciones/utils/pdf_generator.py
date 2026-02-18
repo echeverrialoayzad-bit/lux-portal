@@ -143,15 +143,17 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     elements.append(ruta_table)
 
     # Encabezados de tabla
-    col_proportions = [0.08, 0.06, 0.10, 0.06, 0.07, 0.07, 0.07, 0.04, 0.05, 0.12, 0.02, 0.04, 0.22]
+    col_proportions = [0.07, 0.05, 0.09, 0.05, 0.06, 0.06, 0.06, 0.04, 0.05, 0.04, 0.05, 0.11, 0.02, 0.04, 0.21]
     col_widths = [available_width * p for p in col_proportions]
 
     if idioma == 'es':
         enc_simple = ['AEROLINEA', 'VUELO', 'ITINERARIO', 'TIEMPO\nTRANSITO', 'FINCAS\nENTREGA',
-                      'SALIDA', 'LLEGADA', 'KG', 'TARIFA', 'CARGOS ADICIONALES', '', '', 'NOTAS']
+                      'SALIDA', 'LLEGADA', 'KG', 'TARIFA', 'AUMENTO\nTARIFA', 'FECHA',
+                      'CARGOS ADICIONALES', '', '', 'NOTAS']
     else:
         enc_simple = ['AIRLINE', 'FLIGHT', 'ITINERARY', 'TRANSIT\nTIME', 'FARMS\nDELIVER',
-                      'DEPARTURE', 'ARRIVAL', 'KG', 'RATE', 'ADD CHARGES', '', '', 'NOTES']
+                      'DEPARTURE', 'ARRIVAL', 'KG', 'RATE', 'RATE\nINCREASE', 'DATE',
+                      'ADD CHARGES', '', '', 'NOTES']
 
     enc_header_data = [enc_simple]
     enc_header_table = Table(enc_header_data, colWidths=col_widths)
@@ -165,7 +167,7 @@ def _generar_elementos_pdf(datos, idioma, available_width):
         ('TOPPADDING', (0, 0), (-1, -1), 4),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('GRID', (0, 0), (-1, -1), 0.5, WHITE_COLOR),
-        ('SPAN', (9, 0), (11, 0)),
+        ('SPAN', (11, 0), (13, 0)),
     ]))
     elements.append(enc_header_table)
 
@@ -217,6 +219,15 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                 salida = traducir_dias(salida, a_ingles=True)
                 llegada = traducir_dias(llegada, a_ingles=True)
 
+            # Rate increases
+            rate_increases = aero.get('rate_increases', [])
+            if rate_increases:
+                ri_amounts = '\n'.join([f"${ri.get('amount', '')}" for ri in rate_increases if ri.get('amount')])
+                ri_dates = '\n'.join([ri.get('date', '') for ri in rate_increases if ri.get('date')])
+            else:
+                ri_amounts = ''
+                ri_dates = ''
+
             notas_texto = aero.get('notas', '')
 
             # Usar Paragraph para cargos y notas (word-wrap)
@@ -233,6 +244,8 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                 llegada,
                 kg_texto,
                 tarifa_texto,
+                ri_amounts,
+                ri_dates,
                 cargos_para,
                 '',
                 '',
@@ -258,7 +271,7 @@ def _generar_elementos_pdf(datos, idioma, available_width):
             for row_idx, (bg, txt) in enumerate(row_colors):
                 style_cmds.append(('BACKGROUND', (0, row_idx), (-1, row_idx), bg))
                 style_cmds.append(('TEXTCOLOR', (0, row_idx), (-1, row_idx), txt))
-                style_cmds.append(('SPAN', (9, row_idx), (11, row_idx)))
+                style_cmds.append(('SPAN', (11, row_idx), (13, row_idx)))
 
             # Fusionar columna A y columna NOTAS para rutas multiples de misma aerolinea
             idx_aero = 0
@@ -275,9 +288,9 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                         # Fusionar notas si son iguales en el grupo
                         notas_grupo = [aerolineas[idx_aero + k].get('notas', '') for k in range(num_filas)]
                         if len(set(notas_grupo)) == 1:
-                            style_cmds.append(('SPAN', (12, idx_aero), (12, idx_aero + num_filas - 1)))
+                            style_cmds.append(('SPAN', (14, idx_aero), (14, idx_aero + num_filas - 1)))
                             for k in range(1, num_filas):
-                                table_data[idx_aero + k][12] = ''
+                                table_data[idx_aero + k][14] = ''
                     idx_aero += num_filas
                 else:
                     idx_aero += 1
@@ -311,23 +324,23 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     fw_data = []
     for cargo in cargos_fw:
         concepto = cargo['concepto_es'] if idioma == 'es' else cargo['concepto_en']
-        fw_data.append(['', '', '', '', concepto, '', '', '', '', f"$ {cargo['monto']}", '', '', ''])
+        fw_data.append(['', '', '', '', concepto, '', '', '', '', '', '', f"$ {cargo['monto']}", '', '', ''])
 
     fw_table = Table(fw_data, colWidths=col_widths)
     fw_table.setStyle(TableStyle([
         ('ALIGN', (4, 0), (4, -1), 'CENTER'),
-        ('ALIGN', (5, 0), (5, -1), 'CENTER'),
+        ('ALIGN', (11, 0), (11, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('TOPPADDING', (0, 0), (-1, -1), 3),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('BOX', (0, 0), (-1, -1), 0.5, BLACK_COLOR),
-        ('SPAN', (4, 0), (8, 0)),
-        ('SPAN', (4, 1), (8, 1)),
-        ('SPAN', (4, 2), (8, 2)),
-        ('SPAN', (9, 0), (11, 0)),
-        ('SPAN', (9, 1), (11, 1)),
-        ('SPAN', (9, 2), (11, 2)),
+        ('SPAN', (4, 0), (10, 0)),
+        ('SPAN', (4, 1), (10, 1)),
+        ('SPAN', (4, 2), (10, 2)),
+        ('SPAN', (11, 0), (13, 0)),
+        ('SPAN', (11, 1), (13, 1)),
+        ('SPAN', (11, 2), (13, 2)),
     ]))
     elements.append(fw_table)
 

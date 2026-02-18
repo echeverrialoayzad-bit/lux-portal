@@ -91,7 +91,7 @@ def auto_ajustar_columnas_y_filas(ws, fila_inicio, fila_fin):
     """Ajusta automaticamente el ancho de columnas y alto de filas."""
     from openpyxl.cell.cell import MergedCell
 
-    for col_idx in range(1, 14):
+    for col_idx in range(1, 16):
         column_letter = get_column_letter(col_idx)
         max_length = 0
 
@@ -110,7 +110,7 @@ def auto_ajustar_columnas_y_filas(ws, fila_inicio, fila_fin):
                 pass
 
         if max_length > 0:
-            if column_letter in ['J', 'M']:
+            if column_letter in ['L', 'O']:
                 adjusted_width = min(max(max_length + 2, 15), 65)
             else:
                 adjusted_width = min(max(max_length + 2, 10), 35)
@@ -118,7 +118,7 @@ def auto_ajustar_columnas_y_filas(ws, fila_inicio, fila_fin):
 
     for row_idx in range(fila_inicio, fila_fin + 1):
         max_lines = 1
-        for col_idx in range(1, 14):
+        for col_idx in range(1, 16):
             try:
                 cell = ws.cell(row=row_idx, column=col_idx)
                 if isinstance(cell, MergedCell):
@@ -142,7 +142,7 @@ def generar_hoja(ws, datos, idioma='es'):
 
     # Configurar ancho de columnas
     anchos = {'A': 20, 'B': 15, 'C': 30, 'D': 15, 'E': 18, 'F': 18, 'G': 18,
-              'H': 12, 'I': 15, 'J': 35, 'K': 3, 'L': 12, 'M': 50}
+              'H': 12, 'I': 15, 'J': 12, 'K': 12, 'L': 35, 'M': 3, 'N': 12, 'O': 50}
     for col, width in anchos.items():
         ws.column_dimensions[col].width = width
 
@@ -152,7 +152,7 @@ def generar_hoja(ws, datos, idioma='es'):
         img_logo = Image(logo_path)
         img_logo.width = 264
         img_logo.height = 37
-        ws.add_image(img_logo, 'L2')
+        ws.add_image(img_logo, 'N2')
 
     # Textos segun idioma
     if idioma == 'es':
@@ -162,7 +162,8 @@ def generar_hoja(ws, datos, idioma='es'):
         cliente_label = 'CLIENTE'
         mercancia_label = 'MERCANCIA'
         encabezados = ['AEROLINEA', 'VUELO', 'ITINERARIO', 'TIEMPO\nTRANSITO', 'FINCAS\nENTREGA',
-                       'SALIDA', 'LLEGADA', 'KG', 'TARIFA', 'CARGOS ADICIONALES', '', '', 'NOTAS']
+                       'SALIDA', 'LLEGADA', 'KG', 'TARIFA', 'AUMENTO\nTARIFA', 'FECHA',
+                       'CARGOS ADICIONALES', '', '', 'NOTAS']
     else:
         titulo = 'A I R F R E I G H T   Q U O T A T I O N'
         contacto_label = 'FreightWise Contact'
@@ -170,7 +171,8 @@ def generar_hoja(ws, datos, idioma='es'):
         cliente_label = 'CUSTOMER'
         mercancia_label = 'COMMODITY'
         encabezados = ['AIRLINE', 'FLIGHT', 'ITINERARY', 'TRANSIT\nTIME', 'FARMS\nDELIVER',
-                       'DEPARTURE', 'ARRIVAL', 'KG', 'RATE', 'ADD CHARGES', '', '', 'NOTES']
+                       'DEPARTURE', 'ARRIVAL', 'KG', 'RATE', 'RATE\nINCREASE', 'DATE',
+                       'ADD CHARGES', '', '', 'NOTES']
 
     # Titulo principal
     ws['A1'] = titulo
@@ -178,32 +180,32 @@ def generar_hoja(ws, datos, idioma='es'):
     ws.merge_cells('A1:G1')
 
     # Informacion de contacto
-    ws['K3'] = contacto_label
-    ws['K3'].font = Font(name='Arial', size=9)
-    ws['K3'].alignment = Alignment(horizontal='right')
+    ws['M3'] = contacto_label
+    ws['M3'].font = Font(name='Arial', size=9)
+    ws['M3'].alignment = Alignment(horizontal='right')
 
-    ws['L3'] = datos.get('contacto_nombre', '')
-    ws['L3'].font = Font(name='Arial', size=9)
-    ws.merge_cells('L3:M3')
-    ws['L3'].alignment = Alignment(horizontal='right')
+    ws['N3'] = datos.get('contacto_nombre', '')
+    ws['N3'].font = Font(name='Arial', size=9)
+    ws.merge_cells('N3:O3')
+    ws['N3'].alignment = Alignment(horizontal='right')
 
-    ws['K4'] = "eMail"
-    ws['K4'].font = Font(name='Arial', size=9)
-    ws['K4'].alignment = Alignment(horizontal='right')
+    ws['M4'] = "eMail"
+    ws['M4'].font = Font(name='Arial', size=9)
+    ws['M4'].alignment = Alignment(horizontal='right')
 
-    ws['L4'] = datos.get('contacto_email', '')
-    ws['L4'].font = Font(name='Arial', size=9, color='0000FF', underline='single')
-    ws.merge_cells('L4:M4')
-    ws['L4'].alignment = Alignment(horizontal='right')
+    ws['N4'] = datos.get('contacto_email', '')
+    ws['N4'].font = Font(name='Arial', size=9, color='0000FF', underline='single')
+    ws.merge_cells('N4:O4')
+    ws['N4'].alignment = Alignment(horizontal='right')
 
-    ws['K5'] = valido_label
-    ws['K5'].font = Font(name='Arial', size=9)
-    ws['K5'].alignment = Alignment(horizontal='right')
+    ws['M5'] = valido_label
+    ws['M5'].font = Font(name='Arial', size=9)
+    ws['M5'].alignment = Alignment(horizontal='right')
 
-    ws['L5'] = datos.get('valid_from', datetime.now().strftime('%m/%d/%Y'))
-    ws['L5'].font = Font(name='Arial', size=9)
-    ws.merge_cells('L5:M5')
-    ws['L5'].alignment = Alignment(horizontal='right')
+    ws['N5'] = datos.get('valid_from', datetime.now().strftime('%m/%d/%Y'))
+    ws['N5'].font = Font(name='Arial', size=9)
+    ws.merge_cells('N5:O5')
+    ws['N5'].alignment = Alignment(horizontal='right')
 
     # Informacion del cliente
     ws['A3'] = cliente_label
@@ -235,7 +237,7 @@ def generar_hoja(ws, datos, idioma='es'):
     ws[f'A{fila_ruta}'] = datos.get('ruta', '')
     ws[f'A{fila_ruta}'].font = Font(name='Arial', size=11, color='FFFFFF')
     ws[f'A{fila_ruta}'].fill = PatternFill(start_color='5f259f', end_color='5f259f', fill_type='solid')
-    ws.merge_cells(f'A{fila_ruta}:M{fila_ruta}')
+    ws.merge_cells(f'A{fila_ruta}:O{fila_ruta}')
     ws[f'A{fila_ruta}'].alignment = Alignment(horizontal='center', vertical='center')
     ws.row_dimensions[fila_ruta].height = 25
 
@@ -258,7 +260,7 @@ def generar_hoja(ws, datos, idioma='es'):
         celda.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         celda.border = border
 
-    ws.merge_cells(f'J{fila_enc}:L{fila_enc}')
+    ws.merge_cells(f'L{fila_enc}:N{fila_enc}')
     ws.row_dimensions[fila_enc].height = 30
 
     # Datos de la cotizacion
@@ -396,7 +398,28 @@ def generar_hoja(ws, datos, idioma='es'):
         ws[f'I{fila_inicio}'].fill = fill_color
         ws[f'I{fila_inicio}'].font = Font(name='Arial', size=9, color=texto_color)
 
-        # Cargos adicionales
+        # Rate Increases (J = Aumento Tarifa, K = Fecha)
+        rate_increases = aerolinea_datos.get('rate_increases', [])
+        if rate_increases:
+            ri_amounts = '\n'.join([f"${ri.get('amount', '')}" for ri in rate_increases if ri.get('amount')])
+            ri_dates = '\n'.join([ri.get('date', '') for ri in rate_increases if ri.get('date')])
+        else:
+            ri_amounts = ''
+            ri_dates = ''
+
+        ws[f'J{fila_inicio}'] = ri_amounts
+        ws[f'J{fila_inicio}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        ws.merge_cells(f'J{fila_inicio}:J{fila_inicio+num_filas_cargos-1}')
+        ws[f'J{fila_inicio}'].fill = fill_color
+        ws[f'J{fila_inicio}'].font = Font(name='Arial', size=9, color=texto_color)
+
+        ws[f'K{fila_inicio}'] = ri_dates
+        ws[f'K{fila_inicio}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        ws.merge_cells(f'K{fila_inicio}:K{fila_inicio+num_filas_cargos-1}')
+        ws[f'K{fila_inicio}'].fill = fill_color
+        ws[f'K{fila_inicio}'].font = Font(name='Arial', size=9, color=texto_color)
+
+        # Cargos adicionales (shifted to L, M-N)
         cargos = aerolinea_datos.get('cargos_adicionales', [])
         if idioma == 'en':
             cargos_traducidos = []
@@ -416,22 +439,22 @@ def generar_hoja(ws, datos, idioma='es'):
         for i in range(num_filas_cargos):
             cargo = cargos[i] if i < len(cargos) else {'concepto': '', 'monto': ''}
 
-            ws[f'J{fila_cargo}'] = cargo.get('concepto', '')
-            ws[f'J{fila_cargo}'].alignment = Alignment(horizontal='left', vertical='center')
+            ws[f'L{fila_cargo}'] = cargo.get('concepto', '')
+            ws[f'L{fila_cargo}'].alignment = Alignment(horizontal='left', vertical='center')
 
             monto_texto = f"$ {cargo.get('monto', '')}" if cargo.get('monto') else ''
-            ws[f'K{fila_cargo}'] = monto_texto
-            ws.merge_cells(f'K{fila_cargo}:L{fila_cargo}')
-            ws[f'K{fila_cargo}'].alignment = Alignment(horizontal='right', vertical='center')
+            ws[f'M{fila_cargo}'] = monto_texto
+            ws.merge_cells(f'M{fila_cargo}:N{fila_cargo}')
+            ws[f'M{fila_cargo}'].alignment = Alignment(horizontal='right', vertical='center')
 
-            ws[f'J{fila_cargo}'].fill = fill_color
-            ws[f'K{fila_cargo}'].fill = fill_color
-            ws[f'J{fila_cargo}'].font = Font(name='Arial', size=9, color=texto_color)
-            ws[f'K{fila_cargo}'].font = Font(name='Arial', size=9, color=texto_color)
+            ws[f'L{fila_cargo}'].fill = fill_color
+            ws[f'M{fila_cargo}'].fill = fill_color
+            ws[f'L{fila_cargo}'].font = Font(name='Arial', size=9, color=texto_color)
+            ws[f'M{fila_cargo}'].font = Font(name='Arial', size=9, color=texto_color)
 
             fila_cargo += 1
 
-        # Notas
+        # Notas (shifted to O)
         notas_originales = aerolinea_datos.get('notas', '')
         if idioma == 'en':
             idioma_notas = detectar_idioma(notas_originales)
@@ -446,17 +469,17 @@ def generar_hoja(ws, datos, idioma='es'):
             else:
                 notas = notas_originales
 
-        ws[f'M{fila_inicio}'] = notas
-        ws[f'M{fila_inicio}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        ws.merge_cells(f'M{fila_inicio}:M{fila_inicio+num_filas_cargos-1}')
-        ws[f'M{fila_inicio}'].font = Font(name='Arial', size=8, color=texto_color)
-        ws[f'M{fila_inicio}'].fill = fill_color
+        ws[f'O{fila_inicio}'] = notas
+        ws[f'O{fila_inicio}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        ws.merge_cells(f'O{fila_inicio}:O{fila_inicio+num_filas_cargos-1}')
+        ws[f'O{fila_inicio}'].font = Font(name='Arial', size=8, color=texto_color)
+        ws[f'O{fila_inicio}'].fill = fill_color
 
         # Ajustar altura de filas
         for i in range(fila_inicio, fila_inicio + num_filas_cargos):
             ws.row_dimensions[i].height = 20
 
-    # Tercer paso: fusionar columna M (notas) para grupos de misma aerolinea con nota igual
+    # Tercer paso: fusionar columna O (notas) para grupos de misma aerolinea con nota igual
     idx_aerolinea = 0
     color_actual_idx_m = 0
     while idx_aerolinea < len(aerolineas):
@@ -479,18 +502,18 @@ def generar_hoja(ws, datos, idioma='es'):
                     filas_totales = sum(filas_por_aerolinea[idx_aerolinea:idx_aerolinea + num_rutas])
                     fila_grupo_fin = fila_grupo_inicio + filas_totales - 1
 
-                    # Deshacer merges individuales de M en este grupo
+                    # Deshacer merges individuales de O en este grupo
                     for k in range(num_rutas):
                         idx_k = idx_aerolinea + k
                         f_ini = fila_datos + sum(filas_por_aerolinea[:idx_k])
                         f_fin = f_ini + filas_por_aerolinea[idx_k] - 1
                         try:
-                            ws.unmerge_cells(f'M{f_ini}:M{f_fin}')
+                            ws.unmerge_cells(f'O{f_ini}:O{f_fin}')
                         except (KeyError, ValueError):
                             pass
 
                     # Merge del grupo completo
-                    ws.merge_cells(f'M{fila_grupo_inicio}:M{fila_grupo_fin}')
+                    ws.merge_cells(f'O{fila_grupo_inicio}:O{fila_grupo_fin}')
 
             idx_aerolinea += num_rutas
         else:
@@ -509,10 +532,10 @@ def generar_hoja(ws, datos, idioma='es'):
         top=Side(style='thin', color='000000'),
         bottom=Side(style='thin', color='000000')
     )
-    for col in range(1, 14):
+    for col in range(1, 16):
         ws.cell(row=fila_enc, column=col).border = thin_border
     for row in range(fila_datos, ultima_fila + 1):
-        for col in range(1, 14):
+        for col in range(1, 16):
             ws.cell(row=row, column=col).border = thin_border
 
     # Agregar cargos fijos de FreightWise al final
@@ -524,7 +547,7 @@ def generar_hoja(ws, datos, idioma='es'):
     ws[f'A{fila_fw}'].font = Font(name='Arial', size=11, bold=True, color='FFFFFF')
     ws[f'A{fila_fw}'].fill = PatternFill(start_color='5f259f', end_color='5f259f', fill_type='solid')
     ws[f'A{fila_fw}'].alignment = Alignment(horizontal='center', vertical='center')
-    ws.merge_cells(f'A{fila_fw}:M{fila_fw}')
+    ws.merge_cells(f'A{fila_fw}:O{fila_fw}')
     ws.row_dimensions[fila_fw].height = 25
 
     # Cargos fijos en filas siguientes - centrados debajo del titulo
@@ -538,17 +561,17 @@ def generar_hoja(ws, datos, idioma='es'):
     for cargo in cargos_fw:
         concepto = cargo['concepto_es'] if idioma == 'es' else cargo['concepto_en']
 
-        # Concepto en columnas E-I (centrado)
+        # Concepto en columnas E-K (centrado)
         ws[f'E{fila_cargo_fw}'] = concepto
         ws[f'E{fila_cargo_fw}'].font = Font(name='Arial', size=9, color='000000')
         ws[f'E{fila_cargo_fw}'].alignment = Alignment(horizontal='center', vertical='center')
-        ws.merge_cells(f'E{fila_cargo_fw}:I{fila_cargo_fw}')
+        ws.merge_cells(f'E{fila_cargo_fw}:K{fila_cargo_fw}')
 
-        # Monto en columnas J-K (centrado)
-        ws[f'J{fila_cargo_fw}'] = f"$ {cargo['monto']}"
-        ws[f'J{fila_cargo_fw}'].font = Font(name='Arial', size=9, color='000000')
-        ws[f'J{fila_cargo_fw}'].alignment = Alignment(horizontal='center', vertical='center')
-        ws.merge_cells(f'J{fila_cargo_fw}:K{fila_cargo_fw}')
+        # Monto en columnas L-N (centrado)
+        ws[f'L{fila_cargo_fw}'] = f"$ {cargo['monto']}"
+        ws[f'L{fila_cargo_fw}'].font = Font(name='Arial', size=9, color='000000')
+        ws[f'L{fila_cargo_fw}'].alignment = Alignment(horizontal='center', vertical='center')
+        ws.merge_cells(f'L{fila_cargo_fw}:N{fila_cargo_fw}')
 
         fila_cargo_fw += 1
 
@@ -558,9 +581,9 @@ def generar_hoja(ws, datos, idioma='es'):
     no_side = Side(style=None)
 
     for row in range(fila_fw, ultima_fila_fw + 1):
-        for col in range(1, 14):
+        for col in range(1, 16):
             left = thin_side if col == 1 else no_side
-            right = thin_side if col == 13 else no_side
+            right = thin_side if col == 15 else no_side
             top = thin_side if row == fila_fw else no_side
             bottom = thin_side if row == ultima_fila_fw else no_side
             ws.cell(row=row, column=col).border = Border(left=left, right=right, top=top, bottom=bottom)
