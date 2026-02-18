@@ -98,16 +98,23 @@ function eliminarCotizacion(id) {
     fetch(`/cotizaciones/api/cotizacion/${id}`, {
         method: 'DELETE'
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().catch(() => ({})).then(err => {
+                throw new Error(err.error || `Error del servidor (${response.status})`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             location.reload();
         } else {
-            alert('Error: ' + data.error);
+            alert('Error: ' + (data.error || 'Error desconocido'));
         }
     })
     .catch(error => {
-        alert('Error al eliminar: ' + error);
+        alert(error.message || 'Error de conexion');
     });
 }
 </script>

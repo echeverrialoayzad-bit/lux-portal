@@ -5,7 +5,7 @@ Decoradores de autenticacion
 """
 
 from functools import wraps
-from flask import session, redirect, url_for
+from flask import session, redirect, url_for, request, jsonify
 
 
 def login_required(f):
@@ -13,6 +13,8 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('logged_in'):
+            if request.path.startswith('/') and '/api/' in request.path:
+                return jsonify({'success': False, 'error': 'Sesion expirada. Por favor inicia sesion nuevamente.'}), 401
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function

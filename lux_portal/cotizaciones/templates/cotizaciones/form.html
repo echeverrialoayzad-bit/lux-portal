@@ -1026,6 +1026,16 @@ async function guardarCotizacion() {
             body: JSON.stringify(datos)
         });
 
+        if (!response.ok) {
+            let msg = `Error del servidor (${response.status})`;
+            try {
+                const err = await response.json();
+                if (err.error) msg = err.error;
+            } catch(e) {}
+            alert(msg);
+            return null;
+        }
+
         const result = await response.json();
 
         if (result.success) {
@@ -1047,11 +1057,11 @@ async function guardarCotizacion() {
             alert('Cotizacion guardada exitosamente');
             return result.id;
         } else {
-            alert('Error: ' + result.error);
+            alert('Error: ' + (result.error || 'Error desconocido'));
             return null;
         }
     } catch (error) {
-        alert('Error al guardar: ' + error);
+        alert('Error de conexion: revisa tu internet o recarga la pagina.');
         return null;
     }
 }
