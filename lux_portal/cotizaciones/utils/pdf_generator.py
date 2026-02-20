@@ -226,10 +226,22 @@ def _generar_elementos_pdf(datos, idioma, available_width):
             rate_increases = aero.get('rate_increases', [])
             if rate_increases:
                 ri_amounts = '\n'.join([f"${ri.get('amount', '')}" for ri in rate_increases if ri.get('amount')])
-                ri_dates = '\n'.join([ri.get('date', '') for ri in rate_increases if ri.get('date')])
+                ri_dates_raw = '\n'.join([ri.get('date', '') for ri in rate_increases if ri.get('date')])
             else:
                 ri_amounts = ''
-                ri_dates = ''
+                ri_dates_raw = ''
+
+            # Traducir fechas de rate increase
+            if ri_dates_raw:
+                idioma_ri = detectar_idioma(ri_dates_raw)
+                if idioma == 'en' and idioma_ri == 'es':
+                    ri_dates = traducir_texto_auto(ri_dates_raw, 'en')
+                elif idioma == 'es' and idioma_ri == 'en':
+                    ri_dates = traducir_texto_auto(ri_dates_raw, 'es')
+                else:
+                    ri_dates = ri_dates_raw
+            else:
+                ri_dates = ri_dates_raw
 
             notas_originales = aero.get('notas', '')
             if idioma == 'en':
