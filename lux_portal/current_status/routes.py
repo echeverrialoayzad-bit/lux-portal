@@ -352,6 +352,91 @@ def upload_airlines_excel(id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@current_status_bp.route('/api/client/<int:id>/upload-rates', methods=['POST'])
+@login_required
+def upload_rates_excel(id):
+    """Subir Excel para llenar la tabla Airline Rates (Table 1)."""
+    import pandas as pd
+
+    client = StatusClient.query.get_or_404(id)
+
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No se envio archivo'}), 400
+
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'success': False, 'error': 'Archivo vacio'}), 400
+
+    try:
+        df = pd.read_excel(file, header=0)
+        df.columns = [str(c).strip() for c in df.columns]
+
+        # Mapeo flexible de columnas del Excel a campos del modelo
+        col_map = {
+            'airline': ['airline', 'aerolinea', 'aerolínea'],
+            'route': ['route', 'ruta', 'routing'],
+            'transit_time': ['transit time', 'transit_time', 'transit', 'tiempo transito'],
+            'kg_availability': ['kg availability', 'kg_availability', 'kg', 'kilos', 'weight'],
+            'date': ['date', 'fecha', 'dates'],
+            'net_rate': ['net rate', 'net_rate', 'tarifa neta'],
+            'operative': ['operative', 'operativo'],
+            'net_ops': ['net+ops', 'net_ops', 'net ops'],
+            'profit': ['profit', 'ganancia', 'utilidad'],
+            'final_rate': ['final rate', 'final_rate', 'tarifa final'],
+            'additional_costs': ['additional costs', 'additional_costs', 'costos adicionales', 'add costs'],
+            'additional_costs_value': ['additional costs value', 'additional_costs_value', 'valor costos', 'add costs value'],
+            'notes': ['notes', 'notas', 'observaciones'],
+        }
+
+        # Encontrar mapeo real: campo_modelo -> columna_excel
+        field_to_excel = {}
+        df_lower = {str(c).lower(): c for c in df.columns}
+        for field, aliases in col_map.items():
+            for alias in aliases:
+                if alias.lower() in df_lower:
+                    field_to_excel[field] = df_lower[alias.lower()]
+                    break
+
+        if not field_to_excel:
+            return jsonify({'success': False, 'error': 'No se encontraron columnas reconocibles en el Excel. Columnas esperadas: Airline, Route, Transit Time, KG, Date, Net Rate, Final Rate, Notes'}), 400
+
+        # Columnas extra (las que no se mapearon a campos conocidos)
+        mapped_excel_cols = set(field_to_excel.values())
+        extra_cols = [c for c in df.columns if c not in mapped_excel_cols]
+
+        created = 0
+        for _, row in df.iterrows():
+            # Saltar filas completamente vacias
+            if all(pd.isna(row.get(field_to_excel.get(f, ''), '')) for f in col_map if f in field_to_excel):
+                continue
+
+            rate = AirlineRate(client_id=client.id)
+            for field, excel_col in field_to_excel.items():
+                val = row.get(excel_col, '')
+                setattr(rate, field, str(val).strip() if pd.notna(val) else '')
+
+            # Extra cols -> extra_data JSON
+            if extra_cols:
+                extra = {}
+                for ec in extra_cols:
+                    val = row.get(ec, '')
+                    if pd.notna(val) and str(val).strip():
+                        extra[ec] = str(val).strip()
+                if extra:
+                    rate.extra_data = json.dumps(extra)
+
+            db.session.add(rate)
+            created += 1
+
+        db.session.commit()
+
+        return jsonify({'success': True, 'created': created, 'fields': list(field_to_excel.keys())})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ===================== API: PAYMENTS (Table 3) =====================
 
 @current_status_bp.route('/api/client/<int:id>/payment', methods=['POST'])

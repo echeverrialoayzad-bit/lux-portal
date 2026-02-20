@@ -635,6 +635,11 @@
                class="btn btn-sm btn-outline-secondary export-table-btn" data-table="rates">
                 <i class="bi bi-file-earmark-pdf me-1"></i>PDF
             </a>
+            <button class="btn btn-sm btn-outline-success" onclick="document.getElementById('rateUpload').click()">
+                <i class="bi bi-upload me-1"></i>Subir Excel
+            </button>
+            <input type="file" id="rateUpload" accept=".xlsx,.xls" style="display:none"
+                   onchange="uploadRateExcel(this)">
         </div>
         <!-- Excel-like formatting toolbar -->
         <div class="table-toolbar" id="fmtToolbar">
@@ -2344,6 +2349,42 @@ function uploadAirlineExcel(input) {
     btn.disabled = true;
 
     fetch(`${BASE}/api/client/${CLIENT_ID}/upload-airlines`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
+        input.value = '';
+
+        if (data.success) {
+            alert(`Se importaron ${data.created} filas exitosamente.`);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(err => {
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
+        input.value = '';
+        alert('Error de conexion al subir archivo');
+    });
+}
+
+function uploadRateExcel(input) {
+    if (!input.files.length) return;
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const btn = input.previousElementSibling;
+    const origHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Cargando...';
+    btn.disabled = true;
+
+    fetch(`${BASE}/api/client/${CLIENT_ID}/upload-rates`, {
         method: 'POST',
         body: formData
     })
