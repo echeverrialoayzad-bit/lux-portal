@@ -743,6 +743,11 @@
            class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-file-earmark-pdf me-1"></i>PDF
         </a>
+        <button class="btn btn-sm btn-outline-success" onclick="document.getElementById('airlineUpload').click()">
+            <i class="bi bi-upload me-1"></i>Subir Excel
+        </button>
+        <input type="file" id="airlineUpload" accept=".xlsx,.xls" style="display:none"
+               onchange="uploadAirlineExcel(this)">
     </div>
     <div class="card mb-4">
         <div class="table-responsive">
@@ -2325,6 +2330,42 @@ function eliminarAirline(btn, id) {
     if (!confirm('¿Eliminar esta fila?')) return;
     fetch(`${BASE}/api/airline/${id}`, {method: 'DELETE'})
     .then(r => r.json()).then(data => { if (data.success) btn.closest('tr').remove(); });
+}
+
+function uploadAirlineExcel(input) {
+    if (!input.files.length) return;
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const btn = input.previousElementSibling;
+    const origHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Cargando...';
+    btn.disabled = true;
+
+    fetch(`${BASE}/api/client/${CLIENT_ID}/upload-airlines`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
+        input.value = '';
+
+        if (data.success) {
+            alert(`Se importaron ${data.created} filas exitosamente.`);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(err => {
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
+        input.value = '';
+        alert('Error de conexion al subir archivo');
+    });
 }
 
 // --- Payments (Table 3) ---
