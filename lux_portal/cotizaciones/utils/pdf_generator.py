@@ -236,6 +236,7 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                 idioma_ri = detectar_idioma(ri_dates_raw)
                 if idioma == 'en' and idioma_ri == 'es':
                     ri_dates = traducir_texto_auto(ri_dates_raw, 'en')
+                    ri_dates = re.sub(r'(\d+)(st|nd|rd|th)\b', r'\1', ri_dates)
                 elif idioma == 'es' and idioma_ri == 'en':
                     ri_dates = traducir_texto_auto(ri_dates_raw, 'es')
                 else:
