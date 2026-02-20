@@ -371,6 +371,11 @@ def upload_rates_excel(id):
         df = pd.read_excel(file, header=0)
         df.columns = [str(c).strip() for c in df.columns]
 
+        # Orden posicional de campos (fallback si no hay match por nombre)
+        positional_fields = ['airline', 'route', 'transit_time', 'kg_availability', 'date',
+                             'net_rate', 'operative', 'net_ops', 'profit', 'final_rate',
+                             'additional_costs', 'additional_costs_value', 'notes']
+
         # Mapeo flexible de columnas del Excel a campos del modelo
         col_map = {
             'airline': ['airline', 'aerolinea', 'aerolínea'],
@@ -388,7 +393,7 @@ def upload_rates_excel(id):
             'notes': ['notes', 'notas', 'observaciones'],
         }
 
-        # Encontrar mapeo real: campo_modelo -> columna_excel
+        # Intentar mapeo por nombre (exact + contains)
         field_to_excel = {}
         df_lower = {str(c).lower(): c for c in df.columns}
         for field, aliases in col_map.items():
@@ -396,34 +401,35 @@ def upload_rates_excel(id):
                 if alias.lower() in df_lower:
                     field_to_excel[field] = df_lower[alias.lower()]
                     break
+            if field not in field_to_excel:
+                # Busqueda parcial: si el alias esta contenido en el nombre de columna
+                for alias in aliases:
+                    for col_lower, col_orig in df_lower.items():
+                        if alias.lower() in col_lower and col_orig not in field_to_excel.values():
+                            field_to_excel[field] = col_orig
+                            break
+                    if field in field_to_excel:
+                        break
 
+        # Si no hay match por nombre, mapear por posicion
         if not field_to_excel:
-            return jsonify({'success': False, 'error': 'No se encontraron columnas reconocibles en el Excel. Columnas esperadas: Airline, Route, Transit Time, KG, Date, Net Rate, Final Rate, Notes'}), 400
-
-        # Columnas extra (las que no se mapearon a campos conocidos)
-        mapped_excel_cols = set(field_to_excel.values())
-        extra_cols = [c for c in df.columns if c not in mapped_excel_cols]
+            excel_cols = list(df.columns)
+            for i, field in enumerate(positional_fields):
+                if i < len(excel_cols):
+                    field_to_excel[field] = excel_cols[i]
 
         created = 0
         for _, row in df.iterrows():
             # Saltar filas completamente vacias
-            if all(pd.isna(row.get(field_to_excel.get(f, ''), '')) for f in col_map if f in field_to_excel):
+            vals_check = [row.get(field_to_excel.get(f, ''), '') for f in field_to_excel]
+            if all(pd.isna(v) or str(v).strip() == '' for v in vals_check):
                 continue
 
             rate = AirlineRate(client_id=client.id)
             for field, excel_col in field_to_excel.items():
                 val = row.get(excel_col, '')
-                setattr(rate, field, str(val).strip() if pd.notna(val) else '')
-
-            # Extra cols -> extra_data JSON
-            if extra_cols:
-                extra = {}
-                for ec in extra_cols:
-                    val = row.get(ec, '')
-                    if pd.notna(val) and str(val).strip():
-                        extra[ec] = str(val).strip()
-                if extra:
-                    rate.extra_data = json.dumps(extra)
+                if pd.notna(val) and str(val).strip() and str(val).strip() != 'nan':
+                    setattr(rate, field, str(val).strip())
 
             db.session.add(rate)
             created += 1
