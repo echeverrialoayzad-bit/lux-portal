@@ -481,6 +481,9 @@ def upload_rates_excel(id):
                     current_rate['additional_costs'] = charge_name
                     current_rate['additional_costs_value'] = charge_val
 
+        # Borrar datos anteriores de la tabla para este cliente
+        AirlineRate.query.filter_by(client_id=client.id).delete()
+
         # Guardar en base de datos
         created = 0
         for data in rates_list:
