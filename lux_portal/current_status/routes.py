@@ -464,19 +464,22 @@ def upload_rates_excel(id):
                     'final_rate': rate_val,
                     'notes': cell_val(cells, col_indices.get('notes', 14)),
                     'additional_costs': '',
+                    'additional_costs_value': '',
                 }
                 # Recoger cargo adicional si existe en la misma fila
                 if charge_name:
-                    current_rate['additional_costs'] = f"{charge_name}: {charge_val}" if charge_val else charge_name
+                    current_rate['additional_costs'] = charge_name
+                    current_rate['additional_costs_value'] = charge_val
                 rates_list.append(current_rate)
 
             elif charge_name and current_rate:
                 # Sub-fila con cargo adicional -> agregar al rate anterior
-                extra = f"{charge_name}: {charge_val}" if charge_val else charge_name
                 if current_rate['additional_costs']:
-                    current_rate['additional_costs'] += f"\n{extra}"
+                    current_rate['additional_costs'] += f"\n{charge_name}"
+                    current_rate['additional_costs_value'] += f"\n{charge_val}"
                 else:
-                    current_rate['additional_costs'] = extra
+                    current_rate['additional_costs'] = charge_name
+                    current_rate['additional_costs_value'] = charge_val
 
         # Guardar en base de datos
         created = 0
