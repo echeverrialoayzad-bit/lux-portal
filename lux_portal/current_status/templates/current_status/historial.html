@@ -111,6 +111,7 @@
             <table class="table fact-table mb-0">
                 <thead>
                     <tr class="section-header-ship">
+                        <th style="width:30px;"></th>
                         <th>Date</th>
                         <th>Transport</th>
                         <th>Mark</th>
@@ -134,7 +135,8 @@
                 </thead>
                 <tbody>
                     {% for s in shipments %}
-                    <tr>
+                    <tr data-shipment-id="{{ s.id }}">
+                        <td><button class="btn btn-sm btn-outline-danger border-0 p-0" onclick="eliminarShipmentHistorial(this, {{ s.id }})" title="Eliminar"><i class="bi bi-x-lg"></i></button></td>
                         <td>{{ s.ship_date }}</td>
                         <td>{{ s.transport }}</td>
                         <td>{{ s.mark }}</td>
@@ -170,6 +172,7 @@
             <table class="table fact-table mb-0">
                 <thead>
                     <tr class="section-header-fact">
+                        <th style="width:30px;"></th>
                         <th>Customer</th>
                         <th>Facturacion</th>
                         <th>Handling Juni</th>
@@ -193,7 +196,8 @@
                 </thead>
                 <tbody>
                     {% for s in shipments %}
-                    <tr>
+                    <tr data-shipment-id="{{ s.id }}">
+                        <td><button class="btn btn-sm btn-outline-danger border-0 p-0" onclick="eliminarShipmentHistorial(this, {{ s.id }})" title="Eliminar"><i class="bi bi-x-lg"></i></button></td>
                         <td style="font-weight:600; color: var(--lux-rose);">{{ s.client_name }}</td>
                         <td>{{ s.facturacion }}</td>
                         <td>{{ s.handling_juni }}</td>
@@ -229,6 +233,7 @@
             <table class="table fact-table mb-0">
                 <thead>
                     <tr class="section-header-cost">
+                        <th style="width:30px;"></th>
                         <th>Customer</th>
                         <th>Costos</th>
                         <th>Costo Bodega</th>
@@ -255,7 +260,8 @@
                 </thead>
                 <tbody>
                     {% for s in shipments %}
-                    <tr>
+                    <tr data-shipment-id="{{ s.id }}">
+                        <td><button class="btn btn-sm btn-outline-danger border-0 p-0" onclick="eliminarShipmentHistorial(this, {{ s.id }})" title="Eliminar"><i class="bi bi-x-lg"></i></button></td>
                         <td style="font-weight:600; color: var(--lux-rose);">{{ s.client_name }}</td>
                         <td>{{ s.costos }}</td>
                         <td>{{ s.costo_bodega }}</td>
@@ -327,4 +333,21 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+const BASE = '';
+function eliminarShipmentHistorial(btn, id) {
+    if (!confirm('¿Eliminar este embarque del historial?')) return;
+    fetch(`${BASE}/api/shipment/${id}`, {method: 'DELETE'})
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.querySelectorAll(`tr[data-shipment-id="${id}"]`).forEach(tr => tr.remove());
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo eliminar'));
+        }
+    })
+    .catch(() => alert('Error de conexion'));
+}
+</script>
 {% endblock %}
