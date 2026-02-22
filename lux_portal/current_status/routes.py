@@ -394,11 +394,11 @@ def upload_rates_excel(id):
             ('TRANSIT TIME', 'transit_time'),
             ('ADD CHARGES', 'additional_costs'),
             ('RATE INCREASE', None),  # Ignorar, no aplica a Table 1
+            ('DATE', None),           # Ignorar, no aplica
             ('AIRLINE', 'airline'),
             ('ITINERARY', 'route'),
             ('KG', 'kg_availability'),
             ('RATE', 'final_rate'),
-            ('DATE', 'date'),
             ('NOTES', 'notes'),
         ]
 
@@ -432,6 +432,7 @@ def upload_rates_excel(id):
         # Leer filas de datos despues del header
         rates_list = []
         current_rate = None
+        last_airline = ''  # Para heredar airline en rutas multiples
 
         for row in ws.iter_rows(min_row=header_row + 1):
             cells = list(row)
@@ -439,7 +440,11 @@ def upload_rates_excel(id):
             itinerary_val = cell_val(cells, col_indices.get('route', 2))
             rate_val = cell_val(cells, col_indices.get('final_rate', 8))
 
-            # Detectar si es fila principal (tiene airline o itinerary o rate)
+            # Parar si llegamos a "FreightWise Additional Charges"
+            if 'freightwise' in airline_val.lower() or 'freight wise' in airline_val.lower() or 'additional charges' in airline_val.lower():
+                break
+
+            # Detectar si es fila principal (tiene itinerary o rate)
             is_main_row = bool(airline_val or itinerary_val or rate_val)
 
             # Detectar si es sub-fila de cargos adicionales
@@ -447,14 +452,16 @@ def upload_rates_excel(id):
             charge_val = cell_val(cells, add_charges_val_idx) if add_charges_val_idx is not None else ''
 
             if is_main_row:
+                # Si tiene airline, actualizar last_airline
+                if airline_val:
+                    last_airline = airline_val
                 # Nueva fila principal -> crear nuevo rate
                 current_rate = {
-                    'airline': airline_val,
+                    'airline': airline_val if airline_val else last_airline,
                     'route': itinerary_val,
                     'transit_time': cell_val(cells, col_indices.get('transit_time', 3)),
                     'kg_availability': cell_val(cells, col_indices.get('kg_availability', 7)),
                     'final_rate': rate_val,
-                    'date': cell_val(cells, col_indices.get('date', 10)),
                     'notes': cell_val(cells, col_indices.get('notes', 14)),
                     'additional_costs': '',
                 }
