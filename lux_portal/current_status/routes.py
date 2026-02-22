@@ -355,8 +355,8 @@ def upload_airlines_excel(id):
 @current_status_bp.route('/api/client/<int:id>/upload-rates', methods=['POST'])
 @login_required
 def upload_rates_excel(id):
-    """Subir Excel para llenar la tabla Airline Rates (Table 1)."""
-    import pandas as pd
+    """Subir Excel de cotizacion para llenar la tabla Airline Rates (Table 1)."""
+    import openpyxl
 
     client = StatusClient.query.get_or_404(id)
 
@@ -368,75 +368,122 @@ def upload_rates_excel(id):
         return jsonify({'success': False, 'error': 'Archivo vacio'}), 400
 
     try:
-        df = pd.read_excel(file, header=0)
-        df.columns = [str(c).strip() for c in df.columns]
+        wb = openpyxl.load_workbook(file, data_only=True)
+        ws = wb.active
 
-        # Orden posicional de campos (fallback si no hay match por nombre)
-        positional_fields = ['airline', 'route', 'transit_time', 'kg_availability', 'date',
-                             'net_rate', 'operative', 'net_ops', 'profit', 'final_rate',
-                             'additional_costs', 'additional_costs_value', 'notes']
+        # Buscar fila de encabezados (contiene "AIRLINE" en columna A)
+        header_row = None
+        for row in ws.iter_rows(min_row=1, max_row=20):
+            val = str(row[0].value or '').strip().upper()
+            if val == 'AIRLINE':
+                header_row = row[0].row
+                break
 
-        # Mapeo flexible de columnas del Excel a campos del modelo
-        col_map = {
-            'airline': ['airline', 'aerolinea', 'aerolínea'],
-            'route': ['route', 'ruta', 'routing'],
-            'transit_time': ['transit time', 'transit_time', 'transit', 'tiempo transito'],
-            'kg_availability': ['kg availability', 'kg_availability', 'kg', 'kilos', 'weight'],
-            'date': ['date', 'fecha', 'dates'],
-            'net_rate': ['net rate', 'net_rate', 'tarifa neta'],
-            'operative': ['operative', 'operativo'],
-            'net_ops': ['net+ops', 'net_ops', 'net ops'],
-            'profit': ['profit', 'ganancia', 'utilidad'],
-            'final_rate': ['final rate', 'final_rate', 'tarifa final'],
-            'additional_costs': ['additional costs', 'additional_costs', 'costos adicionales', 'add costs'],
-            'additional_costs_value': ['additional costs value', 'additional_costs_value', 'valor costos', 'add costs value'],
-            'notes': ['notes', 'notas', 'observaciones'],
-        }
+        if not header_row:
+            return jsonify({'success': False, 'error': 'No se encontro la fila de encabezados (AIRLINE). Verifique el formato del Excel.'}), 400
 
-        # Intentar mapeo por nombre (exact + contains)
-        field_to_excel = {}
-        df_lower = {str(c).lower(): c for c in df.columns}
-        for field, aliases in col_map.items():
-            for alias in aliases:
-                if alias.lower() in df_lower:
-                    field_to_excel[field] = df_lower[alias.lower()]
-                    break
-            if field not in field_to_excel:
-                # Busqueda parcial: si el alias esta contenido en el nombre de columna
-                for alias in aliases:
-                    for col_lower, col_orig in df_lower.items():
-                        if alias.lower() in col_lower and col_orig not in field_to_excel.values():
-                            field_to_excel[field] = col_orig
-                            break
-                    if field in field_to_excel:
-                        break
+        # Leer encabezados y mapear indices de columnas
+        headers = []
+        for cell in ws[header_row]:
+            headers.append(str(cell.value or '').strip().upper().replace('\n', ' '))
 
-        # Si no hay match por nombre, mapear por posicion
-        if not field_to_excel:
-            excel_cols = list(df.columns)
-            for i, field in enumerate(positional_fields):
-                if i < len(excel_cols):
-                    field_to_excel[field] = excel_cols[i]
+        # Mapeo de encabezado de cotizacion -> campo AirlineRate
+        # Usar lista ordenada de mayor a menor longitud para evitar conflictos
+        # (ej: "RATE INCREASE" no debe matchear con "RATE")
+        header_mappings = [
+            ('TRANSIT TIME', 'transit_time'),
+            ('ADD CHARGES', 'additional_costs'),
+            ('RATE INCREASE', None),  # Ignorar, no aplica a Table 1
+            ('AIRLINE', 'airline'),
+            ('ITINERARY', 'route'),
+            ('KG', 'kg_availability'),
+            ('RATE', 'final_rate'),
+            ('DATE', 'date'),
+            ('NOTES', 'notes'),
+        ]
 
-        created = 0
-        for _, row in df.iterrows():
-            # Saltar filas completamente vacias
-            vals_check = [row.get(field_to_excel.get(f, ''), '') for f in field_to_excel]
-            if all(pd.isna(v) or str(v).strip() == '' for v in vals_check):
+        # Encontrar indice de cada campo
+        col_indices = {}  # field_name -> col_index
+        add_charges_idx = None  # columna L (nombre del cargo)
+        add_charges_val_idx = None  # columna M (valor del cargo)
+        matched_cols = set()
+        for i, h in enumerate(headers):
+            if i in matched_cols:
                 continue
+            for header_name, field_name in header_mappings:
+                if h == header_name or (header_name in h and i not in matched_cols):
+                    matched_cols.add(i)
+                    if field_name:
+                        col_indices[field_name] = i
+                    if header_name == 'ADD CHARGES':
+                        add_charges_idx = i
+                        add_charges_val_idx = i + 1  # siguiente columna = valor
+                    break
 
+        def cell_val(row_cells, idx):
+            """Obtener valor de celda como string limpio."""
+            if idx is None or idx >= len(row_cells):
+                return ''
+            v = row_cells[idx].value
+            if v is None:
+                return ''
+            return str(v).strip()
+
+        # Leer filas de datos despues del header
+        rates_list = []
+        current_rate = None
+
+        for row in ws.iter_rows(min_row=header_row + 1):
+            cells = list(row)
+            airline_val = cell_val(cells, col_indices.get('airline', 0))
+            itinerary_val = cell_val(cells, col_indices.get('route', 2))
+            rate_val = cell_val(cells, col_indices.get('final_rate', 8))
+
+            # Detectar si es fila principal (tiene airline o itinerary o rate)
+            is_main_row = bool(airline_val or itinerary_val or rate_val)
+
+            # Detectar si es sub-fila de cargos adicionales
+            charge_name = cell_val(cells, add_charges_idx) if add_charges_idx is not None else ''
+            charge_val = cell_val(cells, add_charges_val_idx) if add_charges_val_idx is not None else ''
+
+            if is_main_row:
+                # Nueva fila principal -> crear nuevo rate
+                current_rate = {
+                    'airline': airline_val,
+                    'route': itinerary_val,
+                    'transit_time': cell_val(cells, col_indices.get('transit_time', 3)),
+                    'kg_availability': cell_val(cells, col_indices.get('kg_availability', 7)),
+                    'final_rate': rate_val,
+                    'date': cell_val(cells, col_indices.get('date', 10)),
+                    'notes': cell_val(cells, col_indices.get('notes', 14)),
+                    'additional_costs': '',
+                }
+                # Recoger cargo adicional si existe en la misma fila
+                if charge_name:
+                    current_rate['additional_costs'] = f"{charge_name}: {charge_val}" if charge_val else charge_name
+                rates_list.append(current_rate)
+
+            elif charge_name and current_rate:
+                # Sub-fila con cargo adicional -> agregar al rate anterior
+                extra = f"{charge_name}: {charge_val}" if charge_val else charge_name
+                if current_rate['additional_costs']:
+                    current_rate['additional_costs'] += f"\n{extra}"
+                else:
+                    current_rate['additional_costs'] = extra
+
+        # Guardar en base de datos
+        created = 0
+        for data in rates_list:
             rate = AirlineRate(client_id=client.id)
-            for field, excel_col in field_to_excel.items():
-                val = row.get(excel_col, '')
-                if pd.notna(val) and str(val).strip() and str(val).strip() != 'nan':
-                    setattr(rate, field, str(val).strip())
-
+            for field, val in data.items():
+                if val:
+                    setattr(rate, field, val)
             db.session.add(rate)
             created += 1
 
         db.session.commit()
 
-        return jsonify({'success': True, 'created': created, 'fields': list(field_to_excel.keys())})
+        return jsonify({'success': True, 'created': created})
 
     except Exception as e:
         db.session.rollback()
