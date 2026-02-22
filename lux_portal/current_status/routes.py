@@ -661,6 +661,11 @@ def enviar_shipments(id):
         shipment_data=json.dumps(snapshot)
     )
     db.session.add(history)
+
+    # Limpiar embarques del cliente para que quede en blanco
+    for s in shipments:
+        db.session.delete(s)
+
     db.session.commit()
 
     return jsonify({
