@@ -615,6 +615,18 @@ def eliminar_shipment(id):
     return jsonify({'success': True})
 
 
+@current_status_bp.route('/api/shipments/bulk-delete', methods=['POST'])
+@login_required
+def bulk_delete_shipments():
+    """Delete multiple shipments by IDs."""
+    ids = request.json.get('ids', [])
+    if not ids:
+        return jsonify({'success': False, 'error': 'No IDs provided'}), 400
+    count = ClientShipment.query.filter(ClientShipment.id.in_(ids)).delete(synchronize_session='fetch')
+    db.session.commit()
+    return jsonify({'success': True, 'deleted': count})
+
+
 @current_status_bp.route('/api/client/<int:id>/clear-shipments', methods=['DELETE'])
 @login_required
 def clear_shipments(id):
@@ -959,7 +971,12 @@ def upload_facturacion():
         tmp.close()
 
         wb = load_workbook(tmp_path, data_only=True, read_only=True)
-        ws = wb['TOTAL OPERACION'] if 'TOTAL OPERACION' in wb.sheetnames else wb.active
+        # Buscar hoja por nombre (con o sin acentos)
+        ws = wb.active
+        for sn in wb.sheetnames:
+            if 'TOTAL' in sn.upper() and 'OPERACI' in sn.upper():
+                ws = wb[sn]
+                break
 
         # --- Parse headers (row 1) ---
         headers = None

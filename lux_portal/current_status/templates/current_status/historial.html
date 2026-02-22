@@ -77,6 +77,9 @@
             </p>
         </div>
         <div class="d-flex gap-2">
+            <button class="btn btn-outline-danger" id="btnBorrarSel" style="display:none;" onclick="borrarSeleccionados()">
+                <i class="bi bi-trash me-1"></i>Borrar seleccionados (<span id="selCount">0</span>)
+            </button>
             <a href="{{ url_for('current_status.dashboard') }}" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Dashboard
             </a>
@@ -111,6 +114,7 @@
             <table class="table fact-table mb-0">
                 <thead>
                     <tr class="section-header-ship">
+                        <th style="width:30px;"><input type="checkbox" onchange="toggleAll(this)" title="Seleccionar todos"></th>
                         <th style="width:30px;"></th>
                         <th>Date</th>
                         <th>Transport</th>
@@ -136,6 +140,7 @@
                 <tbody>
                     {% for s in shipments %}
                     <tr data-shipment-id="{{ s.id }}">
+                        <td><input type="checkbox" class="ship-check" value="{{ s.id }}" onchange="updateSelCount()"></td>
                         <td><button class="btn btn-sm btn-outline-danger border-0 p-0" onclick="eliminarShipmentHistorial(this, {{ s.id }})" title="Eliminar"><i class="bi bi-x-lg"></i></button></td>
                         <td>{{ s.ship_date }}</td>
                         <td>{{ s.transport }}</td>
@@ -335,7 +340,8 @@
 </div>
 
 <script>
-const BASE = '';
+const BASE = '/current-status';
+
 function eliminarShipmentHistorial(btn, id) {
     if (!confirm('¿Eliminar este embarque del historial?')) return;
     fetch(`${BASE}/api/shipment/${id}`, {method: 'DELETE'})
@@ -343,6 +349,44 @@ function eliminarShipmentHistorial(btn, id) {
     .then(data => {
         if (data.success) {
             document.querySelectorAll(`tr[data-shipment-id="${id}"]`).forEach(tr => tr.remove());
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo eliminar'));
+        }
+    })
+    .catch(() => alert('Error de conexion'));
+}
+
+function toggleAll(master) {
+    document.querySelectorAll('.ship-check').forEach(cb => cb.checked = master.checked);
+    updateSelCount();
+}
+
+function updateSelCount() {
+    const checked = document.querySelectorAll('.ship-check:checked');
+    const count = checked.length;
+    document.getElementById('selCount').textContent = count;
+    document.getElementById('btnBorrarSel').style.display = count > 0 ? '' : 'none';
+}
+
+function borrarSeleccionados() {
+    const checked = document.querySelectorAll('.ship-check:checked');
+    if (!checked.length) return;
+    if (!confirm(`¿Eliminar ${checked.length} embarques seleccionados?`)) return;
+
+    const ids = Array.from(checked).map(cb => parseInt(cb.value));
+    fetch(`${BASE}/api/shipments/bulk-delete`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids: ids})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            ids.forEach(id => {
+                document.querySelectorAll(`tr[data-shipment-id="${id}"]`).forEach(tr => tr.remove());
+            });
+            alert(`Eliminados: ${data.deleted} embarques`);
+            updateSelCount();
         } else {
             alert('Error: ' + (data.error || 'No se pudo eliminar'));
         }
