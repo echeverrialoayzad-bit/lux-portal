@@ -1612,6 +1612,17 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
                               P(_fmt_dollar(r.profit)), P(_fmt_dollar(r.final_rate)),
                               P(addcost_names), P(addcost_values), P(r.notes)]
                              + [P(extra.get(c, '')) for c in custom_rates])
+        # Agregar fila de FreightWise Additional Charges al final
+        fw_payment = cliente.payments[0] if cliente.payments else None
+        fw_da = _fmt_dollar(fw_payment.pay_due_agent) if fw_payment and fw_payment.pay_due_agent else '$ 50.00'
+        fw_cert = _fmt_dollar(fw_payment.certificate) if fw_payment and fw_payment.certificate else '$ 15.00'
+        fw_phyto = _fmt_dollar(fw_payment.pay_phyto) if fw_payment and fw_payment.pay_phyto else '$ 2.50'
+        fw_charges_text = f"Due Agent: {fw_da}    Certificate: {fw_cert}    Phyto: {fw_phyto}"
+        num_cols = len(data1[0]) if data1 else 9
+        fw_row = [P('<b>FreightWise Additional Charges:</b>')] + [P(fw_charges_text)] + [P('')] * (num_cols - 2)
+        data1.append(fw_row)
+        fw_row_idx = len(data1) - 1
+
         # Build merge spans and group-based backgrounds for same-airline groups
         airline_spans = []
         group_bg = []
@@ -1629,11 +1640,15 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
                 group_bg.append(('BACKGROUND', (0, row_i + 1), (-1, row_i + 1), bg_color))
             group_idx += 1
         if len(data1) > 1:
+            # FW row: span cols 1 to end for charges text
+            fw_span = ('SPAN', (1, fw_row_idx), (num_cols - 1, fw_row_idx))
+            fw_bg = ('BACKGROUND', (0, fw_row_idx), (-1, fw_row_idx), colors.HexColor('#F3E8FF'))
             t1 = Table(data1, repeatRows=1, colWidths=col_widths1)
             t1.setStyle(TableStyle([
                 ('SPAN', (add_span[0], add_span[1]), (add_span[2], add_span[3])),
                 ('BACKGROUND', (0, 0), (-1, 0), purple),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                fw_span, fw_bg,
             ] + group_bg + common_style + airline_spans))
             elements.append(t1)
             elements.append(Spacer(1, 15))
