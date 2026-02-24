@@ -1553,7 +1553,8 @@ def _generar_pdf_cliente(cliente, hide_internal=False, tabla='all'):
                                  textColor=colors.white)
 
     def P(text, style=cell_style):
-        return Paragraph(str(text or ''), style)
+        t = str(text or '').replace('\n', '<br/>')
+        return Paragraph(t, style)
 
     def PH(text):
         return Paragraph(str(text or ''), cell_header)
