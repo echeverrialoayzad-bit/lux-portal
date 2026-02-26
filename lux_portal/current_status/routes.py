@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from flask import render_template, request, redirect, url_for, flash, jsonify, send_file
 from lux_portal.current_status import current_status_bp
-from lux_portal.current_status.models import StatusClient, AirlineRate, StatusAirline, StatusPayment, ClientShipment, ShipmentHistory
+from lux_portal.current_status.models import StatusClient, AirlineRate, StatusAirline, StatusPayment, ClientShipment, ShipmentHistory, StatusTable, StatusTableRow
 from lux_portal.extensions import db
 from lux_portal.auth.decorators import login_required
 
@@ -1860,3 +1860,74 @@ def _generar_pdf_todos(clientes):
     output.seek(0)
     filename = f"resumen_clientes_{datetime.now().strftime('%Y%m%d')}.pdf"
     return send_file(output, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+
+# ===================== STATUS TABLES =====================
+
+@current_status_bp.route('/<int:id>/status-tables')
+@login_required
+def status_tables(id):
+    cliente = StatusClient.query.get_or_404(id)
+    return render_template('current_status/status_tables.html', cliente=cliente)
+
+
+@current_status_bp.route('/api/client/<int:id>/status-table', methods=['POST'])
+@login_required
+def crear_status_table(id):
+    StatusClient.query.get_or_404(id)
+    data = request.get_json() or {}
+    table = StatusTable(client_id=id, title=data.get('title', 'STATUS'))
+    db.session.add(table)
+    db.session.commit()
+    return jsonify({'success': True, 'id': table.id, 'title': table.title})
+
+
+@current_status_bp.route('/api/status-table/<int:id>', methods=['PUT'])
+@login_required
+def actualizar_status_table(id):
+    table = StatusTable.query.get_or_404(id)
+    data = request.get_json() or {}
+    if 'title' in data:
+        table.title = data['title']
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@current_status_bp.route('/api/status-table/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_status_table(id):
+    table = StatusTable.query.get_or_404(id)
+    db.session.delete(table)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@current_status_bp.route('/api/status-table/<int:id>/row', methods=['POST'])
+@login_required
+def agregar_status_row(id):
+    StatusTable.query.get_or_404(id)
+    row = StatusTableRow(table_id=id)
+    db.session.add(row)
+    db.session.commit()
+    return jsonify({'success': True, 'id': row.id})
+
+
+@current_status_bp.route('/api/status-table-row/<int:id>', methods=['PUT'])
+@login_required
+def actualizar_status_row(id):
+    row = StatusTableRow.query.get_or_404(id)
+    data = request.get_json() or {}
+    for field in ['awb', 'vuelo', 'itinerary', 'etd_date', 'etd_time', 'eta_date', 'eta_time', 'pcs', 'kg', 'status', 'status_color']:
+        if field in data:
+            setattr(row, field, data[field])
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@current_status_bp.route('/api/status-table-row/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_status_row(id):
+    row = StatusTableRow.query.get_or_404(id)
+    db.session.delete(row)
+    db.session.commit()
+    return jsonify({'success': True})

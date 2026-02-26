@@ -203,3 +203,35 @@ class ShipmentHistory(db.Model):
 
     def __repr__(self):
         return f'<ShipmentHistory {self.client_name} count={self.shipment_count}>'
+
+
+class StatusTable(db.Model):
+    """Tabla de status personalizada por cliente"""
+    __tablename__ = 'status_tables'
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('status_clients.id'), nullable=False)
+    title = db.Column(db.String(300), default='STATUS')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    client = db.relationship('StatusClient', backref=db.backref('status_tables', cascade='all, delete-orphan', order_by='StatusTable.id'))
+    rows = db.relationship('StatusTableRow', backref='table', cascade='all, delete-orphan', order_by='StatusTableRow.id')
+
+
+class StatusTableRow(db.Model):
+    """Fila de una tabla de status"""
+    __tablename__ = 'status_table_rows'
+
+    id = db.Column(db.Integer, primary_key=True)
+    table_id = db.Column(db.Integer, db.ForeignKey('status_tables.id'), nullable=False)
+    awb = db.Column(db.String(200), default='')
+    vuelo = db.Column(db.String(200), default='')
+    itinerary = db.Column(db.String(300), default='')
+    etd_date = db.Column(db.String(100), default='')
+    etd_time = db.Column(db.String(100), default='')
+    eta_date = db.Column(db.String(100), default='')
+    eta_time = db.Column(db.String(100), default='')
+    pcs = db.Column(db.String(100), default='')
+    kg = db.Column(db.String(100), default='')
+    status = db.Column(db.String(300), default='')
+    status_color = db.Column(db.String(20), default='green')

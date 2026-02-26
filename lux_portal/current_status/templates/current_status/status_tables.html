@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block title %}Current Status - {{ cliente.nombre }}{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.dashboard') }}">
+        <i class="bi bi-speedometer2"></i>
+        <span>Dashboard</span>
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.detalle_cliente', id=cliente.id) }}">
+        <i class="bi bi-arrow-left"></i>
+        <span>Volver</span>
+    </a>
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .st-table {
+        width: 100%;
+        border: 1px solid #cbd5e1 !important;
+        border-collapse: collapse;
+    }
+    .st-table th {
+        background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+        color: #fff !important;
+        font-size: 0.75rem !important;
+        padding: 8px 6px !important;
+        text-align: center !important;
+        border: 1px solid #5b21b6 !important;
+        white-space: nowrap;
+    }
+    .st-table td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 0 !important;
+        vertical-align: middle;
+    }
+    .st-table textarea {
+        width: 100%;
+        border: none;
+        background: transparent;
+        padding: 6px 8px;
+        font-size: 0.8rem;
+        resize: none;
+        overflow: hidden;
+        text-align: center;
+        min-height: 32px;
+    }
+    .st-table textarea:focus {
+        outline: 2px solid #7c3aed;
+        background: #faf5ff;
+    }
+    .st-table tr:nth-child(even) td {
+        background: #f8fafc;
+    }
+    .st-title-bar {
+        background: linear-gradient(135deg, #7c3aed, #6d28d9);
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .st-title-input {
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-align: center;
+        flex: 1;
+    }
+    .st-title-input:focus {
+        outline: none;
+        border-bottom: 2px solid #fff;
+    }
+    .st-title-input::placeholder {
+        color: rgba(255,255,255,0.6);
+    }
+    .status-cell {
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.8rem;
+        padding: 6px 8px !important;
+        text-align: center;
+        min-width: 180px;
+    }
+    .status-green { background: #C8E6C9 !important; }
+    .status-yellow { background: #FFF9C4 !important; }
+    .status-red { background: #FFCDD2 !important; }
+    .st-card { border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 24px; }
+    .btn-add-row {
+        width: 100%;
+        border: 2px dashed #cbd5e1;
+        background: transparent;
+        color: #94a3b8;
+        padding: 8px;
+        font-size: 0.85rem;
+        border-radius: 0 0 12px 12px;
+        cursor: pointer;
+    }
+    .btn-add-row:hover { background: #f1f5f9; color: #7c3aed; border-color: #7c3aed; }
+    .delete-row-btn {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 4px;
+        font-size: 0.9rem;
+    }
+    .delete-row-btn:hover { color: #ef4444; }
+    .delete-table-btn {
+        background: none;
+        border: none;
+        color: rgba(255,255,255,0.7);
+        cursor: pointer;
+        font-size: 1rem;
+    }
+    .delete-table-btn:hover { color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-0" style="color: #7c3aed; font-weight: 700;">
+                <i class="bi bi-clipboard-data me-2"></i>Current Status - {{ cliente.nombre }}
+            </h4>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-success" onclick="crearTabla()">
+                <i class="bi bi-plus-lg me-1"></i>Agregar Tabla
+            </button>
+            <a href="{{ url_for('current_status.detalle_cliente', id=cliente.id) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Volver
+            </a>
+        </div>
+    </div>
+
+    <div id="tablesContainer">
+        {% for table in cliente.status_tables %}
+        <div class="st-card" data-table-id="{{ table.id }}">
+            <div class="st-title-bar">
+                <input type="text" class="st-title-input" value="{{ table.title }}"
+                       onblur="guardarTitulo({{ table.id }}, this.value)" placeholder="STATUS">
+                <button class="delete-table-btn" onclick="eliminarTabla({{ table.id }})" title="Eliminar tabla">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="st-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 140px;">AWB</th>
+                            <th style="width: 100px;">VUELO</th>
+                            <th style="width: 160px;">ITINERARY</th>
+                            <th colspan="2">ETD</th>
+                            <th colspan="2">ETA</th>
+                            <th style="width: 70px;">PCS</th>
+                            <th style="width: 70px;">KG</th>
+                            <th style="width: 220px;">STATUS</th>
+                            <th style="width: 30px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in table.rows %}
+                        <tr data-row-id="{{ row.id }}">
+                            <td><textarea data-field="awb" onblur="guardarRow({{ row.id }}, this)">{{ row.awb }}</textarea></td>
+                            <td><textarea data-field="vuelo" onblur="guardarRow({{ row.id }}, this)">{{ row.vuelo }}</textarea></td>
+                            <td><textarea data-field="itinerary" onblur="guardarRow({{ row.id }}, this)">{{ row.itinerary }}</textarea></td>
+                            <td><textarea data-field="etd_date" onblur="guardarRow({{ row.id }}, this)" placeholder="fecha">{{ row.etd_date }}</textarea></td>
+                            <td><textarea data-field="etd_time" onblur="guardarRow({{ row.id }}, this)" placeholder="hora">{{ row.etd_time }}</textarea></td>
+                            <td><textarea data-field="eta_date" onblur="guardarRow({{ row.id }}, this)" placeholder="fecha">{{ row.eta_date }}</textarea></td>
+                            <td><textarea data-field="eta_time" onblur="guardarRow({{ row.id }}, this)" placeholder="hora">{{ row.eta_time }}</textarea></td>
+                            <td><textarea data-field="pcs" onblur="guardarRow({{ row.id }}, this)">{{ row.pcs }}</textarea></td>
+                            <td><textarea data-field="kg" onblur="guardarRow({{ row.id }}, this)">{{ row.kg }}</textarea></td>
+                            <td class="status-cell status-{{ row.status_color }}"
+                                onclick="toggleColor(this, {{ row.id }})"
+                                contenteditable="true"
+                                data-field="status"
+                                onblur="guardarStatusText({{ row.id }}, this)">{{ row.status }}</td>
+                            <td style="text-align:center;">
+                                <button class="delete-row-btn" onclick="eliminarRow({{ row.id }}, this)">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button class="btn-add-row" onclick="agregarRow({{ table.id }}, this)">
+                + Agregar fila
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+const BASE = '/current-status';
+const CLIENT_ID = {{ cliente.id }};
+
+function crearTabla() {
+    fetch(`${BASE}/api/client/${CLIENT_ID}/status-table`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title: 'STATUS'})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) location.reload();
+    });
+}
+
+function guardarTitulo(tableId, value) {
+    fetch(`${BASE}/api/status-table/${tableId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title: value})
+    });
+}
+
+function eliminarTabla(tableId) {
+    if (!confirm('¿Eliminar esta tabla y todas sus filas?')) return;
+    fetch(`${BASE}/api/status-table/${tableId}`, {method: 'DELETE'})
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.querySelector(`[data-table-id="${tableId}"]`).remove();
+        }
+    });
+}
+
+function agregarRow(tableId, btn) {
+    fetch(`${BASE}/api/status-table/${tableId}/row`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const tbody = btn.closest('.st-card').querySelector('tbody');
+            const tr = document.createElement('tr');
+            tr.dataset.rowId = data.id;
+            const fields = ['awb','vuelo','itinerary','etd_date','etd_time','eta_date','eta_time','pcs','kg'];
+            fields.forEach(f => {
+                const td = document.createElement('td');
+                const ta = document.createElement('textarea');
+                ta.dataset.field = f;
+                ta.onblur = function() { guardarRow(data.id, this); };
+                if (['etd_date','eta_date'].includes(f)) ta.placeholder = 'fecha';
+                if (['etd_time','eta_time'].includes(f)) ta.placeholder = 'hora';
+                td.appendChild(ta);
+                tr.appendChild(td);
+            });
+            // Status cell
+            const statusTd = document.createElement('td');
+            statusTd.className = 'status-cell status-green';
+            statusTd.contentEditable = true;
+            statusTd.dataset.field = 'status';
+            statusTd.onclick = function() { toggleColor(this, data.id); };
+            statusTd.onblur = function() { guardarStatusText(data.id, this); };
+            tr.appendChild(statusTd);
+            // Delete button
+            const delTd = document.createElement('td');
+            delTd.style.textAlign = 'center';
+            delTd.innerHTML = `<button class="delete-row-btn" onclick="eliminarRow(${data.id}, this)"><i class="bi bi-x-lg"></i></button>`;
+            tr.appendChild(delTd);
+            tbody.appendChild(tr);
+        }
+    });
+}
+
+function guardarRow(rowId, el) {
+    const field = el.dataset.field;
+    const value = el.value || el.textContent;
+    fetch(`${BASE}/api/status-table-row/${rowId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({[field]: value})
+    });
+}
+
+function guardarStatusText(rowId, el) {
+    fetch(`${BASE}/api/status-table-row/${rowId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status: el.textContent.trim()})
+    });
+}
+
+function toggleColor(cell, rowId) {
+    const colors = ['green', 'yellow', 'red'];
+    let current = 'green';
+    for (const c of colors) {
+        if (cell.classList.contains('status-' + c)) {
+            current = c;
+            break;
+        }
+    }
+    const next = colors[(colors.indexOf(current) + 1) % colors.length];
+    cell.classList.remove('status-' + current);
+    cell.classList.add('status-' + next);
+    fetch(`${BASE}/api/status-table-row/${rowId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status_color: next})
+    });
+}
+
+function eliminarRow(rowId, btn) {
+    if (!confirm('¿Eliminar esta fila?')) return;
+    fetch(`${BASE}/api/status-table-row/${rowId}`, {method: 'DELETE'})
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) btn.closest('tr').remove();
+    });
+}
+</script>
+{% endblock %}
