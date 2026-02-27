@@ -1878,6 +1878,157 @@ def status_board():
     return render_template('current_status/status_board.html', cliente=board_client)
 
 
+@current_status_bp.route('/api/status-board/upload-excel', methods=['POST'])
+@login_required
+def upload_status_board_excel():
+    """Upload VD-style Excel to populate status board tables"""
+    import openpyxl
+    from datetime import time as dt_time
+
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'success': False, 'error': 'No file provided'})
+
+    def fmt_date(v):
+        if v is None:
+            return ''
+        if isinstance(v, datetime):
+            if v.year == 1900:
+                return v.strftime('%d/%m/2026')
+            return v.strftime('%d/%m/%Y')
+        return str(v).strip()
+
+    def fmt_time(v):
+        if v is None:
+            return ''
+        if isinstance(v, dt_time):
+            return v.strftime('%H:%M')
+        s = str(v).strip().replace(',', '').replace('.', '').replace('\t', '')
+        return s
+
+    def clean_str(v):
+        if v is None:
+            return ''
+        return str(v).strip().replace('\t', '')
+
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(file.read()), data_only=True)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error reading Excel: {str(e)}'})
+
+    board_client = StatusClient.query.filter_by(nombre='__STATUS_BOARD__').first()
+    if not board_client:
+        board_client = StatusClient(nombre='__STATUS_BOARD__', estado='pendiente')
+        db.session.add(board_client)
+        db.session.commit()
+
+    tables_created = 0
+    total_rows = 0
+
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        if ws.max_row < 3:
+            continue
+
+        # Auto-detect header row and data columns
+        # Strategy: find a row containing "AWB" to identify the header
+        header_sections = []  # list of (title, header_row, col_map)
+        for r in range(1, ws.max_row + 1):
+            for c in range(1, ws.max_column + 1):
+                val = ws.cell(r, c).value
+                if val and str(val).strip().upper() == 'AWB':
+                    # Found header row - detect column mapping
+                    col_map = {}
+                    for cc in range(c, min(c + 15, ws.max_column + 1)):
+                        h = ws.cell(r, cc).value
+                        if h is None:
+                            continue
+                        h = str(h).strip().upper()
+                        if h == 'AWB':
+                            col_map['awb'] = cc
+                        elif h in ('VUELO', 'SHIPMENT', 'AWB CONEXION', 'AWB CONEXIÓN'):
+                            col_map['vuelo'] = cc
+                        elif h in ('ITINERARY', 'ITINERARIO'):
+                            col_map['itinerary'] = cc
+                        elif h == 'ETD':
+                            col_map['etd_date'] = cc
+                            col_map['etd_time'] = cc + 1
+                        elif h == 'ETA':
+                            col_map['eta_date'] = cc
+                            col_map['eta_time'] = cc + 1
+                        elif h == 'PCS':
+                            col_map['pcs'] = cc
+                        elif h == 'KG':
+                            col_map['kg'] = cc
+                        elif h == 'STATUS':
+                            col_map['status'] = cc
+
+                    # Find title from rows above
+                    title = sheet_name
+                    for tr in range(max(1, r - 5), r):
+                        for tc in range(1, ws.max_column + 1):
+                            tv = ws.cell(tr, tc).value
+                            if tv and str(tv).strip() and str(tv).strip().upper() != 'AWB':
+                                candidate = str(tv).strip()
+                                if len(candidate) > 3 and not candidate.replace('-', '').replace(' ', '').isdigit():
+                                    title = candidate
+                    header_sections.append((title, r, col_map, c))
+                    break  # only process first AWB in this row
+
+        if not header_sections:
+            continue
+
+        # Process each section
+        for idx, (title, header_row, col_map, start_col) in enumerate(header_sections):
+            # Determine data end: next header section or end of sheet
+            end_row = ws.max_row
+            if idx + 1 < len(header_sections):
+                end_row = header_sections[idx + 1][1] - 2
+
+            rows_data = []
+            for r in range(header_row + 1, end_row + 1):
+                awb_val = ws.cell(r, col_map.get('awb', start_col)).value
+                # Check if row has any data
+                has_data = False
+                for field_col in col_map.values():
+                    if ws.cell(r, field_col).value is not None:
+                        has_data = True
+                        break
+                if not has_data:
+                    continue
+
+                row_data = {
+                    'awb': clean_str(ws.cell(r, col_map.get('awb', start_col)).value),
+                    'vuelo': clean_str(ws.cell(r, col_map.get('vuelo', start_col + 1)).value) if 'vuelo' in col_map else '',
+                    'itinerary': clean_str(ws.cell(r, col_map.get('itinerary', start_col + 2)).value) if 'itinerary' in col_map else '',
+                    'etd_date': fmt_date(ws.cell(r, col_map.get('etd_date', 0)).value) if 'etd_date' in col_map else '',
+                    'etd_time': fmt_time(ws.cell(r, col_map.get('etd_time', 0)).value) if 'etd_time' in col_map else '',
+                    'eta_date': fmt_date(ws.cell(r, col_map.get('eta_date', 0)).value) if 'eta_date' in col_map else '',
+                    'eta_time': fmt_time(ws.cell(r, col_map.get('eta_time', 0)).value) if 'eta_time' in col_map else '',
+                    'pcs': clean_str(ws.cell(r, col_map.get('pcs', 0)).value) if 'pcs' in col_map else '',
+                    'kg': clean_str(ws.cell(r, col_map.get('kg', 0)).value) if 'kg' in col_map else '',
+                    'status': clean_str(ws.cell(r, col_map.get('status', 0)).value) if 'status' in col_map else '',
+                }
+                rows_data.append(row_data)
+
+            if rows_data:
+                st = StatusTable(client_id=board_client.id, title=title)
+                db.session.add(st)
+                db.session.flush()
+                for rd in rows_data:
+                    row = StatusTableRow(table_id=st.id, **rd)
+                    db.session.add(row)
+                    total_rows += 1
+                tables_created += 1
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'tables_created': tables_created,
+        'total_rows': total_rows
+    })
+
+
 # ===================== STATUS TABLES =====================
 
 @current_status_bp.route('/<int:id>/status-tables')

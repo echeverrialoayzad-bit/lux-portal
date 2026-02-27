@@ -256,6 +256,10 @@
                 <button class="tb-btn active" onclick="setAlign('center')" id="btnAlignC" title="Centro"><i class="bi bi-text-center"></i></button>
                 <button class="tb-btn" onclick="setAlign('right')" id="btnAlignR" title="Derecha"><i class="bi bi-text-right"></i></button>
             </div>
+            <label class="btn btn-outline-primary mb-0" style="cursor: pointer;">
+                <i class="bi bi-upload me-1"></i>Subir Excel
+                <input type="file" accept=".xlsx,.xls" id="uploadExcel" style="display:none;" onchange="uploadExcel(this)">
+            </label>
             <button class="btn btn-success" onclick="crearTabla()">
                 <i class="bi bi-plus-lg me-1"></i>Agregar Tabla
             </button>
@@ -813,6 +817,28 @@ function eliminarRow(rowId, btn) {
     .then(data => {
         if (data.success) btn.closest('tr').remove();
     });
+}
+
+function uploadExcel(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    fetch(`${BASE}/api/status-board/upload-excel`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Importado: ${data.tables_created} tablas, ${data.total_rows} filas`);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(() => alert('Error al subir el archivo'));
+    input.value = '';
 }
 </script>
 {% endblock %}
