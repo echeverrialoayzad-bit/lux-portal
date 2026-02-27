@@ -59,7 +59,7 @@ def _ensure_payment_columns():
 def dashboard():
     """Dashboard con lista de clientes y resumen de pagos"""
     busqueda = request.args.get('q', '').strip()
-    query = StatusClient.query.filter_by(activo=True)
+    query = StatusClient.query.filter_by(activo=True).filter(StatusClient.nombre != '__STATUS_BOARD__')
     if busqueda:
         query = query.filter(StatusClient.nombre.ilike(f'%{busqueda}%'))
     clientes = query.order_by(StatusClient.fecha_actualizacion.desc()).all()
@@ -836,7 +836,9 @@ def descargar_cliente(id):
 @login_required
 def descargar_todos():
     """Descargar listado de todos los clientes con pagos y estado"""
-    clientes = StatusClient.query.filter_by(activo=True).order_by(StatusClient.nombre).all()
+    clientes = StatusClient.query.filter_by(activo=True).filter(
+        StatusClient.nombre != '__STATUS_BOARD__'
+    ).order_by(StatusClient.nombre).all()
     formato = request.args.get('formato', 'excel')
     if formato == 'pdf':
         return _generar_pdf_todos(clientes)
@@ -1860,6 +1862,20 @@ def _generar_pdf_todos(clientes):
     output.seek(0)
     filename = f"resumen_clientes_{datetime.now().strftime('%Y%m%d')}.pdf"
     return send_file(output, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+
+# ===================== STATUS BOARD (standalone) =====================
+
+@current_status_bp.route('/status-board')
+@login_required
+def status_board():
+    """Standalone status board - VD status tables not tied to a specific client detail page"""
+    board_client = StatusClient.query.filter_by(nombre='__STATUS_BOARD__').first()
+    if not board_client:
+        board_client = StatusClient(nombre='__STATUS_BOARD__', estado='pendiente')
+        db.session.add(board_client)
+        db.session.commit()
+    return render_template('current_status/status_board.html', cliente=board_client)
 
 
 # ===================== STATUS TABLES =====================

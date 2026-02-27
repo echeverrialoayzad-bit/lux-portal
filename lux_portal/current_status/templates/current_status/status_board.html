@@ -1,0 +1,818 @@
+{% extends "base.html" %}
+
+{% block title %}Current Status - Lux Portal{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.dashboard') }}">
+        <i class="bi bi-speedometer2"></i>
+        <span>Dashboard</span>
+    </a>
+</li>
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('current_status.facturacion') }}">
+        <i class="bi bi-receipt"></i>
+        <span>Facturacion</span>
+    </a>
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .st-table {
+        width: 100%;
+        table-layout: fixed;
+        border: 1px solid #cbd5e1 !important;
+        border-collapse: collapse;
+    }
+    .st-table th {
+        background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+        color: #fff !important;
+        font-size: 0.7rem !important;
+        padding: 8px 4px !important;
+        text-align: center !important;
+        border: 1px solid #5b21b6 !important;
+        white-space: normal;
+        word-break: break-word;
+        line-height: 1.2;
+        position: relative;
+        user-select: none;
+        overflow: hidden;
+    }
+    .st-table .th-text {
+        display: block;
+        outline: none;
+        cursor: text;
+        min-height: 1em;
+    }
+    .st-table .th-text:focus {
+        background: rgba(255,255,255,0.15);
+        border-radius: 3px;
+    }
+    .st-table td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 0 !important;
+        vertical-align: middle;
+    }
+    .st-table textarea {
+        width: 100%;
+        border: none;
+        background: transparent;
+        padding: 6px 4px;
+        font-size: 0.75rem;
+        resize: none;
+        overflow: hidden;
+        text-align: center;
+        min-height: 32px;
+        font-family: inherit;
+        line-height: 1.3;
+        outline: none;
+        box-sizing: border-box;
+        color: var(--lux-text-primary);
+    }
+    .st-table textarea:focus {
+        background: rgba(124, 58, 237, 0.04);
+    }
+    .st-table tr:nth-child(even) td {
+        background: #e2e8f0 !important;
+    }
+    .st-table tr:nth-child(odd) td {
+        background: #ffffff !important;
+    }
+    .st-title-bar {
+        background: linear-gradient(135deg, #7c3aed, #6d28d9);
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 16px 16px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .st-title-input {
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-align: center;
+        flex: 1;
+        outline: none;
+    }
+    .st-title-input:focus {
+        border-bottom: 2px solid #fff;
+    }
+    .st-title-input::placeholder {
+        color: rgba(255,255,255,0.6);
+    }
+    .status-cell {
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.75rem;
+        padding: 6px 4px !important;
+        text-align: center;
+    }
+    .status-green { background: #C8E6C9 !important; }
+    .status-yellow { background: #FFF9C4 !important; }
+    .status-red { background: #FFCDD2 !important; }
+    .st-card {
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+        margin-bottom: 28px;
+        border: 1px solid #e2e8f0;
+    }
+    .btn-add-row-st {
+        width: 100%;
+        border: 2px dashed #cbd5e1;
+        background: transparent;
+        color: #94a3b8;
+        padding: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border-radius: 0 0 16px 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-add-row-st:hover {
+        background: var(--lux-rose-soft, #fdf2f8);
+        color: var(--lux-rose, #e11d48);
+        border-color: var(--lux-rose, #e11d48);
+    }
+    .delete-row-btn {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 4px 6px;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+    .delete-row-btn:hover { color: #dc2626; transform: scale(1.2); }
+    .delete-table-btn {
+        background: none;
+        border: none;
+        color: rgba(255,255,255,0.7);
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+    .delete-table-btn:hover { color: #fff; }
+    /* Resize handle */
+    .resize-handle {
+        position: absolute;
+        right: 0; top: 0; bottom: 0;
+        width: 6px;
+        cursor: col-resize;
+        background: transparent;
+        z-index: 2;
+    }
+    .resize-handle:hover, .resize-handle.active {
+        background: rgba(255,255,255,0.4);
+    }
+    /* Column drag */
+    .st-table th[data-col] { cursor: grab; }
+    th[data-col="__del"] { cursor: default; }
+    th.dragging { opacity: 0.4; }
+    th.drag-over {
+        background: rgba(255,255,255,0.25) !important;
+        box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7);
+    }
+    /* Column selection */
+    th.col-selected {
+        box-shadow: inset 0 -3px 0 0 #fff !important;
+    }
+    .col-del { width: 40px; }
+    /* Context menu */
+    .ctx-menu {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        padding: 4px 0;
+        min-width: 180px;
+        font-size: 0.78rem;
+    }
+    .ctx-menu.show { display: block; }
+    .ctx-menu-item {
+        display: flex; align-items: center; gap: 8px;
+        padding: 7px 14px; cursor: pointer; color: #334155;
+        transition: background 0.1s;
+        border: none; background: none; width: 100%;
+        text-align: left; font-size: inherit; font-family: inherit;
+    }
+    .ctx-menu-item:hover { background: #f1f5f9; }
+    .ctx-menu-item.danger { color: #dc2626; }
+    .ctx-menu-item.danger:hover { background: #fef2f2; }
+    .ctx-menu-sep { height: 1px; background: #e2e8f0; margin: 3px 8px; }
+    /* Toolbar */
+    .table-toolbar {
+        display: flex; align-items: center; gap: 6px;
+        padding: 6px 10px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
+    .table-toolbar .tb-sep { width: 1px; height: 18px; background: #cbd5e1; margin: 0 2px; }
+    .table-toolbar .tb-btn {
+        background: none; border: 1px solid transparent;
+        color: #64748b; cursor: pointer;
+        padding: 3px 7px; border-radius: 5px;
+        font-size: 0.78rem; line-height: 1;
+        transition: all 0.15s;
+    }
+    .table-toolbar .tb-btn:hover { background: #e2e8f0; color: #1e293b; }
+    .table-toolbar .tb-btn.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    .table-toolbar .tb-label {
+        font-size: 0.7rem; color: #94a3b8; font-weight: 600; user-select: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+            <h4 class="mb-0" style="color: #059669; font-weight: 700;">
+                <i class="bi bi-clipboard-data me-2"></i>Current Status
+            </h4>
+            <p class="text-muted mt-1 mb-0" style="font-size: 0.85rem;">Tablas de seguimiento por cliente</p>
+        </div>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- Formatting toolbar -->
+            <div class="table-toolbar" id="fmtToolbar">
+                <span class="tb-label">Fuente</span>
+                <button class="tb-btn" onclick="changeFontSize(-1)" title="Reducir"><i class="bi bi-type" style="font-size:0.65rem;"></i><i class="bi bi-dash" style="font-size:0.6rem;"></i></button>
+                <span class="tb-label" id="fontSizeLabel" style="min-width:32px; text-align:center;">8</span>
+                <button class="tb-btn" onclick="changeFontSize(1)" title="Agrandar"><i class="bi bi-type"></i><i class="bi bi-plus" style="font-size:0.6rem;"></i></button>
+                <div class="tb-sep"></div>
+                <button class="tb-btn" onclick="toggleBold()" id="btnBold" title="Negrita"><i class="bi bi-type-bold"></i></button>
+                <div class="tb-sep"></div>
+                <span class="tb-label" id="selectedColLabel" style="min-width:50px; text-align:center; cursor:pointer; color:#94a3b8;" onclick="selectColumn(null, null)" title="Deseleccionar">Todo</span>
+                <button class="tb-btn" onclick="setAlign('left')" id="btnAlignL" title="Izquierda"><i class="bi bi-text-left"></i></button>
+                <button class="tb-btn active" onclick="setAlign('center')" id="btnAlignC" title="Centro"><i class="bi bi-text-center"></i></button>
+                <button class="tb-btn" onclick="setAlign('right')" id="btnAlignR" title="Derecha"><i class="bi bi-text-right"></i></button>
+            </div>
+            <button class="btn btn-success" onclick="crearTabla()">
+                <i class="bi bi-plus-lg me-1"></i>Agregar Tabla
+            </button>
+            <a href="{{ url_for('current_status.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div id="tablesContainer">
+        {% for table in cliente.status_tables %}
+        <div class="st-card" data-table-id="{{ table.id }}">
+            <div class="st-title-bar">
+                <input type="text" class="st-title-input" value="{{ table.title }}"
+                       onblur="guardarTitulo({{ table.id }}, this.value)" placeholder="Nombre del cliente">
+                <button class="delete-table-btn" onclick="eliminarTabla({{ table.id }})" title="Eliminar tabla">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="st-table" id="stTable_{{ table.id }}">
+                    <thead>
+                        <tr>
+                            <th data-col="awb" style="width:14%;"><span contenteditable="true" class="th-text" draggable="false">AWB</span><div class="resize-handle"></div></th>
+                            <th data-col="vuelo" style="width:12%;"><span contenteditable="true" class="th-text" draggable="false">Shipment</span><div class="resize-handle"></div></th>
+                            <th data-col="itinerary" style="width:16%;"><span contenteditable="true" class="th-text" draggable="false">Itinerary</span><div class="resize-handle"></div></th>
+                            <th data-col="etd_date" style="width:9%;"><span contenteditable="true" class="th-text" draggable="false">ETD Date</span><div class="resize-handle"></div></th>
+                            <th data-col="etd_time" style="width:7%;"><span contenteditable="true" class="th-text" draggable="false">ETD Time</span><div class="resize-handle"></div></th>
+                            <th data-col="eta_date" style="width:9%;"><span contenteditable="true" class="th-text" draggable="false">ETA Date</span><div class="resize-handle"></div></th>
+                            <th data-col="eta_time" style="width:7%;"><span contenteditable="true" class="th-text" draggable="false">ETA Time</span><div class="resize-handle"></div></th>
+                            <th data-col="pcs" style="width:6%;"><span contenteditable="true" class="th-text" draggable="false">PCS</span><div class="resize-handle"></div></th>
+                            <th data-col="kg" style="width:6%;"><span contenteditable="true" class="th-text" draggable="false">KG</span><div class="resize-handle"></div></th>
+                            <th data-col="status" style="width:11%;"><span contenteditable="true" class="th-text" draggable="false">STATUS</span><div class="resize-handle"></div></th>
+                            <th class="col-del" data-col="__del"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in table.rows %}
+                        <tr data-row-id="{{ row.id }}">
+                            <td data-col="awb"><textarea data-field="awb" onblur="guardarRow({{ row.id }}, this)">{{ row.awb }}</textarea></td>
+                            <td data-col="vuelo"><textarea data-field="vuelo" onblur="guardarRow({{ row.id }}, this)">{{ row.vuelo }}</textarea></td>
+                            <td data-col="itinerary"><textarea data-field="itinerary" onblur="guardarRow({{ row.id }}, this)">{{ row.itinerary }}</textarea></td>
+                            <td data-col="etd_date"><textarea data-field="etd_date" onblur="guardarRow({{ row.id }}, this)" placeholder="fecha">{{ row.etd_date }}</textarea></td>
+                            <td data-col="etd_time"><textarea data-field="etd_time" onblur="guardarRow({{ row.id }}, this)" placeholder="hora">{{ row.etd_time }}</textarea></td>
+                            <td data-col="eta_date"><textarea data-field="eta_date" onblur="guardarRow({{ row.id }}, this)" placeholder="fecha">{{ row.eta_date }}</textarea></td>
+                            <td data-col="eta_time"><textarea data-field="eta_time" onblur="guardarRow({{ row.id }}, this)" placeholder="hora">{{ row.eta_time }}</textarea></td>
+                            <td data-col="pcs"><textarea data-field="pcs" onblur="guardarRow({{ row.id }}, this)">{{ row.pcs }}</textarea></td>
+                            <td data-col="kg"><textarea data-field="kg" onblur="guardarRow({{ row.id }}, this)">{{ row.kg }}</textarea></td>
+                            <td data-col="status" class="status-cell status-{{ row.status_color }}"
+                                onclick="toggleColor(this, {{ row.id }})">
+                                <textarea data-field="status" onblur="guardarRow({{ row.id }}, this)"
+                                          style="font-weight:600; background:transparent;">{{ row.status }}</textarea>
+                            </td>
+                            <td class="col-del" data-col="__del" style="text-align:center; vertical-align:middle;">
+                                <button class="delete-row-btn" onclick="eliminarRow({{ row.id }}, this)">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button class="btn-add-row-st" onclick="agregarRow({{ table.id }}, this)">
+                <i class="bi bi-plus-lg me-1"></i> Agregar fila
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if not cliente.status_tables %}
+    <div class="text-center py-5" id="emptyState">
+        <i class="bi bi-clipboard-data" style="font-size: 3rem; color: #cbd5e1;"></i>
+        <h5 class="mt-3" style="color: #94a3b8;">No hay tablas de status</h5>
+        <p class="text-muted">Crea tu primera tabla para comenzar el seguimiento</p>
+        <button class="btn btn-success" onclick="crearTabla()">
+            <i class="bi bi-plus-lg me-1"></i>Agregar Tabla
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Context menu -->
+    <div class="ctx-menu" id="ctxMenu">
+        <button class="ctx-menu-item" onclick="ctxInsertAbove()"><i class="bi bi-arrow-bar-up"></i> Insertar fila arriba</button>
+        <button class="ctx-menu-item" onclick="ctxInsertBelow()"><i class="bi bi-arrow-bar-down"></i> Insertar fila abajo</button>
+        <div class="ctx-menu-sep"></div>
+        <button class="ctx-menu-item danger" onclick="ctxDeleteRow()"><i class="bi bi-trash"></i> Eliminar fila</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BASE = '/current-status';
+const CLIENT_ID = {{ cliente.id }};
+const FIELDS = ['awb','vuelo','itinerary','etd_date','etd_time','eta_date','eta_time','pcs','kg','status'];
+
+// --- Formatting state ---
+const FONT_SIZES = [6, 7, 8, 9, 10, 11, 12, 14, 16, 18];
+let currentFontIdx = 2;
+let currentBold = false;
+let colAligns = {};
+let selectedCol = null;
+let selectedTableId = null;
+
+// --- Auto-resize ---
+function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+}
+
+// --- Init ---
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.st-table textarea').forEach(ta => {
+        autoResize(ta);
+        ta.addEventListener('input', () => autoResize(ta));
+    });
+    initColumnResize();
+    initColumnDrag();
+    initColumnSelect();
+    initContextMenu();
+    loadTableFormat();
+});
+
+// --- Formatting ---
+function loadTableFormat() {
+    try {
+        const saved = JSON.parse(localStorage.getItem('cs_board_fmt') || '{}');
+        if (saved.fontIdx !== undefined) currentFontIdx = saved.fontIdx;
+        if (saved.colAligns) colAligns = saved.colAligns;
+        if (saved.bold !== undefined) currentBold = saved.bold;
+    } catch(e) {}
+    applyTableFormat();
+}
+
+function saveTableFormat() {
+    localStorage.setItem('cs_board_fmt', JSON.stringify({
+        fontIdx: currentFontIdx, colAligns: colAligns, bold: currentBold
+    }));
+}
+
+function getColAlign(tableId, col) {
+    return (colAligns[tableId] && colAligns[tableId][col]) || 'center';
+}
+
+function applyTableFormat() {
+    const size = FONT_SIZES[currentFontIdx];
+    const sizeRem = (size / 16).toFixed(4) + 'rem';
+    document.querySelectorAll('.st-table').forEach(table => {
+        const tId = table.id;
+        table.querySelectorAll('textarea').forEach(ta => {
+            ta.style.fontSize = sizeRem;
+            ta.style.fontWeight = currentBold ? 'bold' : 'normal';
+            const td = ta.closest('td');
+            const col = td ? td.dataset.col : null;
+            if (col && tId) ta.style.textAlign = getColAlign(tId, col);
+            autoResize(ta);
+        });
+    });
+    document.getElementById('fontSizeLabel').textContent = size;
+    document.getElementById('btnBold').classList.toggle('active', currentBold);
+    updateAlignButtons();
+}
+
+function updateAlignButtons() {
+    const align = (selectedCol && selectedTableId) ? getColAlign(selectedTableId, selectedCol) : 'center';
+    document.getElementById('btnAlignL').classList.toggle('active', align === 'left');
+    document.getElementById('btnAlignC').classList.toggle('active', align === 'center');
+    document.getElementById('btnAlignR').classList.toggle('active', align === 'right');
+    const label = document.getElementById('selectedColLabel');
+    if (selectedCol && selectedTableId) {
+        const th = document.querySelector(`#${selectedTableId} th[data-col="${selectedCol}"] .th-text`);
+        label.textContent = th ? th.textContent.trim() : selectedCol;
+        label.style.color = '#7c3aed';
+    } else {
+        label.textContent = 'Todo';
+        label.style.color = '#94a3b8';
+    }
+}
+
+function selectColumn(col, tableId) {
+    document.querySelectorAll('th.col-selected').forEach(th => th.classList.remove('col-selected'));
+    if (selectedCol === col && selectedTableId === tableId) {
+        selectedCol = null;
+        selectedTableId = null;
+    } else {
+        selectedCol = col;
+        selectedTableId = tableId || null;
+        if (tableId && col) {
+            const th = document.querySelector(`#${tableId} th[data-col="${col}"]`);
+            if (th) th.classList.add('col-selected');
+        }
+    }
+    updateAlignButtons();
+}
+
+function initColumnSelect() {
+    document.querySelectorAll('.st-table').forEach(table => {
+        const tId = table.id;
+        table.querySelectorAll('thead th[data-col]').forEach(th => {
+            const col = th.dataset.col;
+            if (col.startsWith('__')) return;
+            th.addEventListener('click', (e) => {
+                if (e.target.classList.contains('resize-handle')) return;
+                if (e.target.classList.contains('th-text') && document.activeElement === e.target) return;
+                selectColumn(col, tId);
+            });
+        });
+    });
+}
+
+function changeFontSize(dir) {
+    currentFontIdx = Math.max(0, Math.min(FONT_SIZES.length - 1, currentFontIdx + dir));
+    applyTableFormat();
+    saveTableFormat();
+}
+
+function toggleBold() {
+    currentBold = !currentBold;
+    applyTableFormat();
+    saveTableFormat();
+}
+
+function setAlign(align) {
+    if (selectedCol && selectedTableId) {
+        if (!colAligns[selectedTableId]) colAligns[selectedTableId] = {};
+        colAligns[selectedTableId][selectedCol] = align;
+    } else {
+        document.querySelectorAll('.st-table').forEach(table => {
+            const tId = table.id;
+            if (!colAligns[tId]) colAligns[tId] = {};
+            table.querySelectorAll('thead th[data-col]').forEach(th => {
+                const col = th.dataset.col;
+                if (!col.startsWith('__')) colAligns[tId][col] = align;
+            });
+        });
+    }
+    applyTableFormat();
+    saveTableFormat();
+}
+
+// --- Column resize ---
+function initColumnResize() {
+    document.querySelectorAll('.resize-handle').forEach(handle => {
+        handle.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const th = this.parentElement;
+            const startX = e.pageX;
+            const startWidth = th.offsetWidth;
+            this.classList.add('active');
+            const self = this;
+            const onMouseMove = (e) => {
+                const diff = e.pageX - startX;
+                const newWidth = Math.max(30, startWidth + diff);
+                th.style.width = newWidth + 'px';
+                th.style.minWidth = newWidth + 'px';
+            };
+            const onMouseUp = () => {
+                self.classList.remove('active');
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                document.querySelectorAll('.st-table textarea').forEach(ta => autoResize(ta));
+            };
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+    });
+}
+
+// --- Column drag ---
+function initColumnDrag() {
+    document.querySelectorAll('.st-table').forEach(table => {
+        const tId = table.id;
+        const headerRow = table.querySelector('thead tr');
+        headerRow.querySelectorAll('th[data-col]').forEach(th => {
+            if (th.dataset.col.startsWith('__')) return;
+            th.draggable = true;
+            th.addEventListener('dragstart', (e) => {
+                const active = document.activeElement;
+                if (active && active.classList.contains('th-text')) { e.preventDefault(); return; }
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', th.dataset.col + '|' + tId);
+                th.classList.add('dragging');
+                setTimeout(() => { th.style.opacity = '0.4'; }, 0);
+            });
+            th.addEventListener('dragend', () => {
+                th.classList.remove('dragging');
+                th.style.opacity = '';
+                headerRow.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            });
+            th.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (!th.classList.contains('dragging')) th.classList.add('drag-over');
+            });
+            th.addEventListener('dragleave', () => { th.classList.remove('drag-over'); });
+            th.addEventListener('drop', (e) => {
+                e.preventDefault();
+                th.classList.remove('drag-over');
+                const raw = e.dataTransfer.getData('text/plain');
+                const [sourceCol, sourceTable] = raw.split('|');
+                const targetCol = th.dataset.col;
+                if (!sourceCol || sourceCol === targetCol || sourceTable !== tId) return;
+                moveColumn(sourceCol, targetCol, tId);
+            });
+        });
+    });
+}
+
+function moveColumn(sourceCol, targetCol, tableId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    const headerRow = table.querySelector('thead tr');
+    const sourceTh = headerRow.querySelector(`th[data-col="${sourceCol}"]`);
+    const targetTh = headerRow.querySelector(`th[data-col="${targetCol}"]`);
+    if (!sourceTh || !targetTh) return;
+    const sourceIdx = Array.from(headerRow.children).indexOf(sourceTh);
+    const targetIdx = Array.from(headerRow.children).indexOf(targetTh);
+    if (sourceIdx < targetIdx) targetTh.after(sourceTh);
+    else targetTh.before(sourceTh);
+    table.querySelectorAll('tbody tr').forEach(row => {
+        const sTd = row.querySelector(`td[data-col="${sourceCol}"]`);
+        const tTd = row.querySelector(`td[data-col="${targetCol}"]`);
+        if (!sTd || !tTd) return;
+        const si = Array.from(row.children).indexOf(sTd);
+        const ti = Array.from(row.children).indexOf(tTd);
+        if (si < ti) tTd.after(sTd);
+        else tTd.before(sTd);
+    });
+    // Save column order per table
+    const order = Array.from(table.querySelectorAll('thead th[data-col]'))
+        .map(th => th.dataset.col).filter(c => !c.startsWith('__'));
+    localStorage.setItem('cs_board_col_' + tableId, JSON.stringify(order));
+}
+
+// --- Context menu ---
+let ctxTargetRow = null;
+let ctxTargetTableId = null;
+
+function initContextMenu() {
+    const menu = document.getElementById('ctxMenu');
+    document.querySelectorAll('.st-table').forEach(table => {
+        const tId = table.id;
+        table.querySelector('tbody').addEventListener('contextmenu', function(e) {
+            const row = e.target.closest('tr');
+            if (!row) return;
+            e.preventDefault();
+            ctxTargetRow = row;
+            ctxTargetTableId = tId;
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.classList.add('show');
+        });
+    });
+    document.addEventListener('click', () => menu.classList.remove('show'));
+    document.addEventListener('contextmenu', (e) => {
+        if (!e.target.closest('.st-table tbody')) menu.classList.remove('show');
+    });
+}
+
+function getTableIdFromDom(tableId) {
+    // Extract numeric ID from "stTable_123"
+    return tableId.replace('stTable_', '');
+}
+
+function buildStatusRow(rowId, tableId) {
+    const tr = document.createElement('tr');
+    tr.dataset.rowId = rowId;
+    FIELDS.forEach(f => {
+        const td = document.createElement('td');
+        td.dataset.col = f;
+        if (f === 'status') {
+            td.className = 'status-cell status-green';
+            td.onclick = function() { toggleColor(this, rowId); };
+            const ta = document.createElement('textarea');
+            ta.dataset.field = f;
+            ta.style.fontWeight = '600';
+            ta.style.background = 'transparent';
+            ta.onblur = function() { guardarRow(rowId, this); };
+            ta.addEventListener('input', () => autoResize(ta));
+            td.appendChild(ta);
+        } else {
+            const ta = document.createElement('textarea');
+            ta.dataset.field = f;
+            ta.onblur = function() { guardarRow(rowId, this); };
+            if (['etd_date','eta_date'].includes(f)) ta.placeholder = 'fecha';
+            if (['etd_time','eta_time'].includes(f)) ta.placeholder = 'hora';
+            ta.addEventListener('input', () => autoResize(ta));
+            td.appendChild(ta);
+        }
+        tr.appendChild(td);
+    });
+    // Delete button
+    const delTd = document.createElement('td');
+    delTd.className = 'col-del';
+    delTd.dataset.col = '__del';
+    delTd.style.textAlign = 'center';
+    delTd.style.verticalAlign = 'middle';
+    delTd.innerHTML = `<button class="delete-row-btn" onclick="eliminarRow(${rowId}, this)"><i class="bi bi-x-lg"></i></button>`;
+    tr.appendChild(delTd);
+    // Apply formatting
+    const size = FONT_SIZES[currentFontIdx];
+    const sizeRem = (size / 16).toFixed(4) + 'rem';
+    tr.querySelectorAll('textarea').forEach(ta => {
+        ta.style.fontSize = sizeRem;
+        ta.style.fontWeight = (ta.dataset.field === 'status') ? '600' : (currentBold ? 'bold' : 'normal');
+        const td = ta.closest('td');
+        const col = td ? td.dataset.col : null;
+        if (col && tableId) ta.style.textAlign = getColAlign(tableId, col);
+    });
+    // Reorder to match current column order
+    reorderNewRow(tr, tableId);
+    return tr;
+}
+
+function reorderNewRow(tr, tableId) {
+    const headerOrder = Array.from(document.querySelectorAll(`#${tableId} thead th`))
+        .map(th => th.dataset.col).filter(Boolean);
+    const cells = {};
+    Array.from(tr.children).forEach(td => {
+        if (td.dataset.col) cells[td.dataset.col] = td;
+    });
+    while (tr.firstChild) tr.removeChild(tr.firstChild);
+    headerOrder.forEach(col => { if (cells[col]) tr.appendChild(cells[col]); });
+}
+
+function ctxInsertAbove() {
+    if (!ctxTargetRow || !ctxTargetTableId) return;
+    const stId = getTableIdFromDom(ctxTargetTableId);
+    fetch(`${BASE}/api/status-table/${stId}/row`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(r => r.json()).then(data => {
+        if (!data.success) return;
+        const tr = buildStatusRow(data.id, ctxTargetTableId);
+        ctxTargetRow.before(tr);
+        tr.querySelector('textarea').focus();
+    });
+    document.getElementById('ctxMenu').classList.remove('show');
+}
+
+function ctxInsertBelow() {
+    if (!ctxTargetRow || !ctxTargetTableId) return;
+    const stId = getTableIdFromDom(ctxTargetTableId);
+    fetch(`${BASE}/api/status-table/${stId}/row`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(r => r.json()).then(data => {
+        if (!data.success) return;
+        const tr = buildStatusRow(data.id, ctxTargetTableId);
+        ctxTargetRow.after(tr);
+        tr.querySelector('textarea').focus();
+    });
+    document.getElementById('ctxMenu').classList.remove('show');
+}
+
+function ctxDeleteRow() {
+    if (!ctxTargetRow) return;
+    const rowId = ctxTargetRow.dataset.rowId;
+    if (!confirm('Eliminar esta fila?')) return;
+    fetch(`${BASE}/api/status-table-row/${rowId}`, {method: 'DELETE'})
+    .then(r => r.json()).then(data => {
+        if (data.success) ctxTargetRow.remove();
+    });
+    document.getElementById('ctxMenu').classList.remove('show');
+}
+
+// --- CRUD ---
+function crearTabla() {
+    const title = prompt('Nombre de la tabla (cliente):');
+    if (!title) return;
+    fetch(`${BASE}/api/client/${CLIENT_ID}/status-table`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title: title})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) location.reload();
+    });
+}
+
+function guardarTitulo(tableId, value) {
+    fetch(`${BASE}/api/status-table/${tableId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title: value})
+    });
+}
+
+function eliminarTabla(tableId) {
+    if (!confirm('Eliminar esta tabla y todas sus filas?')) return;
+    fetch(`${BASE}/api/status-table/${tableId}`, {method: 'DELETE'})
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.querySelector(`[data-table-id="${tableId}"]`).remove();
+            if (!document.querySelectorAll('.st-card').length) location.reload();
+        }
+    });
+}
+
+function agregarRow(tableId, btn) {
+    fetch(`${BASE}/api/status-table/${tableId}/row`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) return;
+        const tbody = btn.closest('.st-card').querySelector('tbody');
+        const domTableId = 'stTable_' + tableId;
+        const tr = buildStatusRow(data.id, domTableId);
+        tbody.appendChild(tr);
+        tr.querySelector('textarea').focus();
+    });
+}
+
+function guardarRow(rowId, el) {
+    const field = el.dataset.field;
+    const value = el.value || el.textContent;
+    fetch(`${BASE}/api/status-table-row/${rowId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({[field]: value})
+    });
+}
+
+function toggleColor(cell, rowId) {
+    const colors = ['green', 'yellow', 'red'];
+    let current = 'green';
+    for (const c of colors) {
+        if (cell.classList.contains('status-' + c)) {
+            current = c;
+            break;
+        }
+    }
+    const next = colors[(colors.indexOf(current) + 1) % colors.length];
+    cell.classList.remove('status-' + current);
+    cell.classList.add('status-' + next);
+    fetch(`${BASE}/api/status-table-row/${rowId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status_color: next})
+    });
+}
+
+function eliminarRow(rowId, btn) {
+    if (!confirm('Eliminar esta fila?')) return;
+    fetch(`${BASE}/api/status-table-row/${rowId}`, {method: 'DELETE'})
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) btn.closest('tr').remove();
+    });
+}
+</script>
+{% endblock %}
