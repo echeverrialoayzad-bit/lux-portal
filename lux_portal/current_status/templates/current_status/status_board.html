@@ -256,6 +256,9 @@
                 <button class="tb-btn active" onclick="setAlign('center')" id="btnAlignC" title="Centro"><i class="bi bi-text-center"></i></button>
                 <button class="tb-btn" onclick="setAlign('right')" id="btnAlignR" title="Derecha"><i class="bi bi-text-right"></i></button>
             </div>
+            <a href="{{ url_for('current_status.status_board_pdf') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+            </a>
             <label class="btn btn-outline-primary mb-0" style="cursor: pointer;">
                 <i class="bi bi-upload me-1"></i>Subir Excel
                 <input type="file" accept=".xlsx,.xls" id="uploadExcel" style="display:none;" onchange="uploadExcel(this)">

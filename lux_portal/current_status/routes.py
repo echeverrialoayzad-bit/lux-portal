@@ -2029,6 +2029,116 @@ def upload_status_board_excel():
     })
 
 
+@current_status_bp.route('/status-board/pdf')
+@login_required
+def status_board_pdf():
+    """Generate PDF with all status board tables"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Spacer, Paragraph, Image as RLImage
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
+
+    board_client = StatusClient.query.filter_by(nombre='__STATUS_BOARD__').first()
+    if not board_client or not board_client.status_tables:
+        return 'No hay tablas', 404
+
+    output = io.BytesIO()
+    doc = SimpleDocTemplate(output, pagesize=landscape(A4), topMargin=12*mm, bottomMargin=12*mm,
+                            leftMargin=10*mm, rightMargin=10*mm)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    cell_style = ParagraphStyle('CellCenter', parent=styles['Normal'],
+                                fontSize=7, leading=9, alignment=TA_CENTER)
+    cell_header = ParagraphStyle('CellHeader', parent=styles['Normal'],
+                                 fontSize=7, leading=9, alignment=TA_CENTER,
+                                 textColor=colors.white)
+    title_style = ParagraphStyle('TableTitle', parent=styles['Normal'],
+                                  fontSize=11, leading=14, alignment=TA_CENTER,
+                                  textColor=colors.white, fontName='Helvetica-Bold')
+
+    def P(text):
+        t = str(text or '').replace('\n', '<br/>')
+        return Paragraph(t, cell_style)
+
+    def PH(text):
+        return Paragraph(str(text or ''), cell_header)
+
+    purple = colors.HexColor('#7C3AED')
+    green_bg = colors.HexColor('#C8E6C9')
+    yellow_bg = colors.HexColor('#FFF9C4')
+    red_bg = colors.HexColor('#FFCDD2')
+    color_map = {'green': green_bg, 'yellow': yellow_bg, 'red': red_bg}
+
+    # Logo
+    logo_path = get_logo_path()
+    if os.path.exists(logo_path):
+        logo = RLImage(logo_path, width=120, height=35)
+        elements.append(logo)
+        elements.append(Spacer(1, 8))
+
+    elements.append(Paragraph('<b>Current Status</b>', styles['Title']))
+    elements.append(Spacer(1, 10))
+
+    common_style = [
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+    ]
+
+    col_widths = [38*mm, 30*mm, 40*mm, 22*mm, 18*mm, 22*mm, 18*mm, 16*mm, 16*mm, 52*mm]
+
+    for st in board_client.status_tables:
+        # Title row
+        title_data = [[Paragraph(f'<b>{st.title}</b>', title_style)] + [''] * 9]
+        title_table = RLTable(title_data, colWidths=col_widths)
+        title_table.setStyle(TableStyle([
+            ('SPAN', (0, 0), (-1, 0)),
+            ('BACKGROUND', (0, 0), (-1, 0), purple),
+            ('TOPPADDING', (0, 0), (-1, 0), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ]))
+        elements.append(title_table)
+
+        # Header + data
+        headers = [PH('AWB'), PH('Shipment'), PH('Itinerary'), PH('ETD Date'), PH('ETD Time'),
+                   PH('ETA Date'), PH('ETA Time'), PH('PCS'), PH('KG'), PH('STATUS')]
+        data = [headers]
+        status_colors = []
+        for row in st.rows:
+            data.append([
+                P(row.awb), P(row.vuelo), P(row.itinerary),
+                P(row.etd_date), P(row.etd_time),
+                P(row.eta_date), P(row.eta_time),
+                P(row.pcs), P(row.kg), P(row.status)
+            ])
+            sc = color_map.get(row.status_color, green_bg)
+            status_colors.append(('BACKGROUND', (9, len(data) - 1), (9, len(data) - 1), sc))
+
+        if len(data) > 1:
+            t = RLTable(data, repeatRows=1, colWidths=col_widths)
+            row_bg = []
+            for i in range(1, len(data)):
+                bg = colors.HexColor('#E2E8F0') if i % 2 == 0 else colors.white
+                row_bg.append(('BACKGROUND', (0, i), (8, i), bg))
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), purple),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ] + row_bg + status_colors + common_style))
+            elements.append(t)
+
+        elements.append(Spacer(1, 16))
+
+    doc.build(elements)
+    output.seek(0)
+    filename = f"current_status_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return send_file(output, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+
 # ===================== STATUS TABLES =====================
 
 @current_status_bp.route('/<int:id>/status-tables')
