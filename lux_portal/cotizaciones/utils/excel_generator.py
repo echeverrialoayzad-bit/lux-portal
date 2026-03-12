@@ -612,18 +612,32 @@ def generar_hoja(ws, datos, idioma='es'):
     notas_fw = datos.get('notas_freightwise', '').strip()
     if notas_fw:
         fila_notas = ultima_fila_fw + 2
+
+        # Titulo morado igual que "Cargos Adicionales FreightWise"
         titulo_notas = 'Notas:' if idioma == 'es' else 'Notes:'
         ws[f'A{fila_notas}'] = titulo_notas
-        ws[f'A{fila_notas}'].font = Font(name='Arial', size=10, bold=True, color='5f259f')
-        ws[f'A{fila_notas}'].alignment = Alignment(horizontal='left', vertical='center')
+        ws[f'A{fila_notas}'].font = Font(name='Arial', size=11, bold=True, color='FFFFFF')
+        ws[f'A{fila_notas}'].fill = PatternFill(start_color='5f259f', end_color='5f259f', fill_type='solid')
+        ws[f'A{fila_notas}'].alignment = Alignment(horizontal='center', vertical='center')
         ws.merge_cells(f'A{fila_notas}:O{fila_notas}')
+        ws.row_dimensions[fila_notas].height = 25
 
+        # Contenido de notas centrado
         fila_notas += 1
         ws[f'A{fila_notas}'] = notas_fw
-        ws[f'A{fila_notas}'].font = Font(name='Arial', size=9, color='333333')
-        ws[f'A{fila_notas}'].alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+        ws[f'A{fila_notas}'].font = Font(name='Arial', size=9, color='000000')
+        ws[f'A{fila_notas}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         ws.merge_cells(f'A{fila_notas}:O{fila_notas}')
         ws.row_dimensions[fila_notas].height = max(30, 15 * notas_fw.count('\n') + 15)
+
+        # Borde exterior
+        for row_n in range(fila_notas - 1, fila_notas + 1):
+            for col in range(1, 16):
+                left = thin_side if col == 1 else no_side
+                right = thin_side if col == 15 else no_side
+                top = thin_side if row_n == fila_notas - 1 else no_side
+                bottom = thin_side if row_n == fila_notas else no_side
+                ws.cell(row=row_n, column=col).border = Border(left=left, right=right, top=top, bottom=bottom)
 
 
 def crear_cotizacion_excel(datos, idioma='ambos'):

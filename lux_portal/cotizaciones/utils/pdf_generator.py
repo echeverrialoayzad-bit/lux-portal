@@ -380,20 +380,42 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     fw_table.setStyle(TableStyle(fw_style_cmds))
     elements.append(fw_table)
 
-    # Notas FreightWise
+    # Notas FreightWise - mismo formato morado que el header de cargos
     notas_fw = datos.get('notas_freightwise', '').strip()
     if notas_fw:
         elements.append(Spacer(1, 0.3*cm))
+
+        # Header morado
         titulo_notas = 'Notas:' if idioma == 'es' else 'Notes:'
-        notas_style = ParagraphStyle(
-            'NotasFW', fontName='Helvetica', fontSize=7, leading=9, textColor=HexColor('#333333')
-        )
-        titulo_style = ParagraphStyle(
-            'NotasTitulo', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=HexColor('#5f259f')
-        )
-        elements.append(Paragraph(titulo_notas, titulo_style))
+        notas_header = [[titulo_notas]]
+        notas_header_table = Table(notas_header, colWidths=[available_width])
+        notas_header_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), PURPLE_COLOR),
+            ('TEXTCOLOR', (0, 0), (-1, -1), WHITE_COLOR),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('BOX', (0, 0), (-1, -1), 0.5, BLACK_COLOR),
+        ]))
+        elements.append(notas_header_table)
+
+        # Contenido centrado
         notas_texto = notas_fw.replace('\n', '<br/>')
-        elements.append(Paragraph(notas_texto, notas_style))
+        notas_style = ParagraphStyle(
+            'NotasFW', fontName='Helvetica', fontSize=7, leading=9,
+            textColor=HexColor('#000000'), alignment=TA_CENTER
+        )
+        notas_body = [[Paragraph(notas_texto, notas_style)]]
+        notas_body_table = Table(notas_body, colWidths=[available_width])
+        notas_body_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('BOX', (0, 0), (-1, -1), 0.5, BLACK_COLOR),
+        ]))
+        elements.append(notas_body_table)
 
     return elements
 
