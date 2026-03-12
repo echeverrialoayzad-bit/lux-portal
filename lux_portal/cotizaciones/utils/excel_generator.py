@@ -613,19 +613,20 @@ def generar_hoja(ws, datos, idioma='es'):
     if notas_fw:
         fila_notas = ultima_fila_fw + 2
 
-        # Titulo morado igual que "Cargos Adicionales FreightWise"
+        # Titulo gris
         titulo_notas = 'Notas:' if idioma == 'es' else 'Notes:'
         ws[f'A{fila_notas}'] = titulo_notas
-        ws[f'A{fila_notas}'].font = Font(name='Arial', size=11, bold=True, color='FFFFFF')
-        ws[f'A{fila_notas}'].fill = PatternFill(start_color='5f259f', end_color='5f259f', fill_type='solid')
+        ws[f'A{fila_notas}'].font = Font(name='Arial', size=11, bold=True, color='000000')
+        ws[f'A{fila_notas}'].fill = PatternFill(start_color='D9D9D9', end_color='D9D9D9', fill_type='solid')
         ws[f'A{fila_notas}'].alignment = Alignment(horizontal='center', vertical='center')
         ws.merge_cells(f'A{fila_notas}:O{fila_notas}')
         ws.row_dimensions[fila_notas].height = 25
 
-        # Contenido de notas centrado
+        # Contenido morado con letras blancas
         fila_notas += 1
         ws[f'A{fila_notas}'] = notas_fw
-        ws[f'A{fila_notas}'].font = Font(name='Arial', size=9, color='000000')
+        ws[f'A{fila_notas}'].font = Font(name='Arial', size=9, color='FFFFFF')
+        ws[f'A{fila_notas}'].fill = PatternFill(start_color='5f259f', end_color='5f259f', fill_type='solid')
         ws[f'A{fila_notas}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         ws.merge_cells(f'A{fila_notas}:O{fila_notas}')
         ws.row_dimensions[fila_notas].height = max(30, 15 * notas_fw.count('\n') + 15)

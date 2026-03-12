@@ -385,13 +385,13 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     if notas_fw:
         elements.append(Spacer(1, 0.3*cm))
 
-        # Header morado
+        # Header gris
         titulo_notas = 'Notas:' if idioma == 'es' else 'Notes:'
         notas_header = [[titulo_notas]]
         notas_header_table = Table(notas_header, colWidths=[available_width])
         notas_header_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), PURPLE_COLOR),
-            ('TEXTCOLOR', (0, 0), (-1, -1), WHITE_COLOR),
+            ('BACKGROUND', (0, 0), (-1, -1), HexColor('#D9D9D9')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), BLACK_COLOR),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -401,15 +401,16 @@ def _generar_elementos_pdf(datos, idioma, available_width):
         ]))
         elements.append(notas_header_table)
 
-        # Contenido centrado
+        # Contenido morado con letras blancas
         notas_texto = notas_fw.replace('\n', '<br/>')
         notas_style = ParagraphStyle(
             'NotasFW', fontName='Helvetica', fontSize=7, leading=9,
-            textColor=HexColor('#000000'), alignment=TA_CENTER
+            textColor=HexColor('#FFFFFF'), alignment=TA_CENTER
         )
         notas_body = [[Paragraph(notas_texto, notas_style)]]
         notas_body_table = Table(notas_body, colWidths=[available_width])
         notas_body_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), PURPLE_COLOR),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('TOPPADDING', (0, 0), (-1, -1), 5),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
