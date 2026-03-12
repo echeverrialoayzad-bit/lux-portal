@@ -563,16 +563,22 @@ def generar_hoja(ws, datos, idioma='es'):
     ws.merge_cells(f'A{fila_fw}:O{fila_fw}')
     ws.row_dimensions[fila_fw].height = 25
 
-    # Cargos fijos en filas siguientes - centrados debajo del titulo
-    cargos_fw = [
-        {'concepto_es': 'Due Agent', 'concepto_en': 'Due Agent', 'monto': '50.00'},
-        {'concepto_es': 'Certificado', 'concepto_en': 'Certificate', 'monto': '15.00'},
-        {'concepto_es': 'Fitosanitario', 'concepto_en': 'Phytosanitary', 'monto': '2.50'}
-    ]
+    # Cargos FreightWise desde datos (editables) o defaults
+    traducciones_en = {
+        'certificado': 'Certificate',
+        'fitosanitario': 'Phytosanitary',
+    }
+    cargos_fw = datos.get('cargos_freightwise', [
+        {'concepto': 'Due Agent', 'monto': '50.00'},
+        {'concepto': 'Certificado', 'monto': '15.00'},
+        {'concepto': 'Fitosanitario', 'monto': '2.50'}
+    ])
 
     fila_cargo_fw = fila_fw + 1
     for cargo in cargos_fw:
-        concepto = cargo['concepto_es'] if idioma == 'es' else cargo['concepto_en']
+        concepto = cargo.get('concepto', '')
+        if idioma == 'en':
+            concepto = traducciones_en.get(concepto.lower(), concepto)
 
         # Concepto en columnas E-K (centrado)
         ws[f'E{fila_cargo_fw}'] = concepto
@@ -581,7 +587,8 @@ def generar_hoja(ws, datos, idioma='es'):
         ws.merge_cells(f'E{fila_cargo_fw}:K{fila_cargo_fw}')
 
         # Monto en columnas L-N (centrado)
-        ws[f'L{fila_cargo_fw}'] = f"$ {cargo['monto']}"
+        monto = cargo.get('monto', '')
+        ws[f'L{fila_cargo_fw}'] = f"$ {monto}" if monto else ''
         ws[f'L{fila_cargo_fw}'].font = Font(name='Arial', size=9, color='000000')
         ws[f'L{fila_cargo_fw}'].alignment = Alignment(horizontal='center', vertical='center')
         ws.merge_cells(f'L{fila_cargo_fw}:N{fila_cargo_fw}')
@@ -600,6 +607,23 @@ def generar_hoja(ws, datos, idioma='es'):
             top = thin_side if row == fila_fw else no_side
             bottom = thin_side if row == ultima_fila_fw else no_side
             ws.cell(row=row, column=col).border = Border(left=left, right=right, top=top, bottom=bottom)
+
+    # Notas FreightWise
+    notas_fw = datos.get('notas_freightwise', '').strip()
+    if notas_fw:
+        fila_notas = ultima_fila_fw + 2
+        titulo_notas = 'Notas:' if idioma == 'es' else 'Notes:'
+        ws[f'A{fila_notas}'] = titulo_notas
+        ws[f'A{fila_notas}'].font = Font(name='Arial', size=10, bold=True, color='5f259f')
+        ws[f'A{fila_notas}'].alignment = Alignment(horizontal='left', vertical='center')
+        ws.merge_cells(f'A{fila_notas}:O{fila_notas}')
+
+        fila_notas += 1
+        ws[f'A{fila_notas}'] = notas_fw
+        ws[f'A{fila_notas}'].font = Font(name='Arial', size=9, color='333333')
+        ws[f'A{fila_notas}'].alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+        ws.merge_cells(f'A{fila_notas}:O{fila_notas}')
+        ws.row_dimensions[fila_notas].height = max(30, 15 * notas_fw.count('\n') + 15)
 
 
 def crear_cotizacion_excel(datos, idioma='ambos'):

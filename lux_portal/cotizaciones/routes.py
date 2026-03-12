@@ -8,7 +8,7 @@ from flask import render_template, request, jsonify, send_file, redirect, url_fo
 from datetime import datetime
 from lux_portal.cotizaciones import cotizaciones_bp
 from lux_portal.cotizaciones.models import Cotizacion
-from lux_portal.cotizaciones.data import AEROLINEAS_LISTA, CARGOS_COMUNES
+from lux_portal.cotizaciones.data import AEROLINEAS_LISTA, CARGOS_COMUNES, CARGOS_FREIGHTWISE
 from lux_portal.cotizaciones.utils.excel_generator import guardar_cotizacion_bytes
 from lux_portal.cotizaciones.utils.pdf_generator import guardar_cotizacion_pdf_bytes
 from lux_portal.auth.decorators import login_required
@@ -63,6 +63,8 @@ def guardar_cotizacion():
         cotizacion.origen = data.get('origen', '').upper()
         cotizacion.destino = data.get('destino', '').upper()
         cotizacion.aerolineas = data.get('aerolineas', [])
+        cotizacion.cargos_freightwise = data.get('cargos_freightwise')
+        cotizacion.notas_freightwise = data.get('notas_freightwise', '')
 
         db.session.commit()
 
@@ -107,7 +109,9 @@ def descargar_cotizacion(id):
             'origen': cotizacion.origen,
             'destino': cotizacion.destino,
             'ruta': cotizacion.ruta,
-            'aerolineas': cotizacion.aerolineas
+            'aerolineas': cotizacion.aerolineas,
+            'cargos_freightwise': cotizacion.cargos_freightwise or CARGOS_FREIGHTWISE,
+            'notas_freightwise': cotizacion.notas_freightwise or ''
         }
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

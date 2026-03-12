@@ -122,6 +122,9 @@ def _migrate_db(app):
         ('payment_info_forms', 'total', 'VARCHAR(50) DEFAULT \'\''),
         ('payment_info_forms', 'currency', 'VARCHAR(10) DEFAULT \'USD\''),
         ('payment_info_forms', 'reason_for_export', 'VARCHAR(200) DEFAULT \'Fresh Flowers\''),
+        # Cotizaciones: cargos FreightWise editables + notas
+        ('cotizaciones', 'cargos_freightwise_json', "TEXT"),
+        ('cotizaciones', 'notas_freightwise', "TEXT"),
     ]
     for table, column, col_type in migrations:
         try:

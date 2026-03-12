@@ -345,19 +345,25 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     ]))
     elements.append(fw_header_table)
 
-    cargos_fw = [
-        {'concepto_es': 'Due Agent', 'concepto_en': 'Due Agent', 'monto': '50.00'},
-        {'concepto_es': 'Certificado', 'concepto_en': 'Certificate', 'monto': '15.00'},
-        {'concepto_es': 'Fitosanitario', 'concepto_en': 'Phytosanitary', 'monto': '2.50'}
-    ]
+    traducciones_en = {
+        'certificado': 'Certificate',
+        'fitosanitario': 'Phytosanitary',
+    }
+    cargos_fw = datos.get('cargos_freightwise', [
+        {'concepto': 'Due Agent', 'monto': '50.00'},
+        {'concepto': 'Certificado', 'monto': '15.00'},
+        {'concepto': 'Fitosanitario', 'monto': '2.50'}
+    ])
 
     fw_data = []
     for cargo in cargos_fw:
-        concepto = cargo['concepto_es'] if idioma == 'es' else cargo['concepto_en']
-        fw_data.append(['', '', '', '', concepto, '', '', '', '', '', '', f"$ {cargo['monto']}", '', '', ''])
+        concepto = cargo.get('concepto', '')
+        if idioma == 'en':
+            concepto = traducciones_en.get(concepto.lower(), concepto)
+        monto = cargo.get('monto', '')
+        fw_data.append(['', '', '', '', concepto, '', '', '', '', '', '', f"$ {monto}" if monto else '', '', '', ''])
 
-    fw_table = Table(fw_data, colWidths=col_widths)
-    fw_table.setStyle(TableStyle([
+    fw_style_cmds = [
         ('ALIGN', (4, 0), (4, -1), 'CENTER'),
         ('ALIGN', (11, 0), (11, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
@@ -365,14 +371,29 @@ def _generar_elementos_pdf(datos, idioma, available_width):
         ('TOPPADDING', (0, 0), (-1, -1), 3),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('BOX', (0, 0), (-1, -1), 0.5, BLACK_COLOR),
-        ('SPAN', (4, 0), (10, 0)),
-        ('SPAN', (4, 1), (10, 1)),
-        ('SPAN', (4, 2), (10, 2)),
-        ('SPAN', (11, 0), (13, 0)),
-        ('SPAN', (11, 1), (13, 1)),
-        ('SPAN', (11, 2), (13, 2)),
-    ]))
+    ]
+    for i in range(len(fw_data)):
+        fw_style_cmds.append(('SPAN', (4, i), (10, i)))
+        fw_style_cmds.append(('SPAN', (11, i), (13, i)))
+
+    fw_table = Table(fw_data, colWidths=col_widths)
+    fw_table.setStyle(TableStyle(fw_style_cmds))
     elements.append(fw_table)
+
+    # Notas FreightWise
+    notas_fw = datos.get('notas_freightwise', '').strip()
+    if notas_fw:
+        elements.append(Spacer(1, 0.3*cm))
+        titulo_notas = 'Notas:' if idioma == 'es' else 'Notes:'
+        notas_style = ParagraphStyle(
+            'NotasFW', fontName='Helvetica', fontSize=7, leading=9, textColor=HexColor('#333333')
+        )
+        titulo_style = ParagraphStyle(
+            'NotasTitulo', fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=HexColor('#5f259f')
+        )
+        elements.append(Paragraph(titulo_notas, titulo_style))
+        notas_texto = notas_fw.replace('\n', '<br/>')
+        elements.append(Paragraph(notas_texto, notas_style))
 
     return elements
 

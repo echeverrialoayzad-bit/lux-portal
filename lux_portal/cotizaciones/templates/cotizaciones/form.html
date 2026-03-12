@@ -89,6 +89,25 @@
         </div>
     </div>
 
+    <!-- Cargos FreightWise -->
+    <div class="card mb-4 fade-in">
+        <div class="card-header" style="background: linear-gradient(135deg, #5f259f, #8b5cf6);">
+            <h5 class="mb-0 text-white"><i class="bi bi-receipt me-2"></i>Cargos Adicionales FreightWise</h5>
+        </div>
+        <div class="card-body">
+            <div id="cargosFreightwiseContainer">
+                <!-- Se cargan dinamicamente -->
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="agregarCargoFreightwise()">
+                <i class="bi bi-plus me-1"></i>Agregar Cargo
+            </button>
+            <hr>
+            <label class="form-label"><i class="bi bi-sticky me-1"></i>Notas FreightWise</label>
+            <textarea class="form-control" id="notasFreightwise" rows="3"
+                      placeholder="Notas adicionales...">{{ cotizacion.notas_freightwise if cotizacion and cotizacion.notas_freightwise else '' }}</textarea>
+        </div>
+    </div>
+
     <!-- Actions -->
     <div class="card fade-in">
         <div class="card-body">
@@ -534,6 +553,13 @@ function ejecutarExportacion(idioma) {
 let aerolineasLista = [];
 let cargosComunes = [];
 let aerolineasData = {{ aerolineas | tojson | safe if aerolineas else '[]' }};
+let cargosFreightwiseData = {{ cotizacion.cargos_freightwise | tojson | safe if cotizacion and cotizacion.cargos_freightwise else 'null' }};
+
+const CARGOS_FW_DEFAULT = [
+    {concepto: 'Due Agent', monto: '50.00'},
+    {concepto: 'Certificado', monto: '15.00'},
+    {concepto: 'Fitosanitario', monto: '2.50'}
+];
 
 // Mapeo de codigos IATA por region para ganancia por defecto
 const IATA_EUROPA = [
@@ -599,6 +625,37 @@ function actualizarGananciaPorDestino() {
     });
 }
 
+// ============ CARGOS FREIGHTWISE ============
+function cargarCargosFreightwise() {
+    const container = document.getElementById('cargosFreightwiseContainer');
+    container.innerHTML = '';
+    const datos = cargosFreightwiseData || CARGOS_FW_DEFAULT;
+    datos.forEach(cargo => {
+        agregarCargoFwRow(container, cargo.concepto, cargo.monto);
+    });
+}
+
+function agregarCargoFwRow(container, concepto, monto) {
+    const row = document.createElement('div');
+    row.className = 'cargo-fw-row d-flex align-items-center gap-2 mb-2';
+    row.innerHTML = `
+        <input type="text" class="form-control form-control-sm cargo-fw-concepto" style="flex:2" value="${concepto || ''}">
+        <span>$</span>
+        <input type="text" class="form-control form-control-sm cargo-fw-monto formula-input" style="width:120px" value="${monto || ''}">
+        <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.cargo-fw-row').remove()">
+            <i class="bi bi-trash"></i>
+        </button>
+    `;
+    const montoInput = row.querySelector('.cargo-fw-monto');
+    attachFormulaHandlers(montoInput);
+    container.appendChild(row);
+}
+
+function agregarCargoFreightwise() {
+    const container = document.getElementById('cargosFreightwiseContainer');
+    agregarCargoFwRow(container, '', '0.00');
+}
+
 // Cargar datos al iniciar
 document.addEventListener('DOMContentLoaded', async function() {
     // Cargar lista de aerolineas
@@ -608,6 +665,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Cargar cargos comunes
     const respCargos = await fetch('/cotizaciones/api/cargos');
     cargosComunes = await respCargos.json();
+
+    // Cargar cargos FreightWise
+    cargarCargosFreightwise();
 
     // Si hay datos existentes, cargarlos
     if (aerolineasData && aerolineasData.length > 0) {
@@ -1069,6 +1129,21 @@ function recopilarDatos() {
             });
         });
     });
+
+    // Cargos FreightWise editables
+    const cargosFw = [];
+    document.querySelectorAll('.cargo-fw-row').forEach(row => {
+        const concepto = row.querySelector('.cargo-fw-concepto').value.trim();
+        const montoEl = row.querySelector('.cargo-fw-monto');
+        const montoRaw = montoEl.value.replace(/[$,]/g, '').trim();
+        const montoFormula = evalFormula(montoRaw);
+        const monto = montoFormula !== null ? montoFormula.toFixed(2) : montoRaw;
+        if (concepto) {
+            cargosFw.push({ concepto, monto });
+        }
+    });
+    datos.cargos_freightwise = cargosFw;
+    datos.notas_freightwise = document.getElementById('notasFreightwise').value;
 
     return datos;
 }

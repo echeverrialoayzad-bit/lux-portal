@@ -30,6 +30,10 @@ class Cotizacion(db.Model):
     # Datos JSON para aerolineas (guardamos todo en JSON para flexibilidad)
     aerolineas_json = db.Column(db.Text)
 
+    # Cargos fijos FreightWise (editables) y notas
+    cargos_freightwise_json = db.Column(db.Text)
+    notas_freightwise = db.Column(db.Text)
+
     # Estado
     estado = db.Column(db.String(50), default='borrador')  # borrador, enviada, aceptada, rechazada
 
@@ -47,6 +51,16 @@ class Cotizacion(db.Model):
     def aerolineas(self, value):
         self.aerolineas_json = json.dumps(value, ensure_ascii=False)
 
+    @property
+    def cargos_freightwise(self):
+        if self.cargos_freightwise_json:
+            return json.loads(self.cargos_freightwise_json)
+        return None
+
+    @cargos_freightwise.setter
+    def cargos_freightwise(self, value):
+        self.cargos_freightwise_json = json.dumps(value, ensure_ascii=False) if value else None
+
     def to_dict(self):
         """Convierte la cotizacion a diccionario."""
         return {
@@ -63,5 +77,7 @@ class Cotizacion(db.Model):
             'destino': self.destino,
             'ruta': self.ruta,
             'aerolineas': self.aerolineas,
+            'cargos_freightwise': self.cargos_freightwise,
+            'notas_freightwise': self.notas_freightwise,
             'estado': self.estado
         }
