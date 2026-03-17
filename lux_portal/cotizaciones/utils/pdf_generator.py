@@ -34,9 +34,9 @@ PURPLE_COLOR    = HexColor('#5F4DCE')   # Púrpura Freight
 PURPLE_DARK_BG  = HexColor('#2D1B8E')   # Fondo de página - morado oscuro profundo
 PURPLE_HEADER   = HexColor('#4535A8')   # Encabezados de tabla - morado intermedio
 GREEN_COLOR     = HexColor('#35ab53')   # Verde wise - acento
-AIRE_COLOR      = HexColor('#F4F2FF')   # Filas pares - lavanda muy suave
-MAR_COLOR       = HexColor('#FFFFFF')   # Filas impares - blanco
-ROW_BORDER      = HexColor('#DDD8F5')   # Línea separadora entre filas
+AIRE_COLOR      = HexColor('#C4BAEE')   # Filas pares - lavanda visible
+MAR_COLOR       = HexColor('#F0EDFC')   # Filas impares - blanco lavanda suave
+ROW_BORDER      = HexColor('#9B8FD8')   # Línea separadora / divisores de columna
 GRAY_COLOR      = HexColor('#6b6b6b')   # Gris
 WHITE_COLOR     = colors.white
 BLACK_COLOR     = colors.black
@@ -142,13 +142,28 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                        available_width * 0.15, available_width * 0.35]
     info_table = Table(info_data, colWidths=col_widths_info)
     info_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        # Fondo morado en toda la sección de info
+        ('BACKGROUND', (0, 0), (-1, -1), PURPLE_HEADER),
+        ('TEXTCOLOR', (0, 0), (-1, -1), WHITE_COLOR),
+        # Labels (col 0 y col 3) en negrita
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (3, 0), (3, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (2, -1), 'Helvetica'),
+        ('FONTNAME', (4, 0), (4, -1), 'Helvetica'),
         ('FONTSIZE', (0, 0), (-1, -1), 8),
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (2, -1), 'LEFT'),
         ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+        ('ALIGN', (4, 0), (4, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        # Línea divisora entre columna izquierda y derecha
+        ('LINEAFTER', (2, 0), (2, -1), 0.5, HexColor('#7B6ED6')),
+        # Borde exterior
+        ('BOX', (0, 0), (-1, -1), 0.5, HexColor('#7B6ED6')),
     ]))
     elements.append(info_table)
     elements.append(Spacer(1, 0.2*cm))
@@ -212,7 +227,8 @@ def _generar_elementos_pdf(datos, idioma, available_width):
         ('FONTSIZE', (0, 0), (-1, -1), 6.5),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LINEAFTER', (0, 0), (-2, -1), 0.5, HexColor('#6B5ED8')),
+        # Divisores verticales entre todas las columnas del encabezado
+        ('LINEAFTER', (0, 0), (-2, -1), 0.5, HexColor('#7B6ED6')),
         ('SPAN', (charges_col_start, 0), (charges_col_end, 0)),
     ]))
     elements.append(enc_header_table)
@@ -335,13 +351,12 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                 ('FONTSIZE', (0, 0), (-1, -1), 6.5),
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                # Solo líneas horizontales suaves entre filas
+                # Líneas horizontales entre filas
                 ('LINEBELOW', (0, 0), (-1, -2), 0.5, ROW_BORDER),
-                # Líneas verticales solo en columnas de cargos y notas
-                ('LINEAFTER', (charges_col_start - 1, 0), (charges_col_start - 1, -1), 0.5, ROW_BORDER),
-                ('LINEAFTER', (charges_col_end, 0), (charges_col_end, -1), 0.5, ROW_BORDER),
-                # Borde exterior de la tabla
-                ('BOX', (0, 0), (-1, -1), 0.5, ROW_BORDER),
+                # Divisores verticales entre TODAS las columnas
+                ('LINEAFTER', (0, 0), (-2, -1), 0.5, ROW_BORDER),
+                # Borde exterior
+                ('BOX', (0, 0), (-1, -1), 0.8, PURPLE_HEADER),
             ]
 
             for row_idx, (bg, txt) in enumerate(row_colors):
