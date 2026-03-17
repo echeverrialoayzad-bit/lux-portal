@@ -34,9 +34,9 @@ PURPLE_COLOR    = HexColor('#5F4DCE')   # Púrpura Freight
 PURPLE_DARK_BG  = HexColor('#2D1B8E')   # Fondo de página - morado oscuro profundo
 PURPLE_HEADER   = HexColor('#4535A8')   # Encabezados de tabla - morado intermedio
 GREEN_COLOR     = HexColor('#35ab53')   # Verde wise - acento
-AIRE_COLOR      = HexColor('#C4BAEE')   # Filas pares - lavanda visible
-MAR_COLOR       = HexColor('#F0EDFC')   # Filas impares - blanco lavanda suave
-ROW_BORDER      = HexColor('#9B8FD8')   # Línea separadora / divisores de columna
+AIRE_COLOR      = HexColor('#EBEBEB')   # Filas pares - gris claro
+MAR_COLOR       = HexColor('#FFFFFF')   # Filas impares - blanco
+ROW_BORDER      = HexColor('#CCCCCC')   # Línea separadora / divisores de columna
 GRAY_COLOR      = HexColor('#6b6b6b')   # Gris
 WHITE_COLOR     = colors.white
 BLACK_COLOR     = colors.black
@@ -172,7 +172,7 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     ruta_data = [[datos.get('ruta', '')]]
     ruta_table = Table(ruta_data, colWidths=[available_width])
     ruta_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), PURPLE_DARK_BG),
+        ('BACKGROUND', (0, 0), (-1, -1), PURPLE_HEADER),
         ('TEXTCOLOR', (0, 0), (-1, -1), WHITE_COLOR),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
