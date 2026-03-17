@@ -32,7 +32,7 @@ def get_logo_path():
 # Colores FreightWise (igual que Excel)
 PURPLE_COLOR = HexColor('#5f259f')
 GRAY_COLOR = HexColor('#808080')
-WHITE_COLOR = colors.white
+WHITE_COLOR = HexColor('#E8D5F5')  # Lila claro para filas alternas
 BLACK_COLOR = colors.black
 
 # Diccionario de dias de la semana
