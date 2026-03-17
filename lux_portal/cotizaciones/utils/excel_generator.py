@@ -274,8 +274,8 @@ def generar_hoja(ws, datos, idioma='es'):
         num_filas = max(4, len(cargos))
         filas_por_aerolinea.append(num_filas)
 
-    # Colores alternos - AIRE y MAR (paleta oficial FreightWise)
-    color_alterno = ['EDE9E5', 'BCE6E8']  # Aire / Mar
+    # Colores alternos - Lavanda / casi-blanco (sin celeste, consistente con PDF)
+    color_alterno = ['C4BAEE', 'F0EDFC']  # Lavanda visible / lavanda suave
     color_actual_idx = 0
 
     # Primer paso: fusionar columna A
@@ -432,7 +432,7 @@ def generar_hoja(ws, datos, idioma='es'):
         ws[f'K{fila_inicio}'].fill = fill_color
         ws[f'K{fila_inicio}'].font = Font(name='Arial', size=9, color=texto_color)
 
-        # Cargos adicionales (shifted to L, M-N)
+        # Cargos adicionales - una celda combinada por aerolinea (sin líneas extra)
         cargos = aerolinea_datos.get('cargos_adicionales', [])
         if idioma == 'en':
             cargos_traducidos = []
@@ -445,27 +445,34 @@ def generar_hoja(ws, datos, idioma='es'):
                 cargos_traducidos.append({'concepto': concepto, 'monto': cargo.get('monto', '')})
             cargos = cargos_traducidos
 
-        while len(cargos) < num_filas_cargos:
-            cargos.append({'concepto': '', 'monto': ''})
+        # Texto combinado de todos los cargos en una sola celda
+        conceptos_combined = '\n'.join([c.get('concepto', '') for c in cargos if c.get('concepto')])
+        montos_combined = '\n'.join([f"$ {c.get('monto', '')}" for c in cargos if c.get('monto')])
 
-        fila_cargo = fila_inicio
-        for i in range(num_filas_cargos):
-            cargo = cargos[i] if i < len(cargos) else {'concepto': '', 'monto': ''}
+        fila_fin_cargo = fila_inicio + num_filas_cargos - 1
 
-            ws[f'L{fila_cargo}'] = cargo.get('concepto', '')
-            ws[f'L{fila_cargo}'].alignment = Alignment(horizontal='left', vertical='center')
+        # Aplicar fondo a todo el bloque L-N de esta aerolinea
+        for row_i in range(fila_inicio, fila_fin_cargo + 1):
+            ws[f'L{row_i}'].fill = fill_color
+            ws[f'M{row_i}'].fill = fill_color
+            ws[f'N{row_i}'].fill = fill_color
 
-            monto_texto = f"$ {cargo.get('monto', '')}" if cargo.get('monto') else ''
-            ws[f'M{fila_cargo}'] = monto_texto
-            ws.merge_cells(f'M{fila_cargo}:N{fila_cargo}')
-            ws[f'M{fila_cargo}'].alignment = Alignment(horizontal='right', vertical='center')
+        # Combinar L y M-N en una sola celda por aerolinea
+        if num_filas_cargos > 1:
+            ws.merge_cells(f'L{fila_inicio}:L{fila_fin_cargo}')
+            ws.merge_cells(f'M{fila_inicio}:N{fila_fin_cargo}')
+        else:
+            ws.merge_cells(f'M{fila_inicio}:N{fila_inicio}')
 
-            ws[f'L{fila_cargo}'].fill = fill_color
-            ws[f'M{fila_cargo}'].fill = fill_color
-            ws[f'L{fila_cargo}'].font = Font(name='Arial', size=9, color=texto_color)
-            ws[f'M{fila_cargo}'].font = Font(name='Arial', size=9, color=texto_color)
+        ws[f'L{fila_inicio}'] = conceptos_combined
+        ws[f'L{fila_inicio}'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+        ws[f'L{fila_inicio}'].fill = fill_color
+        ws[f'L{fila_inicio}'].font = Font(name='Arial', size=9, color=texto_color)
 
-            fila_cargo += 1
+        ws[f'M{fila_inicio}'] = montos_combined
+        ws[f'M{fila_inicio}'].alignment = Alignment(horizontal='right', vertical='center', wrap_text=True)
+        ws[f'M{fila_inicio}'].fill = fill_color
+        ws[f'M{fila_inicio}'].font = Font(name='Arial', size=9, color=texto_color)
 
         # Notas (shifted to O)
         notas_originales = aerolinea_datos.get('notas', '')
