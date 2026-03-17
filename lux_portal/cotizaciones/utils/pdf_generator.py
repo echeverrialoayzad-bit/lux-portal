@@ -29,11 +29,15 @@ def get_logo_path():
     logo_path = os.path.join(current_dir, '..', '..', 'static', 'images', 'freightwise_logo.png')
     return os.path.normpath(logo_path)
 
-# Colores FreightWise (igual que Excel)
-PURPLE_COLOR = HexColor('#5f259f')
-GRAY_COLOR = HexColor('#808080')
-WHITE_COLOR = HexColor('#E8D5F5')  # Lila claro para filas alternas
-BLACK_COLOR = colors.black
+# Colores FreightWise - Paleta oficial
+PURPLE_COLOR = HexColor('#5F4DCE')   # Púrpura Freight
+GREEN_COLOR  = HexColor('#35ab53')   # Verde wise
+AIRE_COLOR   = HexColor('#ede9e5')   # Aire - filas alternas pares
+MAR_COLOR    = HexColor('#bce6e8')   # Mar  - filas alternas impares
+TIERRA_COLOR = HexColor('#cbae83')   # Tierra
+GRAY_COLOR   = HexColor('#6b6b6b')   # Gris para títulos
+WHITE_COLOR  = colors.white          # Blanco para texto sobre fondo púrpura
+BLACK_COLOR  = colors.black
 
 # Diccionario de dias de la semana
 DIAS_ES_EN = {
@@ -92,19 +96,21 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     logo_path = get_logo_path()
     if os.path.exists(logo_path):
         try:
-            logo_cell = Image(logo_path, width=2.5*inch, height=0.35*inch)
+            logo_cell = Image(logo_path, width=2.8*inch, height=0.55*inch)
         except:
             logo_cell = ''
 
     header_data = [[titulo, logo_cell]]
-    header_table = Table(header_data, colWidths=[available_width * 0.6, available_width * 0.4])
+    header_table = Table(header_data, colWidths=[available_width * 0.58, available_width * 0.42])
     header_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (0, 0), 11),
-        ('TEXTCOLOR', (0, 0), (0, 0), GRAY_COLOR),
+        ('TEXTCOLOR', (0, 0), (0, 0), PURPLE_COLOR),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
     elements.append(header_table)
     elements.append(Spacer(1, 0.3*cm))
@@ -208,8 +214,8 @@ def _generar_elementos_pdf(datos, idioma, available_width):
             if not es_continuacion and idx > 0:
                 color_idx += 1
 
-            bg_color = WHITE_COLOR if color_idx % 2 == 0 else GRAY_COLOR
-            text_color = BLACK_COLOR if color_idx % 2 == 0 else WHITE_COLOR
+            bg_color = AIRE_COLOR if color_idx % 2 == 0 else MAR_COLOR
+            text_color = BLACK_COLOR
 
             cargos = aero.get('cargos_adicionales', [])
             if idioma == 'en':

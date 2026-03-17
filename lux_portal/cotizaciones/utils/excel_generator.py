@@ -176,7 +176,7 @@ def generar_hoja(ws, datos, idioma='es'):
 
     # Titulo principal
     ws['A1'] = titulo
-    ws['A1'].font = Font(name='Arial', size=12, bold=True, color='808080')
+    ws['A1'].font = Font(name='Arial', size=12, bold=True, color='5F4DCE')
     ws.merge_cells('A1:G1')
 
     # Informacion de contacto
@@ -232,18 +232,18 @@ def generar_hoja(ws, datos, idioma='es'):
     ws['B6'].font = Font(name='Arial', size=9)
     ws.merge_cells('B6:C6')
 
-    # Ruta en el encabezado - COLOR MORADO
+    # Ruta en el encabezado - PÚRPURA FREIGHT
     fila_ruta = 8
     ws[f'A{fila_ruta}'] = datos.get('ruta', '')
     ws[f'A{fila_ruta}'].font = Font(name='Arial', size=11, color='FFFFFF')
-    ws[f'A{fila_ruta}'].fill = PatternFill(start_color='5f259f', end_color='5f259f', fill_type='solid')
+    ws[f'A{fila_ruta}'].fill = PatternFill(start_color='5F4DCE', end_color='5F4DCE', fill_type='solid')
     ws.merge_cells(f'A{fila_ruta}:O{fila_ruta}')
     ws[f'A{fila_ruta}'].alignment = Alignment(horizontal='center', vertical='center')
     ws.row_dimensions[fila_ruta].height = 25
 
-    # Encabezados de tabla - COLOR MORADO
+    # Encabezados de tabla - PÚRPURA FREIGHT
     fila_enc = 9
-    header_fill = PatternFill(start_color='5f259f', end_color='5f259f', fill_type='solid')
+    header_fill = PatternFill(start_color='5F4DCE', end_color='5F4DCE', fill_type='solid')
     white_font = Font(name='Arial', size=9, color='FFFFFF')
     border = Border(
         left=Side(style='thin', color='FFFFFF'),
@@ -274,8 +274,8 @@ def generar_hoja(ws, datos, idioma='es'):
         num_filas = max(4, len(cargos))
         filas_por_aerolinea.append(num_filas)
 
-    # Colores alternos - BLANCO Y GRIS
-    color_alterno = ['FFFFFF', '808080']
+    # Colores alternos - AIRE y MAR (paleta oficial FreightWise)
+    color_alterno = ['EDE9E5', 'BCE6E8']  # Aire / Mar
     color_actual_idx = 0
 
     # Primer paso: fusionar columna A
@@ -306,7 +306,7 @@ def generar_hoja(ws, datos, idioma='es'):
             ws[f'A{fila_inicio}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             ws.merge_cells(f'A{fila_inicio}:A{fila_fin}')
             ws[f'A{fila_inicio}'].fill = fill_color
-            texto_color = '000000' if color_fondo == 'FFFFFF' else 'FFFFFF'
+            texto_color = '000000'  # ambos colores Aire/Mar son claros → texto siempre negro
             ws[f'A{fila_inicio}'].font = Font(name='Arial', size=9, color=texto_color)
 
         idx_aerolinea += 1
@@ -328,7 +328,7 @@ def generar_hoja(ws, datos, idioma='es'):
 
         color_fondo = color_alterno[color_idx_temp % 2]
         fill_color = PatternFill(start_color=color_fondo, end_color=color_fondo, fill_type='solid')
-        texto_color = '000000' if color_fondo == 'FFFFFF' else 'FFFFFF'
+        texto_color = '000000'  # Aire/Mar son colores claros → texto siempre negro
 
         cargos_temp = aerolinea_datos.get('cargos_adicionales', [])
         num_filas_cargos = max(4, len(cargos_temp))
@@ -554,11 +554,11 @@ def generar_hoja(ws, datos, idioma='es'):
     # Agregar cargos fijos de FreightWise al final
     fila_fw = ultima_fila + 2
 
-    # Titulo de seccion FreightWise - COLOR MORADO
+    # Titulo de seccion FreightWise - PÚRPURA FREIGHT
     titulo_fw = 'Cargos Adicionales FreightWise:' if idioma == 'es' else 'FreightWise Additional Charges:'
     ws[f'A{fila_fw}'] = titulo_fw
     ws[f'A{fila_fw}'].font = Font(name='Arial', size=11, bold=True, color='FFFFFF')
-    ws[f'A{fila_fw}'].fill = PatternFill(start_color='5f259f', end_color='5f259f', fill_type='solid')
+    ws[f'A{fila_fw}'].fill = PatternFill(start_color='5F4DCE', end_color='5F4DCE', fill_type='solid')
     ws[f'A{fila_fw}'].alignment = Alignment(horizontal='center', vertical='center')
     ws.merge_cells(f'A{fila_fw}:O{fila_fw}')
     ws.row_dimensions[fila_fw].height = 25
@@ -622,11 +622,11 @@ def generar_hoja(ws, datos, idioma='es'):
         ws.merge_cells(f'A{fila_notas}:O{fila_notas}')
         ws.row_dimensions[fila_notas].height = 25
 
-        # Contenido morado con letras blancas
+        # Contenido Púrpura Freight con letras blancas
         fila_notas += 1
         ws[f'A{fila_notas}'] = notas_fw
         ws[f'A{fila_notas}'].font = Font(name='Arial', size=9, color='FFFFFF')
-        ws[f'A{fila_notas}'].fill = PatternFill(start_color='5f259f', end_color='5f259f', fill_type='solid')
+        ws[f'A{fila_notas}'].fill = PatternFill(start_color='5F4DCE', end_color='5F4DCE', fill_type='solid')
         ws[f'A{fila_notas}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         ws.merge_cells(f'A{fila_notas}:O{fila_notas}')
         ws.row_dimensions[fila_notas].height = max(30, 15 * notas_fw.count('\n') + 15)

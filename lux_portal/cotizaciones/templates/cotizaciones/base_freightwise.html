@@ -11,41 +11,44 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* FreightWise Brand - Girly Coral/Rose Gold Theme */
-            --fw-primary: #f43f5e;
-            --fw-primary-light: #fb7185;
-            --fw-rose-gold: #e879a9;
-            --fw-coral: #fb923c;
-            --fw-blush: #fff1f2;
+            /* FreightWise Brand Colors - Manual Identidad Visual 2025 */
+            --fw-primary: #5F4DCE;        /* Púrpura Freight - color principal */
+            --fw-primary-light: #7B6ED6;  /* Púrpura claro */
+            --fw-coral: #ff5649;          /* Coral Wise - segundo color principal */
+            --fw-coral-light: #ff7c75;    /* Coral claro */
+            --fw-verde: #35ab53;          /* Verde wise - acento */
+            --fw-tierra: #cbae83;         /* Tierra - acento */
+            --fw-aire: #ede9e5;           /* Aire - fondo claro */
+            --fw-mar: #bce6e8;            /* Mar - acento azul */
 
-            /* Backgrounds - Light & Soft */
-            --bg-main: #fffbfc;
-            --bg-card: rgba(255, 255, 255, 0.9);
-            --bg-glass: rgba(255, 241, 242, 0.6);
-            --bg-elevated: rgba(255, 255, 255, 0.95);
+            /* Backgrounds */
+            --bg-main: #f5f4f2;
+            --bg-card: rgba(255, 255, 255, 0.95);
+            --bg-glass: rgba(237, 233, 229, 0.6);
+            --bg-elevated: rgba(255, 255, 255, 0.98);
 
             /* Text */
-            --text-primary: #4a1942;
-            --text-secondary: #7c5270;
-            --text-tertiary: #a78bba;
+            --text-primary: #1a1a3e;
+            --text-secondary: #4a4a6a;
+            --text-tertiary: #8a8aaa;
 
             /* Borders */
-            --border-color: rgba(244, 63, 94, 0.12);
-            --border-glow: rgba(244, 63, 94, 0.25);
+            --border-color: rgba(95, 77, 206, 0.15);
+            --border-glow: rgba(95, 77, 206, 0.30);
 
-            /* Gradients */
-            --gradient-fw: linear-gradient(135deg, #f43f5e 0%, #fb923c 100%);
-            --gradient-fw-soft: linear-gradient(135deg, #fb7185 0%, #fda4af 100%);
-            --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(255,241,242,0.9) 100%);
-            --gradient-mesh: radial-gradient(at 40% 20%, rgba(244, 63, 94, 0.12) 0px, transparent 50%),
-                             radial-gradient(at 80% 0%, rgba(251, 146, 60, 0.1) 0px, transparent 50%),
-                             radial-gradient(at 0% 50%, rgba(244, 114, 182, 0.08) 0px, transparent 50%);
+            /* Gradients - Territorio cromático: Púrpura Freight + Coral Wise */
+            --gradient-fw: linear-gradient(135deg, #5F4DCE 0%, #ff5649 100%);
+            --gradient-fw-soft: linear-gradient(135deg, #7B6ED6 0%, #ff7c75 100%);
+            --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(237,233,229,0.7) 100%);
+            --gradient-mesh: radial-gradient(at 40% 20%, rgba(95, 77, 206, 0.10) 0px, transparent 50%),
+                             radial-gradient(at 80% 0%, rgba(255, 86, 73, 0.08) 0px, transparent 50%),
+                             radial-gradient(at 0% 50%, rgba(188, 230, 232, 0.10) 0px, transparent 50%);
 
             /* Shadows */
-            --shadow-sm: 0 2px 8px rgba(244, 63, 94, 0.08);
-            --shadow-md: 0 8px 24px rgba(244, 63, 94, 0.1);
-            --shadow-lg: 0 16px 48px rgba(244, 63, 94, 0.12);
-            --shadow-glow: 0 0 40px rgba(244, 63, 94, 0.15);
+            --shadow-sm: 0 2px 8px rgba(95, 77, 206, 0.08);
+            --shadow-md: 0 8px 24px rgba(95, 77, 206, 0.10);
+            --shadow-lg: 0 16px 48px rgba(95, 77, 206, 0.12);
+            --shadow-glow: 0 0 40px rgba(95, 77, 206, 0.15);
 
             /* Transitions */
             --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -91,7 +94,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23fb7185' fill-opacity='0.03'%3E%3Cpath d='M20 20c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10zm-20 0c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10z'/%3E%3C/g%3E%3C/svg%3E");
+            background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%235F4DCE' fill-opacity='0.03'%3E%3Cpath d='M20 20c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10zm-20 0c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10z'/%3E%3C/g%3E%3C/svg%3E");
             z-index: -1;
             opacity: 0.5;
         }
@@ -111,7 +114,7 @@
             border-bottom: 1px solid var(--border-color);
             padding: 0 24px;
             height: 72px;
-            box-shadow: 0 4px 30px rgba(244, 63, 94, 0.06);
+            box-shadow: 0 4px 30px rgba(95, 77, 206, 0.08);
         }
 
         .navbar-brand {
@@ -186,7 +189,7 @@
         }
 
         .navbar-toggler-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23f43f5e' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%235F4DCE' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
         }
 
         /* Back to Portal Button */
@@ -203,12 +206,12 @@
             align-items: center;
             gap: 8px;
             text-decoration: none;
-            box-shadow: 0 4px 15px rgba(244, 63, 94, 0.25);
+            box-shadow: 0 4px 15px rgba(95, 77, 206, 0.25);
         }
 
         .btn-back-portal:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(244, 63, 94, 0.35);
+            box-shadow: 0 8px 25px rgba(95, 77, 206, 0.35);
             color: #fff;
         }
 
@@ -253,12 +256,12 @@
             background: var(--gradient-fw);
             border: none;
             color: #fff;
-            box-shadow: 0 4px 15px rgba(244, 63, 94, 0.25);
+            box-shadow: 0 4px 15px rgba(95, 77, 206, 0.25);
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(244, 63, 94, 0.35);
+            box-shadow: 0 8px 25px rgba(95, 77, 206, 0.35);
         }
 
         .btn-outline-primary {
@@ -268,7 +271,7 @@
         }
 
         .btn-outline-primary:hover {
-            background: rgba(244, 63, 94, 0.08);
+            background: rgba(95, 77, 206, 0.08);
             border-color: var(--fw-primary-light);
             color: var(--fw-primary);
         }
@@ -304,7 +307,7 @@
 
         .btn-danger:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(244, 63, 94, 0.35);
+            box-shadow: 0 8px 25px rgba(95, 77, 206, 0.35);
         }
 
         .btn-secondary {
@@ -337,7 +340,7 @@
         }
 
         .btn-outline-danger:hover {
-            background: rgba(244, 63, 94, 0.08);
+            background: rgba(95, 77, 206, 0.08);
             color: var(--fw-primary);
         }
 
@@ -400,7 +403,7 @@
         }
 
         .table thead th {
-            background-color: rgba(244, 63, 94, 0.08);
+            background-color: rgba(95, 77, 206, 0.08);
             color: var(--fw-primary);
             font-weight: 600;
             font-size: 0.8125rem;
@@ -415,7 +418,7 @@
         }
 
         .table tbody tr:hover {
-            background-color: rgba(244, 63, 94, 0.04);
+            background-color: rgba(95, 77, 206, 0.04);
         }
 
         .table tbody td {
@@ -456,8 +459,8 @@
 
         .form-control:focus, .form-select:focus {
             background-color: #fff;
-            border-color: rgba(244, 63, 94, 0.5);
-            box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.1);
+            border-color: rgba(95, 77, 206, 0.5);
+            box-shadow: 0 0 0 4px rgba(95, 77, 206, 0.1);
             color: var(--text-primary);
         }
 
@@ -479,7 +482,7 @@
         }
 
         .form-check-input:focus {
-            box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.1);
+            box-shadow: 0 0 0 4px rgba(95, 77, 206, 0.1);
         }
 
         .form-check-label {
@@ -512,11 +515,11 @@
         }
 
         .aerolinea-card .card-header:hover {
-            background: linear-gradient(135deg, #e11d48 0%, #f97316 100%);
+            background: linear-gradient(135deg, #4a3aaa 0%, #2e9448 100%);
         }
 
         .aerolinea-card .card-body {
-            background: rgba(255, 241, 242, 0.3);
+            background: rgba(237, 233, 229, 0.3);
         }
 
         .aerolinea-nombre {
@@ -549,7 +552,7 @@
 
         .itinerario-card .card-body {
             padding: 22px;
-            background: rgba(255, 241, 242, 0.3);
+            background: rgba(188, 230, 232, 0.2);
         }
 
         /* ================================================
@@ -589,7 +592,7 @@
             font-weight: 700;
             font-size: 0.9rem;
             color: #fff;
-            box-shadow: 0 4px 12px rgba(244, 63, 94, 0.25);
+            box-shadow: 0 4px 12px rgba(95, 77, 206, 0.25);
         }
 
         /* ================================================
@@ -628,11 +631,11 @@
 
         .badge.bg-primary {
             background: var(--gradient-fw) !important;
-            box-shadow: 0 4px 12px rgba(244, 63, 94, 0.2);
+            box-shadow: 0 4px 12px rgba(95, 77, 206, 0.2);
         }
 
         .badge.bg-secondary {
-            background: rgba(255, 241, 242, 0.8) !important;
+            background: rgba(237, 233, 229, 0.9) !important;
             color: var(--fw-primary);
             border: 1px solid var(--border-color);
         }
@@ -792,21 +795,21 @@
         }
 
         ::-webkit-scrollbar-track {
-            background: #fff1f2;
+            background: #ede9e5;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: rgba(244, 63, 94, 0.3);
+            background: rgba(95, 77, 206, 0.3);
             border-radius: 5px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(244, 63, 94, 0.5);
+            background: rgba(95, 77, 206, 0.5);
         }
 
         /* Selection */
         ::selection {
-            background: rgba(244, 63, 94, 0.2);
+            background: rgba(95, 77, 206, 0.2);
             color: var(--text-primary);
         }
 
