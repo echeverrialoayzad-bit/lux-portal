@@ -30,20 +30,36 @@ def get_logo_path():
     return os.path.normpath(logo_path)
 
 # Colores FreightWise - Paleta oficial
-PURPLE_COLOR = HexColor('#5F4DCE')   # Púrpura Freight
-GREEN_COLOR  = HexColor('#35ab53')   # Verde wise
-AIRE_COLOR   = HexColor('#ede9e5')   # Aire - filas alternas pares
-MAR_COLOR    = HexColor('#bce6e8')   # Mar  - filas alternas impares
-TIERRA_COLOR = HexColor('#cbae83')   # Tierra
-GRAY_COLOR   = HexColor('#6b6b6b')   # Gris para títulos
-WHITE_COLOR  = colors.white          # Blanco para texto sobre fondo púrpura
-BLACK_COLOR  = colors.black
+PURPLE_COLOR    = HexColor('#5F4DCE')   # Púrpura Freight
+PURPLE_DARK_BG  = HexColor('#2D1B8E')   # Fondo de página - morado oscuro profundo
+PURPLE_HEADER   = HexColor('#4535A8')   # Encabezados de tabla - morado intermedio
+GREEN_COLOR     = HexColor('#35ab53')   # Verde wise - acento
+AIRE_COLOR      = HexColor('#F4F2FF')   # Filas pares - lavanda muy suave
+MAR_COLOR       = HexColor('#FFFFFF')   # Filas impares - blanco
+ROW_BORDER      = HexColor('#DDD8F5')   # Línea separadora entre filas
+GRAY_COLOR      = HexColor('#6b6b6b')   # Gris
+WHITE_COLOR     = colors.white
+BLACK_COLOR     = colors.black
 
 # Diccionario de dias de la semana
 DIAS_ES_EN = {
     'LUN': 'MON', 'MAR': 'TUE', 'MIE': 'WED', 'MIER': 'WED',
     'JUE': 'THU', 'VIE': 'FRI', 'SAB': 'SAT', 'DOM': 'SUN'
 }
+
+
+def _draw_page_background(canv, doc):
+    """Dibuja fondo morado oscuro + tarjeta blanca redondeada para cada página."""
+    canv.saveState()
+    w, h = doc.pagesize
+    # Fondo completo morado oscuro
+    canv.setFillColor(PURPLE_DARK_BG)
+    canv.rect(0, 0, w, h, fill=1, stroke=0)
+    # Tarjeta blanca con esquinas redondeadas sobre el fondo
+    pad = 0.35 * cm
+    canv.setFillColor(WHITE_COLOR)
+    canv.roundRect(pad, pad, w - 2 * pad, h - 2 * pad, radius=8, fill=1, stroke=0)
+    canv.restoreState()
 
 
 def traducir_dias(texto, a_ingles=True):
@@ -141,13 +157,13 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     ruta_data = [[datos.get('ruta', '')]]
     ruta_table = Table(ruta_data, colWidths=[available_width])
     ruta_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), PURPLE_COLOR),
+        ('BACKGROUND', (0, 0), (-1, -1), PURPLE_DARK_BG),
         ('TEXTCOLOR', (0, 0), (-1, -1), WHITE_COLOR),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('TOPPADDING', (0, 0), (-1, -1), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
     ]))
     elements.append(ruta_table)
 
@@ -188,15 +204,15 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     enc_header_data = [enc_simple]
     enc_header_table = Table(enc_header_data, colWidths=col_widths)
     enc_header_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), PURPLE_COLOR),
+        ('BACKGROUND', (0, 0), (-1, -1), PURPLE_HEADER),
         ('TEXTCOLOR', (0, 0), (-1, -1), WHITE_COLOR),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('GRID', (0, 0), (-1, -1), 0.5, WHITE_COLOR),
+        ('FONTSIZE', (0, 0), (-1, -1), 6.5),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LINEAFTER', (0, 0), (-2, -1), 0.5, HexColor('#6B5ED8')),
         ('SPAN', (charges_col_start, 0), (charges_col_end, 0)),
     ]))
     elements.append(enc_header_table)
@@ -316,10 +332,16 @@ def _generar_elementos_pdf(datos, idioma, available_width):
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 6),
-                ('TOPPADDING', (0, 0), (-1, -1), 3),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-                ('GRID', (0, 0), (-1, -1), 0.5, BLACK_COLOR),
+                ('FONTSIZE', (0, 0), (-1, -1), 6.5),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                # Solo líneas horizontales suaves entre filas
+                ('LINEBELOW', (0, 0), (-1, -2), 0.5, ROW_BORDER),
+                # Líneas verticales solo en columnas de cargos y notas
+                ('LINEAFTER', (charges_col_start - 1, 0), (charges_col_start - 1, -1), 0.5, ROW_BORDER),
+                ('LINEAFTER', (charges_col_end, 0), (charges_col_end, -1), 0.5, ROW_BORDER),
+                # Borde exterior de la tabla
+                ('BOX', (0, 0), (-1, -1), 0.5, ROW_BORDER),
             ]
 
             for row_idx, (bg, txt) in enumerate(row_colors):
@@ -358,14 +380,13 @@ def _generar_elementos_pdf(datos, idioma, available_width):
     fw_header = [[fw_titulo]]
     fw_header_table = Table(fw_header, colWidths=[available_width])
     fw_header_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), PURPLE_COLOR),
+        ('BACKGROUND', (0, 0), (-1, -1), PURPLE_HEADER),
         ('TEXTCOLOR', (0, 0), (-1, -1), WHITE_COLOR),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('BOX', (0, 0), (-1, -1), 0.5, BLACK_COLOR),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
     ]))
     elements.append(fw_header_table)
 
@@ -480,6 +501,6 @@ def guardar_cotizacion_pdf_bytes(datos, idioma='es'):
     else:
         elements = _generar_elementos_pdf(datos, idioma, available_width)
 
-    doc.build(elements)
+    doc.build(elements, onFirstPage=_draw_page_background, onLaterPages=_draw_page_background)
     buffer.seek(0)
     return buffer
