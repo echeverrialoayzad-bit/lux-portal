@@ -332,6 +332,83 @@ _COTIZACIONES_SEED = [
         ],
         'notas_freightwise': ''
     },
+    {
+        'origen': 'UIO', 'destino': 'LHR', 'valid_from': '03/18/2026',
+        'contacto_nombre': 'Daniela Echeverria',
+        'contacto_email': 'daniela.echeverria@freight-wise.com',
+        'mercancia': 'FRESH CUT FLOWERS',
+        'customer': '', 'attn': '',
+        'aerolineas': [
+            {
+                "aerolinea": "AVIANCA PAX", "vuelo": "PAX",
+                "itinerario": "UIO-BOG-LHR", "tiempo_transito": "2-3D",
+                "granjas_entrega": "SAB\n16:00",
+                "salida": "DOM\n16:00", "llegada": "MAR\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "2.90", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "2.90"},
+                ],
+                "rate_increases": [],
+                "cargos_adicionales": [{"concepto": "FSC (Fuel Surcharge)", "monto": "0.10"}],
+                "notas": "", "es_continuacion": False
+            },
+            {
+                "aerolinea": "LUFTHANSA PAX", "vuelo": "PAX",
+                "itinerario": "UIO-MIA-FRA-LHR", "tiempo_transito": "3-4D",
+                "granjas_entrega": "16:00",
+                "salida": "16:00", "llegada": "22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "3.20", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.20"},
+                    {"kg": "+500", "tarifa": "2.70", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "2.70"},
+                ],
+                "rate_increases": [], "cargos_adicionales": [],
+                "notas": "", "es_continuacion": False
+            },
+            {
+                "aerolinea": "AIR CANADA FREIGHTER", "vuelo": "FREIGHTER",
+                "itinerario": "UIO-YYZ-LHR", "tiempo_transito": "2-3D",
+                "granjas_entrega": "VIE\n16:00",
+                "salida": "SAB\n16:00", "llegada": "LUN\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "3.35", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.35"},
+                    {"kg": "+300", "tarifa": "3.30", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.30"},
+                    {"kg": "+500", "tarifa": "3.25", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.25"},
+                    {"kg": "+1000", "tarifa": "3.20", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.20"},
+                ],
+                "rate_increases": [], "cargos_adicionales": [],
+                "notas": "", "es_continuacion": False
+            },
+            {
+                "aerolinea": "DELTA PAX", "vuelo": "PAX",
+                "itinerario": "UIO-ATL-LHR", "tiempo_transito": "2-3D",
+                "granjas_entrega": "SAB\n16:00",
+                "salida": "DOM\n16:00", "llegada": "MAR\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "3.10", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.10"},
+                ],
+                "rate_increases": [],
+                "cargos_adicionales": [{"concepto": "Due Carrier", "monto": "25"}],
+                "notas": "", "es_continuacion": False
+            },
+            {
+                "aerolinea": "TURKISH FREIGHTER", "vuelo": "FREIGHTER",
+                "itinerario": "UIO-MST-IST-LHR", "tiempo_transito": "2-3D",
+                "granjas_entrega": "SAB\n16:00",
+                "salida": "DOM\n16:00", "llegada": "MAR\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "3.80", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.80"},
+                ],
+                "rate_increases": [],
+                "cargos_adicionales": [{"concepto": "Due Carrier", "monto": "35"}],
+                "notas": "", "es_continuacion": False
+            },
+        ],
+        'cargos_freightwise': [
+            {"concepto": "Due Agent", "monto": "0"},
+            {"concepto": "Certificado", "monto": "0"},
+            {"concepto": "Fitosanitario", "monto": "0"},
+        ],
+        'notas_freightwise': ''
+    },
 ]
 
 
