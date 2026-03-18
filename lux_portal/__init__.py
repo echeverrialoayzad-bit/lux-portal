@@ -409,6 +409,68 @@ _COTIZACIONES_SEED = [
         ],
         'notas_freightwise': ''
     },
+    {
+        'origen': 'UIO', 'destino': 'GRU', 'valid_from': '03/10/2026',
+        'contacto_nombre': 'Daniela Echeverria',
+        'contacto_email': 'daniela.echeverria@freight-wise.com',
+        'mercancia': 'FRESH CUT FLOWERS',
+        'customer': '', 'attn': '',
+        'aerolineas': [
+            {
+                "aerolinea": "DELTA PAX", "vuelo": "PAX",
+                "itinerario": "UIO-GRU", "tiempo_transito": "2-3D",
+                "granjas_entrega": "SAB\n16:00",
+                "salida": "DOM\n16:00", "llegada": "MAR\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "3.20", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.20"},
+                ],
+                "rate_increases": [],
+                "cargos_adicionales": [{"concepto": "Due Carrier", "monto": "25"}],
+                "notas": "", "es_continuacion": False
+            },
+            {
+                "aerolinea": "AVIANCA PAX", "vuelo": "PAX",
+                "itinerario": "UIO-BOG-GRU", "tiempo_transito": "+1D",
+                "granjas_entrega": "SAB\n16:00",
+                "salida": "DOM\n16:00", "llegada": "DOM\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "2.40", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "2.40"},
+                ],
+                "rate_increases": [], "cargos_adicionales": [],
+                "notas": "", "es_continuacion": False
+            },
+            {
+                "aerolinea": "AVIANCA PAX", "vuelo": "PAX",
+                "itinerario": "UIO-MIA-VCP", "tiempo_transito": "2-3D",
+                "granjas_entrega": "SAB\n16:00",
+                "salida": "DOM\n16:00", "llegada": "MAR\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "6.25", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "6.25"},
+                ],
+                "rate_increases": [], "cargos_adicionales": [],
+                "notas": "", "es_continuacion": True
+            },
+            {
+                "aerolinea": "DHL FREIGHTER", "vuelo": "FREIGHTER",
+                "itinerario": "UIO-MIA-VCP", "tiempo_transito": "+1D",
+                "granjas_entrega": "SAB\n16:00",
+                "salida": "DOM\n16:00", "llegada": "DOM\n22:30",
+                "kg_rates": [
+                    {"kg": "+500", "tarifa": "3.40", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.40"},
+                ],
+                "rate_increases": [],
+                "cargos_adicionales": [{"concepto": "FSC (Fuel Surcharge)", "monto": "0.10"}],
+                "notas": "FSC: $0.12 / kg vol - MIN $15.00 - A PARTIR DEL 16 DE MARZO 2026",
+                "es_continuacion": False
+            },
+        ],
+        'cargos_freightwise': [
+            {"concepto": "Due Agent", "monto": "50.00"},
+            {"concepto": "Certificado", "monto": "15.00"},
+            {"concepto": "Fitosanitario", "monto": "2.50"},
+        ],
+        'notas_freightwise': ''
+    },
 ]
 
 
