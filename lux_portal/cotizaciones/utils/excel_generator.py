@@ -150,13 +150,13 @@ def generar_hoja(ws, datos, idioma='es'):
     ws.row_dimensions[1].height = 50
     ws.row_dimensions[2].height = 6
 
-    # Logo centrado en fila 1 (anclado en G1 ≈ centro horizontal del documento)
+    # Logo en esquina superior derecha
     logo_path = get_logo_path()
     if os.path.exists(logo_path):
         img_logo = Image(logo_path)
         img_logo.width = 230
         img_logo.height = 42
-        ws.add_image(img_logo, 'G1')
+        ws.add_image(img_logo, 'N1')
 
     # Textos segun idioma
     if idioma == 'es':
@@ -487,12 +487,12 @@ def generar_hoja(ws, datos, idioma='es'):
             ws.merge_cells(f'M{fila_inicio}:N{fila_inicio}')
 
         ws[f'L{fila_inicio}'] = conceptos_combined
-        ws[f'L{fila_inicio}'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+        ws[f'L{fila_inicio}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         ws[f'L{fila_inicio}'].fill = fill_color
         ws[f'L{fila_inicio}'].font = Font(name='Arial', size=9, color=texto_color)
 
         ws[f'M{fila_inicio}'] = montos_combined
-        ws[f'M{fila_inicio}'].alignment = Alignment(horizontal='right', vertical='center', wrap_text=True)
+        ws[f'M{fila_inicio}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         ws[f'M{fila_inicio}'].fill = fill_color
         ws[f'M{fila_inicio}'].font = Font(name='Arial', size=9, color=texto_color)
 
