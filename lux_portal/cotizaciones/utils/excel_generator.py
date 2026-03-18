@@ -146,17 +146,17 @@ def generar_hoja(ws, datos, idioma='es'):
     for col, width in anchos.items():
         ws.column_dimensions[col].width = width
 
-    # Altura de fila 1 para acomodar logo y título en la misma fila
-    ws.row_dimensions[1].height = 48
-    ws.row_dimensions[2].height = 6  # pequeño espacio antes del bloque morado
+    # Fila 1: logo centrado, fila 2: espacio antes del bloque morado
+    ws.row_dimensions[1].height = 50
+    ws.row_dimensions[2].height = 6
 
-    # Agregar logo alineado a la derecha en fila 1
+    # Logo centrado en fila 1 (anclado en G1 ≈ centro horizontal del documento)
     logo_path = get_logo_path()
     if os.path.exists(logo_path):
         img_logo = Image(logo_path)
-        img_logo.width = 220
-        img_logo.height = 40
-        ws.add_image(img_logo, 'M1')
+        img_logo.width = 230
+        img_logo.height = 42
+        ws.add_image(img_logo, 'G1')
 
     # Textos segun idioma
     if idioma == 'es':
@@ -178,10 +178,11 @@ def generar_hoja(ws, datos, idioma='es'):
                        'DEPARTURE', 'ARRIVAL', 'KG', 'RATE', 'RATE\nINCREASE', 'DATE',
                        'ADD CHARGES', '', '', 'NOTES']
 
-    # Titulo principal
+    # Titulo (debajo del logo, fila 1 queda libre para que el logo sea el header visual)
     ws['A1'] = titulo
-    ws['A1'].font = Font(name='Arial', size=12, bold=True, color='5F4DCE')
-    ws.merge_cells('A1:G1')
+    ws['A1'].font = Font(name='Arial', size=11, bold=True, color='5F4DCE')
+    ws['A1'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.merge_cells('A1:E1')
 
     # Color morado único para toda la cabecera (igual que PDF)
     PURPLE = '4535A8'
@@ -189,68 +190,63 @@ def generar_hoja(ws, datos, idioma='es'):
     white_text = Font(name='Arial', size=9, color='FFFFFF')
     white_bold = Font(name='Arial', size=9, bold=True, color='FFFFFF')
 
-    # Bloque info cliente + contacto — fondo morado, texto blanco (filas 3-6)
-    for fila in range(3, 7):
-        for col in range(1, 16):  # A=1 … O=15
-            ws.cell(row=fila, column=col).fill = purple_fill
-        ws.row_dimensions[fila].height = 18
-
-    # Lado izquierdo: labels (col A) en negrita, valores (col B-C) normales
-    ws['A3'] = f'{cliente_label}:'
-    ws['B3'] = datos.get('customer', '')
-    ws.merge_cells('B3:D3')
-
-    ws['A4'] = 'ATTN:'
-    ws['B4'] = datos.get('attn', '')
-    ws.merge_cells('B4:D4')
-
-    ws['A5'] = f'{mercancia_label}:'
-    ws['B5'] = datos.get('mercancia', '')
-    ws.merge_cells('B5:D5')
-
-    ws['A6'] = 'ORI - DES:'
-    ws['B6'] = datos.get('ruta', '')
-    ws.merge_cells('B6:D6')
-
-    for fila in range(3, 7):
-        ws.cell(row=fila, column=1).font = white_bold
-        ws.cell(row=fila, column=1).alignment = Alignment(horizontal='left', vertical='center')
-        ws.cell(row=fila, column=2).font = white_text
-        ws.cell(row=fila, column=2).alignment = Alignment(horizontal='left', vertical='center')
-
-    # Lado derecho: labels (col M) en negrita, valores (col N-O) normales
-    ws['M3'] = f'{contacto_label}:'
-    ws['N3'] = datos.get('contacto_nombre', '')
-    ws.merge_cells('N3:O3')
-
-    ws['M4'] = 'eMail:'
-    ws['N4'] = datos.get('contacto_email', '')
-    ws.merge_cells('N4:O4')
-
-    ws['M5'] = f'{valido_label}:'
-    ws['N5'] = datos.get('valid_from', datetime.now().strftime('%m/%d/%Y'))
-    ws.merge_cells('N5:O5')
-
-    for fila in range(3, 6):
-        ws.cell(row=fila, column=13).font = white_bold
-        ws.cell(row=fila, column=13).alignment = Alignment(horizontal='right', vertical='center')
-        ws.cell(row=fila, column=14).font = white_text
-        ws.cell(row=fila, column=14).alignment = Alignment(horizontal='left', vertical='center')
-
-    # Borde exterior del bloque de info
-    thin = Side(style='thin', color='7B6ED6')
+    # Bloque info cliente + contacto — fondo morado, todo centrado (filas 3-6)
     for fila in range(3, 7):
         for col in range(1, 16):
-            cell = ws.cell(row=fila, column=col)
-            top    = thin if fila == 3 else Side(style=None)
-            bottom = thin if fila == 6 else Side(style=None)
-            left   = thin if col == 1 else Side(style=None)
-            right  = thin if col == 15 else Side(style=None)
-            cell.border = Border(top=top, bottom=bottom, left=left, right=right)
+            ws.cell(row=fila, column=col).fill = purple_fill
+        ws.row_dimensions[fila].height = 20
 
-    # Línea divisora vertical entre columna D y E (separa info cliente de contacto)
-    for fila in range(3, 7):
-        ws.cell(row=fila, column=12).border = Border(right=thin)
+    center_style = Alignment(horizontal='center', vertical='center')
+
+    # Lado izquierdo: A-I merged por fila, label+valor centrado
+    ws.merge_cells('A3:I3')
+    ws['A3'] = f'{cliente_label}:   {datos.get("customer", "")}'
+    ws['A3'].font = white_bold
+    ws['A3'].alignment = center_style
+
+    ws.merge_cells('A4:I4')
+    ws['A4'] = f'ATTN:   {datos.get("attn", "")}'
+    ws['A4'].font = white_text
+    ws['A4'].alignment = center_style
+
+    ws.merge_cells('A5:I5')
+    ws['A5'] = f'{mercancia_label}:   {datos.get("mercancia", "")}'
+    ws['A5'].font = white_bold
+    ws['A5'].alignment = center_style
+
+    ws.merge_cells('A6:I6')
+    ws['A6'] = f'ORI - DES:   {datos.get("ruta", "")}'
+    ws['A6'].font = white_bold
+    ws['A6'].alignment = center_style
+
+    # Lado derecho: L-O merged por fila, label+valor centrado
+    ws.merge_cells('L3:O3')
+    ws['L3'] = f'{contacto_label}:   {datos.get("contacto_nombre", "")}'
+    ws['L3'].font = white_bold
+    ws['L3'].alignment = center_style
+
+    ws.merge_cells('L4:O4')
+    ws['L4'] = f'eMail:   {datos.get("contacto_email", "")}'
+    ws['L4'].font = white_text
+    ws['L4'].alignment = center_style
+
+    ws.merge_cells('L5:O5')
+    ws['L5'] = f'{valido_label}:   {datos.get("valid_from", datetime.now().strftime("%m/%d/%Y"))}'
+    ws['L5'].font = white_text
+    ws['L5'].alignment = center_style
+
+    # Borde exterior del bloque
+    thin_info = Side(style='thin', color='7B6ED6')
+    ws.cell(row=3, column=1).border  = Border(top=thin_info, left=thin_info)
+    ws.cell(row=3, column=15).border = Border(top=thin_info, right=thin_info)
+    ws.cell(row=6, column=1).border  = Border(bottom=thin_info, left=thin_info)
+    ws.cell(row=6, column=15).border = Border(bottom=thin_info, right=thin_info)
+    for col in range(2, 15):
+        ws.cell(row=3, column=col).border = Border(top=thin_info)
+        ws.cell(row=6, column=col).border = Border(bottom=thin_info)
+    for fila in range(4, 6):
+        ws.cell(row=fila, column=1).border  = Border(left=thin_info)
+        ws.cell(row=fila, column=15).border = Border(right=thin_info)
 
     # Ruta
     fila_ruta = 8
@@ -655,11 +651,11 @@ def generar_hoja(ws, datos, idioma='es'):
         ws.merge_cells(f'A{fila_notas}:O{fila_notas}')
         ws.row_dimensions[fila_notas].height = 25
 
-        # Contenido Púrpura Freight con letras blancas
+        # Contenido morado con letras blancas
         fila_notas += 1
         ws[f'A{fila_notas}'] = notas_fw
         ws[f'A{fila_notas}'].font = Font(name='Arial', size=9, color='FFFFFF')
-        ws[f'A{fila_notas}'].fill = purple_fill
+        ws[f'A{fila_notas}'].fill = PatternFill(start_color='4535A8', end_color='4535A8', fill_type='solid')
         ws[f'A{fila_notas}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         ws.merge_cells(f'A{fila_notas}:O{fila_notas}')
         ws.row_dimensions[fila_notas].height = max(30, 15 * notas_fw.count('\n') + 15)
