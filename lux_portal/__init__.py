@@ -37,6 +37,7 @@ def create_app(config_name='default'):
     with app.app_context():
         db.create_all()
         _migrate_db(app)
+        _seed_cotizaciones()
 
     return app
 
@@ -146,5 +147,136 @@ def _migrate_db(app):
                 f'ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL'
             ))
             db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+
+# ---------------------------------------------------------------------------
+# Cotizaciones seed data — agregar aqui cada cotizacion recuperada de PDF
+# La funcion inserta solo si no existe ya (origen+destino+valid_from unicos)
+# ---------------------------------------------------------------------------
+_COTIZACIONES_SEED = [
+    {
+        'origen': 'UIO', 'destino': 'RUH', 'valid_from': '03/18/2026',
+        'contacto_nombre': 'Daniela Echeverria',
+        'contacto_email': 'daniela.echeverria@freight-wise.com',
+        'mercancia': 'FRESH CUT FLOWERS',
+        'customer': '', 'attn': '',
+        'aerolineas': [
+            {
+                "aerolinea": "LUFTHANSA PAX", "vuelo": "PAX",
+                "itinerario": "UIO-MIA-MUC-RUH", "tiempo_transito": "3-4D",
+                "granjas_entrega": "LUN\nJUE\n16:00",
+                "salida": "MAR\nVIE\n16:00", "llegada": "SAB\nMAR\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "4.75", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "4.75"},
+                    {"kg": "+500", "tarifa": "3.50", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.50"},
+                ],
+                "rate_increases": [],
+                "cargos_adicionales": [{"concepto": "Due Carrier", "monto": "50"}],
+                "notas": "", "es_continuacion": False
+            },
+            {
+                "aerolinea": "EMIRATES FREIGHTER", "vuelo": "FREIGHTER",
+                "itinerario": "UIO-BQN-DXB-RUH", "tiempo_transito": "3-4D",
+                "granjas_entrega": "MIE\nSAB\n16:00",
+                "salida": "JUE\nDOM\n16:00", "llegada": "LUN\nJUE\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "4.55", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "4.55"},
+                ],
+                "rate_increases": [],
+                "cargos_adicionales": [{"concepto": "Due Carrier", "monto": "25"}],
+                "notas": "", "es_continuacion": False
+            },
+            {
+                "aerolinea": "QATAR FREIGHTER", "vuelo": "FREIGHTER",
+                "itinerario": "UIO-PTY-AMS-DOH-RUH", "tiempo_transito": "2-3D",
+                "granjas_entrega": "JUE\nSAB\n16:00",
+                "salida": "VIE\nDOM\n16:00", "llegada": "LUN\nMIE\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "4.40", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "4.40"},
+                ],
+                "rate_increases": [],
+                "cargos_adicionales": [{"concepto": "Due Carrier", "monto": "45"}],
+                "notas": "", "es_continuacion": False
+            },
+            {
+                "aerolinea": "TURKISH PAX", "vuelo": "PAX",
+                "itinerario": "UIO-MST-IST-RUH", "tiempo_transito": "3-4D",
+                "granjas_entrega": "JUE\nDOM\n16:00",
+                "salida": "VIE\nLUN\n16:00", "llegada": "MAR\nVIE\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "4.15", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "4.15"},
+                ],
+                "rate_increases": [],
+                "cargos_adicionales": [{"concepto": "Due Carrier", "monto": "35"}],
+                "notas": "", "es_continuacion": False
+            },
+            {
+                "aerolinea": "TURKISH PAX", "vuelo": "PAX",
+                "itinerario": "UIO-MIA-IST-RUH", "tiempo_transito": "3-4D",
+                "granjas_entrega": "MAR\nVIE\n16:00",
+                "salida": "MIE\nSAB\n16:00", "llegada": "SAB\nMIE\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "3.99", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.99"},
+                ],
+                "rate_increases": [], "cargos_adicionales": [],
+                "notas": "", "es_continuacion": True
+            },
+            {
+                "aerolinea": "TURKISH PAX", "vuelo": "PAX",
+                "itinerario": "UIO-PTY-IST-RUH", "tiempo_transito": "3-4D",
+                "granjas_entrega": "MIE\nSAB\n16:00",
+                "salida": "JUE\nDOM\n16:00", "llegada": "DOM\nJUE\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "5.34", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "5.34"},
+                ],
+                "rate_increases": [], "cargos_adicionales": [],
+                "notas": "", "es_continuacion": True
+            },
+        ],
+        'cargos_freightwise': [
+            {"concepto": "Due Agent", "monto": "0"},
+            {"concepto": "Certificado", "monto": "0"},
+            {"concepto": "Fitosanitario", "monto": "0"},
+        ],
+        'notas_freightwise': ''
+    },
+]
+
+
+def _seed_cotizaciones():
+    """Inserta cotizaciones predefinidas si no existen todavia."""
+    import json
+    from datetime import datetime
+
+    for seed in _COTIZACIONES_SEED:
+        try:
+            exists = db.session.execute(db.text(
+                'SELECT id FROM cotizaciones WHERE origen=:o AND destino=:d AND valid_from=:v'
+            ), {'o': seed['origen'], 'd': seed['destino'], 'v': seed['valid_from']}).fetchone()
+
+            if not exists:
+                now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                db.session.execute(db.text("""
+                    INSERT INTO cotizaciones
+                        (fecha_creacion, fecha_modificacion, contacto_nombre, contacto_email,
+                         valid_from, mercancia, customer, attn, origen, destino,
+                         aerolineas_json, cargos_freightwise_json, notas_freightwise, estado)
+                    VALUES
+                        (:fc, :fm, :cn, :ce, :vf, :mc, :cu, :at, :orig, :dest,
+                         :aj, :cf, :nf, :es)
+                """), {
+                    'fc': now, 'fm': now,
+                    'cn': seed['contacto_nombre'], 'ce': seed['contacto_email'],
+                    'vf': seed['valid_from'], 'mc': seed['mercancia'],
+                    'cu': seed['customer'], 'at': seed['attn'],
+                    'orig': seed['origen'], 'dest': seed['destino'],
+                    'aj': json.dumps(seed['aerolineas'], ensure_ascii=False),
+                    'cf': json.dumps(seed['cargos_freightwise'], ensure_ascii=False),
+                    'nf': seed['notas_freightwise'],
+                    'es': 'borrador'
+                })
+                db.session.commit()
         except Exception:
             db.session.rollback()
