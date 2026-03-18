@@ -146,17 +146,17 @@ def generar_hoja(ws, datos, idioma='es'):
     for col, width in anchos.items():
         ws.column_dimensions[col].width = width
 
-    # Fila 1: logo centrado, fila 2: espacio antes del bloque morado
-    ws.row_dimensions[1].height = 50
-    ws.row_dimensions[2].height = 6
+    # Fila 1: título, fila 2: logo con margen antes del bloque morado
+    ws.row_dimensions[1].height = 16
+    ws.row_dimensions[2].height = 44
 
-    # Logo en esquina superior derecha
+    # Logo esquina superior derecha con margen (anclado en N2)
     logo_path = get_logo_path()
     if os.path.exists(logo_path):
         img_logo = Image(logo_path)
         img_logo.width = 230
-        img_logo.height = 42
-        ws.add_image(img_logo, 'N1')
+        img_logo.height = 40
+        ws.add_image(img_logo, 'N2')
 
     # Textos segun idioma
     if idioma == 'es':
