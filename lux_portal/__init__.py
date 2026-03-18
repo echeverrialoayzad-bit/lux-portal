@@ -471,6 +471,51 @@ _COTIZACIONES_SEED = [
         ],
         'notas_freightwise': ''
     },
+    {
+        'origen': 'UIO', 'destino': 'EVN', 'valid_from': '02/25/2026',
+        'contacto_nombre': 'Daniela Echeverria',
+        'contacto_email': 'daniela.echeverria@freight-wise.com',
+        'mercancia': 'FRESH CUT FLOWERS',
+        'customer': '', 'attn': '',
+        'aerolineas': [
+            {
+                "aerolinea": "TURKISH FREIGHTER", "vuelo": "FREIGHTER",
+                "itinerario": "UIO-MST-ICN-EVN", "tiempo_transito": "2-3D",
+                "granjas_entrega": "SAB\n16:00",
+                "salida": "DOM\n16:00", "llegada": "MAR\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "3.95", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "3.95"},
+                ],
+                "rate_increases": [],
+                "cargos_adicionales": [{"concepto": "Due Carrier", "monto": "35"}],
+                "notas": "Esta ruta inicia a partir del 11 de marzo",
+                "es_continuacion": False
+            },
+            {
+                "aerolinea": "QATAR FREIGHTER", "vuelo": "FREIGHTER",
+                "itinerario": "UIO-PTY-AMS-DOH-EVN", "tiempo_transito": "+3D",
+                "granjas_entrega": "JUE\n16:00",
+                "salida": "VIE\n16:00", "llegada": "DOM\n22:30",
+                "kg_rates": [
+                    {"kg": "+100", "tarifa": "4.64", "margen": "0.00", "costo_operativo": "0.00", "tarifa_cliente": "4.64"},
+                ],
+                "rate_increases": [],
+                "cargos_adicionales": [
+                    {"concepto": "Due Carrier", "monto": "45"},
+                    {"concepto": "CC (Carrier Charges)", "monto": "12"},
+                    {"concepto": "CG HAWB C/U", "monto": "3"},
+                ],
+                "notas": "The only departure day on the DOH-EVN route is D5, so UIO must depart on D2",
+                "es_continuacion": False
+            },
+        ],
+        'cargos_freightwise': [
+            {"concepto": "Due Agent", "monto": "50.00"},
+            {"concepto": "Certificado", "monto": "15.00"},
+            {"concepto": "Fitosanitario", "monto": "2.50"},
+        ],
+        'notas_freightwise': ''
+    },
 ]
 
 
