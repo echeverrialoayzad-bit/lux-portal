@@ -146,13 +146,17 @@ def generar_hoja(ws, datos, idioma='es'):
     for col, width in anchos.items():
         ws.column_dimensions[col].width = width
 
-    # Agregar logo
+    # Altura de fila 1 para acomodar logo y título en la misma fila
+    ws.row_dimensions[1].height = 48
+    ws.row_dimensions[2].height = 6  # pequeño espacio antes del bloque morado
+
+    # Agregar logo alineado a la derecha en fila 1
     logo_path = get_logo_path()
     if os.path.exists(logo_path):
         img_logo = Image(logo_path)
-        img_logo.width = 264
-        img_logo.height = 37
-        ws.add_image(img_logo, 'N2')
+        img_logo.width = 220
+        img_logo.height = 40
+        ws.add_image(img_logo, 'M1')
 
     # Textos segun idioma
     if idioma == 'es':
@@ -282,6 +286,12 @@ def generar_hoja(ws, datos, idioma='es'):
     # Datos de la cotizacion
     fila_datos = 10
     aerolineas = datos.get('aerolineas', [])
+
+    # Ocultar columnas J y K si ninguna aerolinea tiene rate increases
+    show_ri_cols = any(aero.get('rate_increases') for aero in aerolineas)
+    if not show_ri_cols:
+        ws.column_dimensions['J'].hidden = True
+        ws.column_dimensions['K'].hidden = True
 
     # Pre-calcular filas por aerolinea
     filas_por_aerolinea = []
@@ -632,7 +642,7 @@ def generar_hoja(ws, datos, idioma='es'):
             ws.cell(row=row, column=col).border = Border(left=left, right=right, top=top, bottom=bottom)
 
     # Notas FreightWise
-    notas_fw = datos.get('notas_freightwise', '').strip()
+    notas_fw = (datos.get('notas_freightwise') or '').strip()
     if notas_fw:
         fila_notas = ultima_fila_fw + 2
 
