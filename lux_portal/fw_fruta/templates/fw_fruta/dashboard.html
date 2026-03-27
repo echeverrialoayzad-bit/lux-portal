@@ -1,0 +1,121 @@
+{% extends 'fw_fruta/base_freightwise.html' %}
+
+{% block title %}Dashboard - FW Fruta Cotizaciones{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">
+                <i class="bi bi-file-earmark-text text-primary"></i> Mis Cotizaciones
+            </h2>
+            <a href="{{ url_for('fw_fruta.nueva_cotizacion') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>Nueva Cotizacion
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card fade-in">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Historial de Cotizaciones</h5>
+        <span class="badge bg-light text-dark">{{ cotizaciones|length }} cotizaciones</span>
+    </div>
+    <div class="card-body p-0">
+        {% if cotizaciones %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Fecha</th>
+                        <th>Ruta</th>
+                        <th>Cliente</th>
+                        <th>Mercancia</th>
+                        <th>Aerolineas</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cotizacion in cotizaciones %}
+                    <tr class="cotizacion-item">
+                        <td><strong>{{ cotizacion.id }}</strong></td>
+                        <td>
+                            <small class="text-muted">
+                                <i class="bi bi-calendar3 me-1"></i>
+                                {{ cotizacion.fecha_creacion.strftime('%d/%m/%Y %H:%M') if cotizacion.fecha_creacion else 'N/A' }}
+                            </small>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">{{ cotizacion.ruta }}</span>
+                        </td>
+                        <td>{{ cotizacion.customer or '-' }}</td>
+                        <td>{{ cotizacion.mercancia or '-' }}</td>
+                        <td>
+                            <span class="badge bg-secondary">
+                                {{ cotizacion.aerolineas|length }} aerolinea(s)
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('fw_fruta.editar_cotizacion', id=cotizacion.id) }}"
+                                   class="btn btn-outline-primary" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{{ url_for('fw_fruta.descargar_cotizacion', id=cotizacion.id) }}"
+                                   class="btn btn-outline-success" title="Descargar Excel">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                <button type="button" class="btn btn-outline-danger"
+                                        onclick="eliminarCotizacion({{ cotizacion.id }})" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="bi bi-inbox"></i>
+            <h5>No hay cotizaciones</h5>
+            <p class="text-muted">Crea tu primera cotizacion para comenzar</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function eliminarCotizacion(id) {
+    if (!confirm('Esta seguro de eliminar esta cotizacion?')) {
+        return;
+    }
+
+    fetch(`/fw-fruta/api/cotizacion/${id}`, {
+        method: 'DELETE'
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().catch(() => ({})).then(err => {
+                throw new Error(err.error || `Error del servidor (${response.status})`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        alert(error.message || 'Error de conexion');
+    });
+}
+</script>
+{% endblock %}

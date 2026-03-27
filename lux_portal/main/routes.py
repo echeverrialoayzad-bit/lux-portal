@@ -44,6 +44,14 @@ AVAILABLE_MODULES = [
         'url': 'current_status.dashboard',
         'color': '#7c3aed'  # Purple para Current Status
     },
+    {
+        'id': 'fw_fruta',
+        'name': 'FW Fruta',
+        'description': 'Cotizaciones de flete aereo para fruta fresca',
+        'icon': 'bi-box-seam',
+        'url': 'fw_fruta.dashboard',
+        'color': '#2e7d32'  # Green para FW Fruta
+    },
 ]
 
 

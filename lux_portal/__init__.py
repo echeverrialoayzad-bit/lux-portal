@@ -25,6 +25,7 @@ def create_app(config_name='default'):
     from lux_portal.clientes import clientes_bp
     from lux_portal.planner import planner_bp
     from lux_portal.current_status import current_status_bp
+    from lux_portal.fw_fruta import fw_fruta_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -32,6 +33,7 @@ def create_app(config_name='default'):
     app.register_blueprint(clientes_bp)
     app.register_blueprint(planner_bp)
     app.register_blueprint(current_status_bp)
+    app.register_blueprint(fw_fruta_bp, url_prefix='/fw-fruta')
 
     # Crear tablas de base de datos y migrar columnas faltantes
     with app.app_context():
