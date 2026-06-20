@@ -135,16 +135,42 @@ def _aerolineas_canonicas():
     return fsc | cargo | dias
 
 
-def _validar_aerolineas(cotizacion):
-    """Devuelve la lista de nombres de aerolinea usados en la cotizacion que
-    no calzan con ninguna aerolinea canonica."""
+def _validar_cotizacion(cotizacion):
+    """Devuelve una lista de mensajes de error si la cotizacion tiene
+    problemas que deben bloquear la impresion: aerolineas no reconocidas, o
+    tramos de kg repetidos dentro de la misma aerolinea (la escala deberia
+    ser progresiva, ej. +100, +500, +1000, nunca el mismo tramo dos veces)."""
     canonicas = _aerolineas_canonicas()
-    invalidas = []
+    errores = []
+    aerolineas_invalidas = []
+
     for entry in cotizacion.aerolineas:
         nombre = (entry.get('aerolinea') or '').strip().upper()
-        if nombre and nombre not in canonicas and nombre not in invalidas:
-            invalidas.append(nombre)
-    return invalidas
+        if nombre and nombre not in canonicas and nombre not in aerolineas_invalidas:
+            aerolineas_invalidas.append(nombre)
+
+        vistos, duplicados = [], []
+        for kr in entry.get('kg_rates') or []:
+            kg = (kr.get('kg') or '').strip()
+            if not kg:
+                continue
+            if kg in vistos and kg not in duplicados:
+                duplicados.append(kg)
+            else:
+                vistos.append(kg)
+        if duplicados:
+            errores.append(
+                f"{nombre or '(sin nombre)'} tiene el tramo de kg repetido: " + ', '.join(duplicados)
+                + ' (la escala debe ser progresiva, ej. +100, +500, +1000, sin repetir un tramo)'
+            )
+
+    if aerolineas_invalidas:
+        errores.append(
+            'Estas aerolineas no estan bien escritas o no estan registradas en las tablas '
+            'maestras (FSC / Cargos / Dias Salida): ' + ', '.join(aerolineas_invalidas)
+        )
+
+    return errores
 
 
 @cotizaciones_bp.route('/descargar/<int:id>')
@@ -156,15 +182,9 @@ def descargar_cotizacion(id):
         formato = request.args.get('formato', 'excel')
         idioma = request.args.get('idioma', 'ambos')
 
-        invalidas = _validar_aerolineas(cotizacion)
-        if invalidas:
-            flash(
-                'No se puede imprimir: estas aerolineas no estan bien escritas o no '
-                'estan registradas en las tablas maestras (FSC / Cargos / Dias Salida): '
-                + ', '.join(invalidas) + '. Corrige el nombre en la cotizacion o agregalo '
-                'en las tablas maestras.',
-                'error'
-            )
+        errores = _validar_cotizacion(cotizacion)
+        if errores:
+            flash('No se puede imprimir: ' + ' | '.join(errores) + '. Corrige la cotizacion e intenta de nuevo.', 'error')
             return redirect(url_for('cotizaciones.editar_cotizacion', id=id))
 
         # Preparar datos para el generador
@@ -226,15 +246,9 @@ def descargar_desglose(id):
     try:
         cotizacion = Cotizacion.query.get_or_404(id)
 
-        invalidas = _validar_aerolineas(cotizacion)
-        if invalidas:
-            flash(
-                'No se puede imprimir: estas aerolineas no estan bien escritas o no '
-                'estan registradas en las tablas maestras (FSC / Cargos / Dias Salida): '
-                + ', '.join(invalidas) + '. Corrige el nombre en la cotizacion o agregalo '
-                'en las tablas maestras.',
-                'error'
-            )
+        errores = _validar_cotizacion(cotizacion)
+        if errores:
+            flash('No se puede imprimir: ' + ' | '.join(errores) + '. Corrige la cotizacion e intenta de nuevo.', 'error')
             return redirect(url_for('cotizaciones.editar_cotizacion', id=id))
 
         filas = []
@@ -258,10 +272,12 @@ def descargar_desglose(id):
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         formato = request.args.get('formato', 'excel')
+        idioma = request.args.get('idioma', 'es')
+        sufijo_idioma = '_EN' if idioma == 'en' else ''
 
         if formato == 'png':
-            png_bytes = generar_desglose_tarifa_png_bytes(cotizacion.ruta, filas)
-            nombre_archivo = f"FreightWise_Desglose_{cotizacion.ruta}_{timestamp}.png"
+            png_bytes = generar_desglose_tarifa_png_bytes(cotizacion.ruta, filas, idioma=idioma)
+            nombre_archivo = f"FreightWise_Desglose_{cotizacion.ruta}{sufijo_idioma}_{timestamp}.png"
             return send_file(
                 png_bytes,
                 as_attachment=True,
@@ -269,8 +285,8 @@ def descargar_desglose(id):
                 mimetype='image/png'
             )
 
-        excel_bytes = generar_desglose_tarifa_bytes(cotizacion.ruta, filas)
-        nombre_archivo = f"FreightWise_Desglose_{cotizacion.ruta}_{timestamp}.xlsx"
+        excel_bytes = generar_desglose_tarifa_bytes(cotizacion.ruta, filas, idioma=idioma)
+        nombre_archivo = f"FreightWise_Desglose_{cotizacion.ruta}{sufijo_idioma}_{timestamp}.xlsx"
 
         return send_file(
             excel_bytes,

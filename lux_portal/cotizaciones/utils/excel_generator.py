@@ -697,12 +697,42 @@ def guardar_cotizacion_bytes(datos, idioma='ambos'):
     return output
 
 
-def generar_desglose_tarifa_bytes(ruta, filas):
+_DESGLOSE_TEXTOS = {
+    'es': {
+        'titulo': 'DESGLOSE DE TARIFA',
+        'columnas': ['AEROLINEA', 'KG', 'TARIFA NETA', 'FSC', 'OPERATIVO', 'PROFIT', 'TARIFA VENTA'],
+    },
+    'en': {
+        'titulo': 'RATE BREAKDOWN',
+        'columnas': ['AIRLINE', 'KG', 'NET RATE', 'FSC', 'OPERATING COST', 'PROFIT', 'SALE RATE'],
+    },
+}
+
+
+def _grupos_por_aerolinea(filas):
+    """Agrupa indices consecutivos de `filas` que tienen la misma aerolinea,
+    para poder combinar esa columna en vez de repetir el nombre."""
+    grupos = []
+    if not filas:
+        return grupos
+    inicio = 0
+    for i in range(1, len(filas) + 1):
+        if i == len(filas) or filas[i]['aerolinea'] != filas[inicio]['aerolinea']:
+            grupos.append((filas[inicio]['aerolinea'], inicio, i - 1))
+            inicio = i
+    return grupos
+
+
+def generar_desglose_tarifa_bytes(ruta, filas, idioma='es'):
     """Genera un Excel mostrando, por aerolinea y tramo de kg, como se compone
     la tarifa de venta (tarifa neta + FSC + operativo + profit = venta), con
     el mismo look morado/FreightWise que las cotizaciones completas. `filas`
     es una lista de dicts con: aerolinea, kg, tarifa_neta, fsc, operativo,
-    profit, tarifa_venta."""
+    profit, tarifa_venta. Filas consecutivas de la misma aerolinea combinan
+    esa celda en vez de repetir el nombre."""
+    textos = _DESGLOSE_TEXTOS.get(idioma, _DESGLOSE_TEXTOS['es'])
+    columnas = textos['columnas']
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Desglose Tarifa"
@@ -720,7 +750,6 @@ def generar_desglose_tarifa_bytes(ruta, filas):
     thin = Side(style='thin', color='B7AEDE')
     thick = Side(style='medium', color='000000')
 
-    columnas = ['AEROLINEA', 'KG', 'TARIFA NETA', 'FSC', 'OPERATIVO', 'PROFIT', 'TARIFA VENTA']
     ultima_col = get_column_letter(len(columnas))
 
     ws['A1'] = 'FREIGHTWISE'
@@ -730,7 +759,7 @@ def generar_desglose_tarifa_bytes(ruta, filas):
     ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
     ws.row_dimensions[1].height = 26
 
-    ws['A2'] = f'DESGLOSE DE TARIFA - {ruta}'
+    ws['A2'] = f"{textos['titulo']} - {ruta}"
     ws.merge_cells(f'A2:{ultima_col}2')
     ws['A2'].font = Font(name='Arial', size=10, bold=True, color='FFFFFF')
     ws['A2'].fill = purple_fill
@@ -746,15 +775,14 @@ def generar_desglose_tarifa_bytes(ruta, filas):
         celda.border = Border(top=thin, bottom=thin, left=thin, right=thin)
     ws.row_dimensions[fila_enc].height = 18
 
-    fila = fila_enc + 1
-    aerolinea_anterior = None
+    fila_inicial = fila_enc + 1
     for idx, f in enumerate(filas):
+        fila = fila_inicial + idx
         fill = light_fill if idx % 2 == 0 else no_fill
-        valores = [
-            f['aerolinea'], f['kg'],
-            f['tarifa_neta'], f['fsc'], f['operativo'], f['profit'], f['tarifa_venta'],
-        ]
+        valores = [None, f['kg'], f['tarifa_neta'], f['fsc'], f['operativo'], f['profit'], f['tarifa_venta']]
         for col_i, valor in enumerate(valores, start=1):
+            if col_i == 1:
+                continue
             celda = ws.cell(row=fila, column=col_i, value=valor)
             celda.fill = fill
             celda.border = Border(top=thin, bottom=thin, left=thin, right=thin)
@@ -763,16 +791,33 @@ def generar_desglose_tarifa_bytes(ruta, filas):
                 celda.font = bold_black if col_i == 7 else black_font
                 celda.alignment = Alignment(horizontal='right', vertical='center')
             else:
-                celda.font = bold_black if col_i == 1 else black_font
+                celda.font = black_font
                 celda.alignment = Alignment(horizontal='center', vertical='center')
 
-        if aerolinea_anterior is not None and f['aerolinea'] != aerolinea_anterior:
-            for col_i in range(1, len(columnas) + 1):
-                c = ws.cell(row=fila - 1, column=col_i)
+        if idx == len(filas) - 1 or filas[idx + 1]['aerolinea'] != f['aerolinea']:
+            for col_i in range(2, len(columnas) + 1):
+                c = ws.cell(row=fila, column=col_i)
                 b = c.border
                 c.border = Border(top=b.top, left=b.left, right=b.right, bottom=thick)
-        aerolinea_anterior = f['aerolinea']
-        fila += 1
+
+    grupos = _grupos_por_aerolinea(filas)
+    for g_idx, (nombre, ini, fin) in enumerate(grupos):
+        fila_ini = fila_inicial + ini
+        fila_fin = fila_inicial + fin
+        fill = light_fill if g_idx % 2 == 0 else no_fill
+        if fila_fin > fila_ini:
+            ws.merge_cells(start_row=fila_ini, start_column=1, end_row=fila_fin, end_column=1)
+        celda = ws.cell(row=fila_ini, column=1, value=nombre)
+        celda.font = bold_black
+        celda.alignment = Alignment(horizontal='left', vertical='center', indent=1)
+        for r in range(fila_ini, fila_fin + 1):
+            c = ws.cell(row=r, column=1)
+            c.fill = fill
+            c.border = Border(
+                top=thin if r == fila_ini else None,
+                bottom=thick if r == fila_fin else None,
+                left=thin, right=thin,
+            )
 
     anchos = [22, 10, 14, 12, 14, 12, 16]
     for i, ancho in enumerate(anchos, start=1):
@@ -784,10 +829,14 @@ def generar_desglose_tarifa_bytes(ruta, filas):
     return output
 
 
-def generar_desglose_tarifa_png_bytes(ruta, filas):
+def generar_desglose_tarifa_png_bytes(ruta, filas, idioma='es'):
     """Genera la misma tabla de desglose de tarifa que generar_desglose_tarifa_bytes
-    pero como imagen PNG (mismo estilo morado FreightWise)."""
+    pero como imagen PNG (mismo estilo morado FreightWise). Filas consecutivas
+    de la misma aerolinea combinan esa celda en vez de repetir el nombre."""
     from PIL import Image, ImageDraw, ImageFont
+
+    textos = _DESGLOSE_TEXTOS.get(idioma, _DESGLOSE_TEXTOS['es'])
+    columnas = textos['columnas']
 
     PURPLE = (69, 53, 168)
     LIGHT = (228, 223, 247)
@@ -796,7 +845,6 @@ def generar_desglose_tarifa_png_bytes(ruta, filas):
     BORDER = (183, 174, 222)
     THICK = (0, 0, 0)
 
-    columnas = ['AEROLINEA', 'KG', 'TARIFA NETA', 'FSC', 'OPERATIVO', 'PROFIT', 'TARIFA VENTA']
     col_widths = [240, 90, 140, 120, 140, 120, 160]
     total_width = sum(col_widths)
 
@@ -840,7 +888,7 @@ def generar_desglose_tarifa_png_bytes(ruta, filas):
     y += title_h
 
     draw.rectangle([0, y, total_width, y + subtitle_h], fill=PURPLE)
-    center_text(0, y, total_width, y + subtitle_h, f'DESGLOSE DE TARIFA - {ruta}', font_subtitle, WHITE)
+    center_text(0, y, total_width, y + subtitle_h, f"{textos['titulo']} - {ruta}", font_subtitle, WHITE)
     y += subtitle_h
 
     draw.rectangle([0, y, total_width, y + header_h], fill=PURPLE)
@@ -850,36 +898,42 @@ def generar_desglose_tarifa_png_bytes(ruta, filas):
         x += w
     y += header_h
 
-    aerolinea_anterior = None
+    table_top = y
     for idx, f in enumerate(filas):
+        row_y = table_top + idx * row_h
         fill = LIGHT if idx % 2 == 0 else WHITE
-        draw.rectangle([0, y, total_width, y + row_h], fill=fill)
+        draw.rectangle([col_widths[0], row_y, total_width, row_y + row_h], fill=fill)
 
         valores = [
-            (f['aerolinea'], 'left'), (str(f['kg']), 'center'),
+            (str(f['kg']), 'center'),
             (f"${f['tarifa_neta']:,.2f}", 'right'), (f"${f['fsc']:,.2f}", 'right'),
             (f"${f['operativo']:,.2f}", 'right'), (f"${f['profit']:,.2f}", 'right'),
             (f"${f['tarifa_venta']:,.2f}", 'right'),
         ]
-        x = 0
-        for w, (texto, align) in zip(col_widths, valores):
+        x = col_widths[0]
+        for w, (texto, align) in zip(col_widths[1:], valores):
             if align == 'right':
-                right_text(x, y, x + w, y + row_h, texto, font_data, BLACK)
-            elif align == 'left':
-                left_text(x, y, y + row_h, texto, font_data, BLACK)
+                right_text(x, row_y, x + w, row_y + row_h, texto, font_data, BLACK)
             else:
-                center_text(x, y, x + w, y + row_h, texto, font_data, BLACK)
+                center_text(x, row_y, x + w, row_y + row_h, texto, font_data, BLACK)
             x += w
 
-        x = 0
-        for w in col_widths:
-            draw.rectangle([x, y, x + w, y + row_h], outline=BORDER, width=1)
+        x = col_widths[0]
+        for w in col_widths[1:]:
+            draw.rectangle([x, row_y, x + w, row_y + row_h], outline=BORDER, width=1)
             x += w
 
-        if aerolinea_anterior is not None and f['aerolinea'] != aerolinea_anterior:
-            draw.line([0, y, total_width, y], fill=THICK, width=3)
-        aerolinea_anterior = f['aerolinea']
-        y += row_h
+        if idx == len(filas) - 1 or filas[idx + 1]['aerolinea'] != f['aerolinea']:
+            draw.line([0, row_y + row_h, total_width, row_y + row_h], fill=THICK, width=3)
+
+    grupos = _grupos_por_aerolinea(filas)
+    for g_idx, (nombre, ini, fin) in enumerate(grupos):
+        y0 = table_top + ini * row_h
+        y1 = table_top + (fin + 1) * row_h
+        fill = LIGHT if g_idx % 2 == 0 else WHITE
+        draw.rectangle([0, y0, col_widths[0], y1], fill=fill)
+        left_text(0, y0, y1, nombre, font_data, BLACK)
+        draw.rectangle([0, y0, col_widths[0], y1], outline=BORDER, width=1)
 
     draw.rectangle([0, 0, total_width - 1, total_height - 1], outline=THICK, width=2)
 

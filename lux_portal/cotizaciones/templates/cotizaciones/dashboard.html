@@ -86,14 +86,27 @@
                                         <i class="bi bi-pie-chart"></i>
                                     </button>
                                     <ul class="dropdown-menu">
+                                        <li><h6 class="dropdown-header">Excel</h6></li>
                                         <li>
-                                            <a class="dropdown-item" href="{{ url_for('cotizaciones.descargar_desglose', id=cotizacion.id, formato='excel') }}">
-                                                <i class="bi bi-file-earmark-excel me-2"></i>Excel
+                                            <a class="dropdown-item" href="{{ url_for('cotizaciones.descargar_desglose', id=cotizacion.id, formato='excel', idioma='es') }}">
+                                                <i class="bi bi-file-earmark-excel me-2"></i>Espanol
                                             </a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item" href="{{ url_for('cotizaciones.descargar_desglose', id=cotizacion.id, formato='png') }}">
-                                                <i class="bi bi-file-earmark-image me-2"></i>Imagen PNG
+                                            <a class="dropdown-item" href="{{ url_for('cotizaciones.descargar_desglose', id=cotizacion.id, formato='excel', idioma='en') }}">
+                                                <i class="bi bi-file-earmark-excel me-2"></i>English
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><h6 class="dropdown-header">Imagen PNG</h6></li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('cotizaciones.descargar_desglose', id=cotizacion.id, formato='png', idioma='es') }}">
+                                                <i class="bi bi-file-earmark-image me-2"></i>Espanol
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('cotizaciones.descargar_desglose', id=cotizacion.id, formato='png', idioma='en') }}">
+                                                <i class="bi bi-file-earmark-image me-2"></i>English
                                             </a>
                                         </li>
                                     </ul>
