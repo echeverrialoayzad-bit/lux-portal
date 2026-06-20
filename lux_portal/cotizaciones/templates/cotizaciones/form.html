@@ -925,7 +925,11 @@ function agregarKgRate(btn, datos = null) {
         attachFormulaHandlers(input);
     });
 
+    const kgInput = row.querySelector('.kg-input');
+    kgInput.addEventListener('blur', () => validarKgDuplicado(kgInput));
+
     container.appendChild(clone);
+    if (datos) validarKgDuplicado(kgInput);
     calcularPrecioFinal(container.lastElementChild);
 }
 
@@ -953,6 +957,22 @@ function agregarRateIncrease(btn, datos = null) {
 
 function eliminarRateIncrease(btn) {
     btn.closest('.rate-increase-row').remove();
+}
+
+function validarKgDuplicado(input) {
+    const container = input.closest('.kg-rates-container');
+    const valor = input.value.trim();
+    input.classList.remove('is-invalid');
+    if (!container || !valor) return;
+
+    const duplicado = Array.from(container.querySelectorAll('.kg-input'))
+        .filter(el => el !== input)
+        .some(el => el.value.trim() === valor);
+
+    if (duplicado) {
+        input.classList.add('is-invalid');
+        alert(`Ya existe el tramo "${valor}" para esta aerolinea. La escala debe ser progresiva (ej. +100, +500, +1000) y no debe repetirse. No vas a poder imprimir esta cotizacion hasta corregirlo.`);
+    }
 }
 
 function calcularPrecioFinal(row) {
