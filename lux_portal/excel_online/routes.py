@@ -4,9 +4,11 @@
 Rutas del modulo Excel Online: hojas de calculo dinamicas embebidas en el portal.
 """
 
-from flask import render_template, request, jsonify
+from datetime import datetime
+from flask import render_template, request, jsonify, send_file
 from lux_portal.excel_online import excel_online_bp
 from lux_portal.excel_online.models import ExcelSheet
+from lux_portal.excel_online.exportador import generar_excel_online_bytes
 from lux_portal.auth.decorators import login_required
 from lux_portal.extensions import db
 
@@ -16,6 +18,20 @@ from lux_portal.extensions import db
 def index():
     sheets = ExcelSheet.query.order_by(ExcelSheet.order, ExcelSheet.id).all()
     return render_template('excel_online/index.html', sheets=[s.to_dict() for s in sheets])
+
+
+@excel_online_bp.route('/exportar')
+@login_required
+def exportar():
+    sheets = ExcelSheet.query.order_by(ExcelSheet.order, ExcelSheet.id).all()
+    excel_bytes = generar_excel_online_bytes([s.to_dict() for s in sheets])
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    return send_file(
+        excel_bytes,
+        as_attachment=True,
+        download_name=f'Excel_Online_FreightWise_{timestamp}.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
 
 
 @excel_online_bp.route('/api/sheet', methods=['POST'])
