@@ -94,6 +94,28 @@ def eliminar_cotizacion(id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _aerolineas_canonicas():
+    """Aerolineas reconocidas: la union de las que estan gestionadas en las
+    tablas maestras de FSC, Cargos Adicionales y Dias de Salida. Si una
+    aerolinea no aparece en ninguna de las 3, se considera mal escrita."""
+    fsc = {g.aerolinea for g in AirlineFscGroup.query.all()}
+    cargo = {g.aerolinea for g in AirlineCargoGroup.query.all()}
+    dias = {r.aerolinea for r in AirlineDepartureDays.query.all()}
+    return fsc | cargo | dias
+
+
+def _validar_aerolineas(cotizacion):
+    """Devuelve la lista de nombres de aerolinea usados en la cotizacion que
+    no calzan con ninguna aerolinea canonica."""
+    canonicas = _aerolineas_canonicas()
+    invalidas = []
+    for entry in cotizacion.aerolineas:
+        nombre = (entry.get('aerolinea') or '').strip().upper()
+        if nombre and nombre not in canonicas and nombre not in invalidas:
+            invalidas.append(nombre)
+    return invalidas
+
+
 @cotizaciones_bp.route('/descargar/<int:id>')
 @login_required
 def descargar_cotizacion(id):
@@ -102,6 +124,17 @@ def descargar_cotizacion(id):
         cotizacion = Cotizacion.query.get_or_404(id)
         formato = request.args.get('formato', 'excel')
         idioma = request.args.get('idioma', 'ambos')
+
+        invalidas = _validar_aerolineas(cotizacion)
+        if invalidas:
+            flash(
+                'No se puede imprimir: estas aerolineas no estan bien escritas o no '
+                'estan registradas en las tablas maestras (FSC / Cargos / Dias Salida): '
+                + ', '.join(invalidas) + '. Corrige el nombre en la cotizacion o agregalo '
+                'en las tablas maestras.',
+                'error'
+            )
+            return redirect(url_for('cotizaciones.editar_cotizacion', id=id))
 
         # Preparar datos para el generador
         datos = {
