@@ -18,7 +18,7 @@ AEROLINEAS_LISTA = [
     "TAP PORTUGAL", "AUSTRIAN", "BRUSSELS", "LOT",
     # Americas
     "AMERICAN", "UNITED", "DELTA", "AIR CANADA", "LATAM",
-    "COPA", "AVIANCA", "AEROMEXICO", "AZUL", "GOL",
+    "COPA AIRLINES", "AVIANCA", "AERO MEXICO", "AZUL", "GOL",
     # Cargueras dedicadas
     "CARGOLUX", "ATLAS AIR", "POLAR AIR", "KALITTA AIR",
     # Express/Courier
