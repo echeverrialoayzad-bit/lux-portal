@@ -260,12 +260,22 @@ def descargar_desglose(id):
                         return float(v)
                     except (TypeError, ValueError):
                         return 0.0
+
+                fsc_val = _num(kr.get('fsc'))
+                operativo_val = _num(kr.get('costo_operativo'))
+                # Si el FSC no esta explicito (cotizaciones viejas o aerolineas
+                # como Avianca que varian por destino y no tienen regla maestra),
+                # viene mezclado dentro de Operativo: se separa para el desglose.
+                if fsc_val == 0 and operativo_val > BASE_OPERATIVO:
+                    fsc_val = round(operativo_val - BASE_OPERATIVO, 2)
+                    operativo_val = BASE_OPERATIVO
+
                 filas.append({
                     'aerolinea': aerolinea,
                     'kg': kr.get('kg', ''),
                     'tarifa_neta': _num(kr.get('tarifa')),
-                    'fsc': _num(kr.get('fsc')),
-                    'operativo': _num(kr.get('costo_operativo')),
+                    'fsc': fsc_val,
+                    'operativo': operativo_val,
                     'profit': _num(kr.get('margen')),
                     'tarifa_venta': _num(kr.get('tarifa_cliente')),
                 })

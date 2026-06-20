@@ -809,7 +809,7 @@ def generar_desglose_tarifa_bytes(ruta, filas, idioma='es'):
             ws.merge_cells(start_row=fila_ini, start_column=1, end_row=fila_fin, end_column=1)
         celda = ws.cell(row=fila_ini, column=1, value=nombre)
         celda.font = bold_black
-        celda.alignment = Alignment(horizontal='left', vertical='center', indent=1)
+        celda.alignment = Alignment(horizontal='center', vertical='center')
         for r in range(fila_ini, fila_fin + 1):
             c = ws.cell(row=r, column=1)
             c.fill = fill
@@ -862,25 +862,25 @@ def generar_desglose_tarifa_png_bytes(ruta, filas, idioma='es'):
     font_header = ImageFont.load_default(size=14)
     font_data = ImageFont.load_default(size=14)
 
-    def center_text(x0, y0, x1, y1, text, font, fill):
+    def draw_text(pos, text, font, fill, bold=False):
+        x, y = pos
+        offsets = [(0, 0), (1, 0), (0, 1), (1, 1)] if bold else [(0, 0)]
+        for dx, dy in offsets:
+            draw.text((x + dx, y + dy), text, font=font, fill=fill)
+
+    def center_text(x0, y0, x1, y1, text, font, fill, bold=False):
         bbox = draw.textbbox((0, 0), text, font=font)
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         x = x0 + (x1 - x0 - w) / 2
         y = y0 + (y1 - y0 - h) / 2 - bbox[1]
-        draw.text((x, y), text, font=font, fill=fill)
+        draw_text((x, y), text, font, fill, bold=bold)
 
     def right_text(x0, y0, x1, y1, text, font, fill, pad=10):
         bbox = draw.textbbox((0, 0), text, font=font)
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         x = x1 - pad - w
         y = y0 + (y1 - y0 - h) / 2 - bbox[1]
-        draw.text((x, y), text, font=font, fill=fill)
-
-    def left_text(x0, y0, y1, text, font, fill, pad=12):
-        bbox = draw.textbbox((0, 0), text, font=font)
-        h = bbox[3] - bbox[1]
-        y = y0 + (y1 - y0 - h) / 2 - bbox[1]
-        draw.text((x0 + pad, y), text, font=font, fill=fill)
+        draw_text((x, y), text, font, fill)
 
     y = 0
     draw.rectangle([0, y, total_width, y + title_h], fill=PURPLE)
@@ -932,7 +932,7 @@ def generar_desglose_tarifa_png_bytes(ruta, filas, idioma='es'):
         y1 = table_top + (fin + 1) * row_h
         fill = LIGHT if g_idx % 2 == 0 else WHITE
         draw.rectangle([0, y0, col_widths[0], y1], fill=fill)
-        left_text(0, y0, y1, nombre, font_data, BLACK)
+        center_text(0, y0, col_widths[0], y1, nombre, font_data, BLACK, bold=True)
         draw.rectangle([0, y0, col_widths[0], y1], outline=BORDER, width=1)
 
     draw.rectangle([0, 0, total_width - 1, total_height - 1], outline=THICK, width=2)
