@@ -22,15 +22,9 @@
                     <i class="bi bi-globe-americas me-1"></i>Por Continente
                 </a>
                 {% endif %}
-                <div class="btn-group">
-                    <button type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" title="Exportar tarifas netas de todos los destinos">
-                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Tarifas Netas
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ url_for('cotizaciones.exportar_netas', idioma='es') }}"><i class="bi bi-file-earmark-excel me-2"></i>Espanol</a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('cotizaciones.exportar_netas', idioma='en') }}"><i class="bi bi-file-earmark-excel me-2"></i>English</a></li>
-                    </ul>
-                </div>
+                <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalTarifasNetas" title="Exportar tarifas netas">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i>Tarifas Netas
+                </button>
                 <a href="{{ url_for('cotizaciones.nueva_cotizacion') }}" class="btn btn-primary">
                     <i class="bi bi-plus-circle me-2"></i>Nueva Cotizacion
                 </a>
@@ -140,10 +134,69 @@
         {% endif %}
     </div>
 </div>
+
+<div class="modal fade" id="modalTarifasNetas" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-file-earmark-spreadsheet me-2"></i>Exportar Tarifas Netas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if destinos_disponibles %}
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSelTodos">Seleccionar todos</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSelNinguno">Quitar todos</button>
+                    </div>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <input type="radio" class="btn-check" name="idiomaNetas" id="idiomaEs" value="es" checked>
+                        <label class="btn btn-outline-primary" for="idiomaEs">Espanol</label>
+                        <input type="radio" class="btn-check" name="idiomaNetas" id="idiomaEn" value="en">
+                        <label class="btn btn-outline-primary" for="idiomaEn">English</label>
+                    </div>
+                </div>
+                <div class="row">
+                    {% for d in destinos_disponibles %}
+                    <div class="col-3 mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input destino-check" type="checkbox" value="{{ d }}" id="dest-{{ d }}" checked>
+                            <label class="form-check-label" for="dest-{{ d }}">{{ d }}</label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No hay destinos disponibles todavia.</p>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnExportarNetas" {% if not destinos_disponibles %}disabled{% endif %}>
+                    <i class="bi bi-download me-1"></i>Exportar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+document.getElementById('btnSelTodos')?.addEventListener('click', () => {
+    document.querySelectorAll('.destino-check').forEach(cb => cb.checked = true);
+});
+document.getElementById('btnSelNinguno')?.addEventListener('click', () => {
+    document.querySelectorAll('.destino-check').forEach(cb => cb.checked = false);
+});
+document.getElementById('btnExportarNetas')?.addEventListener('click', () => {
+    const seleccionados = Array.from(document.querySelectorAll('.destino-check:checked')).map(cb => cb.value);
+    if (!seleccionados.length) { alert('Selecciona al menos un destino.'); return; }
+    const idioma = document.querySelector('input[name="idiomaNetas"]:checked').value;
+    const params = new URLSearchParams({ idioma, destinos: seleccionados.join(',') });
+    window.location.href = `{{ url_for('cotizaciones.exportar_netas') }}?${params.toString()}`;
+});
+
 function eliminarCotizacion(id) {
     if (!confirm('Esta seguro de eliminar esta cotizacion?')) {
         return;

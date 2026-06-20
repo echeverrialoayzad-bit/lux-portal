@@ -57,7 +57,19 @@ def dashboard():
     else:
         continente = ''
         cotizaciones = query.limit(50).all()
-    return render_template('cotizaciones/dashboard.html', cotizaciones=cotizaciones, continente_activo=continente)
+
+    destinos_disponibles = sorted({
+        (d or '').strip().upper()
+        for (d,) in db.session.query(Cotizacion.destino).distinct()
+        if d and d.strip()
+    })
+
+    return render_template(
+        'cotizaciones/dashboard.html',
+        cotizaciones=cotizaciones,
+        continente_activo=continente,
+        destinos_disponibles=destinos_disponibles,
+    )
 
 
 @cotizaciones_bp.route('/nueva')
@@ -336,9 +348,18 @@ def exportar_netas():
             if destino and destino not in mas_reciente_por_destino:
                 mas_reciente_por_destino[destino] = cot
 
+        # Si viene ?destinos=AMS,MAD,... solo se exportan esos. Sin el
+        # parametro (o vacio) se exportan todos, como antes.
+        destinos_param = request.args.get('destinos', '').strip()
+        if destinos_param:
+            seleccionados = {d.strip().upper() for d in destinos_param.split(',') if d.strip()}
+            claves = sorted(d for d in mas_reciente_por_destino if d in seleccionados)
+        else:
+            claves = sorted(mas_reciente_por_destino.keys())
+
         destinos_filas = []
         errores_generales = []
-        for destino in sorted(mas_reciente_por_destino.keys()):
+        for destino in claves:
             cot = mas_reciente_por_destino[destino]
             errores = _validar_cotizacion(cot)
             if errores:
