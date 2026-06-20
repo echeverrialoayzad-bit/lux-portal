@@ -7,8 +7,12 @@ Rutas del modulo Cotizaciones FreightWise
 from flask import render_template, request, jsonify, send_file, redirect, url_for, flash
 from datetime import datetime
 from collections import defaultdict
+import re
 from lux_portal.cotizaciones import cotizaciones_bp
-from lux_portal.cotizaciones.models import Cotizacion, AirlineFscRule, AirlineFscGroup, AirlineCargoRule, AirlineCargoGroup
+from lux_portal.cotizaciones.models import (
+    Cotizacion, AirlineFscRule, AirlineFscGroup, AirlineCargoRule, AirlineCargoGroup,
+    AirlineDepartureDays,
+)
 from lux_portal.cotizaciones.data import AEROLINEAS_LISTA, CARGOS_COMUNES, CARGOS_FREIGHTWISE
 from lux_portal.cotizaciones.utils.excel_generator import guardar_cotizacion_bytes
 from lux_portal.cotizaciones.utils.pdf_generator import guardar_cotizacion_pdf_bytes
@@ -511,6 +515,149 @@ def aplicar_cargos_a_cotizaciones():
                     nota_actual = (entry.get('notas') or '').strip()
                     if nota_general not in nota_actual:
                         entry['notas'] = f"{nota_actual}\n{nota_general}".strip() if nota_actual else nota_general
+                entradas_actualizadas += 1
+                cambio = True
+            if cambio:
+                cot.aerolineas = aerolineas
+                cotizaciones_actualizadas += 1
+
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'cotizaciones_actualizadas': cotizaciones_actualizadas,
+            'entradas_actualizadas': entradas_actualizadas,
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ===================== DIAS DE SALIDA POR AEROLINEA =====================
+
+DIAS_ORDEN = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM']
+_DIAS_MAPPING = {'LUN': 0, 'MAR': 1, 'MIE': 2, 'JUE': 3, 'VIE': 4, 'SAB': 5, 'DOM': 6}
+_DIAS_SEMANA = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB']
+
+
+def _dia_offset(dia, offset):
+    """Misma logica que el formulario (form.html) usa en recopilarDatos()
+    para calcular granjas_entrega/llegada a partir del dia de salida."""
+    idx = _DIAS_MAPPING.get(dia)
+    if idx is None:
+        return None
+    return _DIAS_SEMANA[(idx + offset) % 7]
+
+
+def _parse_transit_dias(tiempo_transito):
+    m = re.search(r'\+?(\d+)-?(\d+)?D', tiempo_transito or '')
+    if not m:
+        return 2
+    return int(m.group(2) or m.group(1))
+
+
+def _last_line(text):
+    if not text:
+        return ''
+    partes = text.split('\n')
+    return partes[-1] if partes else ''
+
+
+def _aplicar_dias_a_entry(entry, nuevos_dias):
+    """Reescribe salida/granjas_entrega/llegada con los nuevos dias,
+    preservando las horas (ultima linea) que ya tuviera la entrada."""
+    departure_time = _last_line(entry.get('salida'))
+    farms_horario = _last_line(entry.get('granjas_entrega'))
+    arrival_time = _last_line(entry.get('llegada'))
+    transit_dias = _parse_transit_dias(entry.get('tiempo_transito'))
+
+    dias_farms = [d for d in (_dia_offset(d, 6) for d in nuevos_dias) if d]
+    dias_llegada = [d for d in (_dia_offset(d, transit_dias) for d in nuevos_dias) if d]
+
+    entry['salida'] = '\n'.join(nuevos_dias) + (f'\n{departure_time}' if departure_time else '')
+    entry['granjas_entrega'] = '\n'.join(dias_farms) + (f'\n{farms_horario}' if farms_horario else '')
+    entry['llegada'] = '\n'.join(dias_llegada) + (f'\n{arrival_time}' if arrival_time else '')
+
+
+@cotizaciones_bp.route('/dias-salida')
+@login_required
+def dias_salida_dashboard():
+    """Tabla maestra editable de dias de salida fijos por aerolinea desde UIO."""
+    registros = AirlineDepartureDays.query.order_by(AirlineDepartureDays.aerolinea).all()
+    return render_template('cotizaciones/dias_salida.html', registros=[r.to_dict() for r in registros], dias_orden=DIAS_ORDEN)
+
+
+@cotizaciones_bp.route('/api/dias-rule', methods=['POST'])
+@login_required
+def crear_dias_rule():
+    try:
+        data = request.get_json()
+        aerolinea = (data.get('aerolinea') or '').strip().upper()
+        if not aerolinea:
+            return jsonify({'success': False, 'error': 'Falta el nombre de la aerolinea'}), 400
+        if AirlineDepartureDays.query.filter_by(aerolinea=aerolinea).first():
+            return jsonify({'success': False, 'error': 'Esa aerolinea ya esta en la tabla'}), 400
+        registro = AirlineDepartureDays(aerolinea=aerolinea)
+        registro.dias = [d for d in DIAS_ORDEN if d in (data.get('dias') or [])]
+        db.session.add(registro)
+        db.session.commit()
+        return jsonify({'success': True, 'registro': registro.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/dias-rule/<int:id>', methods=['PUT'])
+@login_required
+def actualizar_dias_rule(id):
+    registro = AirlineDepartureDays.query.get_or_404(id)
+    try:
+        data = request.get_json()
+        if 'dias' in data:
+            registro.dias = [d for d in DIAS_ORDEN if d in (data.get('dias') or [])]
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/dias-rule/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_dias_rule(id):
+    registro = AirlineDepartureDays.query.get_or_404(id)
+    try:
+        db.session.delete(registro)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/dias-aplicar', methods=['POST'])
+@login_required
+def aplicar_dias_a_cotizaciones():
+    """Aplica los dias de salida de la tabla maestra a TODAS las cotizaciones
+    guardadas cuya aerolinea este en la tabla, recalculando salida, llegada y
+    granjas_entrega (mismo calculo que usa el formulario), preservando las
+    horas que ya tuviera cada entrada. Aerolineas que no estan en la tabla
+    quedan completamente intactas."""
+    try:
+        registros = AirlineDepartureDays.query.all()
+        dias_por_aerolinea = {r.aerolinea: r.dias for r in registros}
+
+        cotizaciones = Cotizacion.query.all()
+        cotizaciones_actualizadas = 0
+        entradas_actualizadas = 0
+
+        for cot in cotizaciones:
+            aerolineas = cot.aerolineas
+            cambio = False
+            for entry in aerolineas:
+                key = (entry.get('aerolinea') or '').strip().upper()
+                if key not in dias_por_aerolinea:
+                    continue
+                _aplicar_dias_a_entry(entry, dias_por_aerolinea[key])
                 entradas_actualizadas += 1
                 cambio = True
             if cambio:

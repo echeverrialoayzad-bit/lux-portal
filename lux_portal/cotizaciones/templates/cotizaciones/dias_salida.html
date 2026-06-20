@@ -1,0 +1,159 @@
+{% extends 'cotizaciones/base_freightwise.html' %}
+
+{% block title %}Dias de Salida - FreightWise{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dias-airline-card { margin-bottom: 16px; }
+    .dias-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 20px;
+        flex-wrap: wrap;
+    }
+    .dias-row .departure-days { flex: 1; }
+    .dias-airline-name { font-weight: 700; flex: 0 0 160px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2><i class="bi bi-calendar-week text-primary"></i> Dias de Salida por Aerolinea</h2>
+        <p class="text-secondary mb-0">Dias de salida fijos desde UIO por aerolinea (no varian por destino aqui). Aerolineas que no aparecen no tienen un default configurado.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" id="btnAgregarAerolinea">
+            <i class="bi bi-plus-lg"></i> Agregar Aerolinea
+        </button>
+        <button class="btn btn-success" id="btnActualizar">
+            <i class="bi bi-arrow-repeat"></i> Actualizar Cotizaciones
+        </button>
+    </div>
+</div>
+
+<div class="d-flex gap-2 mb-4" id="addAirlineForm" style="display:none;">
+    <input type="text" id="newAirlineName" class="form-control" placeholder="Nombre de la aerolinea (ej. AIR FRANCE)" style="max-width: 320px;">
+    <button class="btn btn-primary" id="btnConfirmAddAirline"><i class="bi bi-check-lg"></i> Crear</button>
+    <button class="btn btn-outline-secondary" id="btnCancelAddAirline">Cancelar</button>
+</div>
+
+<div id="resultadoActualizar"></div>
+
+<div id="aerolineasContainer">
+    {% for reg in registros %}
+    <div class="card dias-airline-card" data-id="{{ reg.id }}" data-aerolinea="{{ reg.aerolinea }}">
+        <div class="dias-row">
+            <div class="dias-airline-name"><i class="bi bi-airplane me-2"></i>{{ reg.aerolinea }}</div>
+            <div class="departure-days">
+                {% for dia in dias_orden %}
+                <div class="form-check">
+                    <input class="form-check-input dia-check" type="checkbox" value="{{ dia }}" id="dia-{{ reg.id }}-{{ dia }}" {% if dia in reg.dias %}checked{% endif %}>
+                    <label class="form-check-label" for="dia-{{ reg.id }}-{{ dia }}">{{ dia }}</label>
+                </div>
+                {% endfor %}
+            </div>
+            <button class="btn btn-outline-danger btn-sm" onclick="eliminarAerolinea(this)" title="Eliminar esta aerolinea">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not registros %}
+<div class="empty-state">
+    <i class="bi bi-calendar-week"></i>
+    <h5>No hay dias de salida configurados todavia</h5>
+    <p>Agrega una aerolinea para empezar</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BASE = "{{ url_for('cotizaciones.dashboard') }}".replace(/\/$/, '');
+const DIAS_ORDEN = {{ dias_orden|tojson }};
+
+function diasChecked(card) {
+    return DIAS_ORDEN.filter(d => card.querySelector(`.dia-check[value="${d}"]`).checked);
+}
+
+function guardarDias(card) {
+    fetch(`${BASE}/api/dias-rule/${card.dataset.id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({dias: diasChecked(card)})
+    }).then(r => r.json()).then(data => {
+        if (!data.success) alert('Error al guardar: ' + (data.error || ''));
+    });
+}
+
+document.querySelectorAll('.dias-airline-card').forEach(card => {
+    card.querySelectorAll('.dia-check').forEach(cb => {
+        cb.addEventListener('change', () => guardarDias(card));
+    });
+});
+
+function eliminarAerolinea(btn) {
+    const card = btn.closest('.dias-airline-card');
+    const nombre = card.dataset.aerolinea;
+    if (!confirm(`¿Eliminar "${nombre}" de la tabla de dias de salida?`)) return;
+    fetch(`${BASE}/api/dias-rule/${card.dataset.id}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+        if (data.success) card.remove();
+        else alert('Error: ' + (data.error || ''));
+    });
+}
+
+const addAirlineForm = document.getElementById('addAirlineForm');
+const newAirlineInput = document.getElementById('newAirlineName');
+
+document.getElementById('btnAgregarAerolinea').onclick = () => {
+    addAirlineForm.style.display = 'flex';
+    newAirlineInput.focus();
+};
+
+document.getElementById('btnCancelAddAirline').onclick = () => {
+    addAirlineForm.style.display = 'none';
+    newAirlineInput.value = '';
+};
+
+function confirmarAgregarAerolinea() {
+    const nombre = newAirlineInput.value.trim();
+    if (!nombre) return;
+    fetch(`${BASE}/api/dias-rule`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({aerolinea: nombre, dias: []})
+    }).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+        else alert('Error: ' + (data.error || ''));
+    });
+}
+
+document.getElementById('btnConfirmAddAirline').onclick = confirmarAgregarAerolinea;
+newAirlineInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmarAgregarAerolinea(); });
+
+document.getElementById('btnActualizar').onclick = () => {
+    if (!confirm('Esto va a recalcular Salida, Llegada y Horario Fincas Entrega en TODAS las cotizaciones de aerolineas que esten en esta tabla (se preservan las horas ya puestas). ¿Continuar?')) return;
+    const btn = document.getElementById('btnActualizar');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Actualizando...';
+    fetch(`${BASE}/api/dias-aplicar`, {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            const div = document.getElementById('resultadoActualizar');
+            if (data.success) {
+                div.innerHTML = `<div class="alert alert-success">Listo: ${data.cotizaciones_actualizadas} cotizaciones actualizadas (${data.entradas_actualizadas} entradas de aerolinea recalculadas).</div>`;
+            } else {
+                div.innerHTML = `<div class="alert alert-danger">Error: ${data.error || ''}</div>`;
+            }
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Actualizar Cotizaciones';
+        });
+};
+</script>
+{% endblock %}

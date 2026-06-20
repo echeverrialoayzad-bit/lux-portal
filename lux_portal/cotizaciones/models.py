@@ -141,6 +141,27 @@ class AirlineCargoGroup(db.Model):
         return {'id': self.id, 'aerolinea': self.aerolinea, 'notas': self.notas or ''}
 
 
+class AirlineDepartureDays(db.Model):
+    """Dias de salida fijos por aerolinea desde UIO (no depende del destino).
+    Una fila por aerolinea."""
+    __tablename__ = 'cotizacion_departure_days'
+
+    id = db.Column(db.Integer, primary_key=True)
+    aerolinea = db.Column(db.String(100), nullable=False, unique=True)
+    dias_json = db.Column(db.Text, default='[]')
+
+    @property
+    def dias(self):
+        return json.loads(self.dias_json) if self.dias_json else []
+
+    @dias.setter
+    def dias(self, value):
+        self.dias_json = json.dumps(value, ensure_ascii=False)
+
+    def to_dict(self):
+        return {'id': self.id, 'aerolinea': self.aerolinea, 'dias': self.dias}
+
+
 class AirlineCargoRule(db.Model):
     """Cargo adicional fijo por aerolinea (Due Carrier, CC, CG HAWB C/U, etc).
     No depende del destino, a diferencia de AirlineFscRule."""

@@ -725,6 +725,12 @@
                             <i class="bi bi-receipt"></i> Cargos
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'cotizaciones.dias_salida_dashboard' %}active{% endif %}"
+                           href="{{ url_for('cotizaciones.dias_salida_dashboard') }}">
+                            <i class="bi bi-calendar-week"></i> Dias Salida
+                        </a>
+                    </li>
                 </ul>
                 <ul class="navbar-nav align-items-center">
                     <li class="nav-item me-3">

@@ -46,6 +46,7 @@ def create_app(config_name='default'):
         _seed_fsc_rules()
         _seed_cargo_rules()
         _migrate_fsc_cargo_groups()
+        _seed_dias_salida()
 
     return app
 
@@ -715,6 +716,57 @@ def _migrate_fsc_cargo_groups():
             if aerolinea not in existentes:
                 db.session.add(AirlineCargoGroup(aerolinea=aerolinea, notas=''))
                 existentes.add(aerolinea)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+# ---------------------------------------------------------------------------
+# Dias de salida desde UIO por aerolinea: combinacion mas frecuente vista en
+# las 49 cotizaciones de produccion (el dia/destino exacto puede variar mas
+# de lo que un solo default captura, especialmente en Turkish/Emirates/Air
+# Canada -- esto es solo un punto de partida editable).
+# ---------------------------------------------------------------------------
+_TODOS_LOS_DIAS = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM']
+
+_DIAS_SALIDA_SEED = [
+    ('AERO MEXICO', ['LUN', 'MAR', 'JUE', 'DOM']),
+    ('AIR CANADA', ['JUE', 'SAB']),
+    ('AIR CARIBE', ['VIE', 'DOM']),
+    ('AIR EUROPA', ['MAR', 'JUE', 'SAB']),
+    ('ATLAS', ['MAR', 'VIE']),
+    ('AV/MSC', _TODOS_LOS_DIAS),
+    ('AVIANCA', _TODOS_LOS_DIAS),
+    ('CATHAY', _TODOS_LOS_DIAS),
+    ('COPA AIRLINES', _TODOS_LOS_DIAS),
+    ('DELTA', _TODOS_LOS_DIAS),
+    ('DHL', ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB']),
+    ('EMIRATES', ['MIE', 'VIE', 'DOM']),
+    ('GAL', _TODOS_LOS_DIAS),
+    ('IBERIA', _TODOS_LOS_DIAS),
+    ('LAN', _TODOS_LOS_DIAS),
+    ('LATAM', _TODOS_LOS_DIAS),
+    ('LUFTHANSA', _TODOS_LOS_DIAS),
+    ('MAS AIR', ['MAR', 'JUE', 'SAB']),
+    ('QATAR', ['MAR', 'VIE']),
+    ('SINGAPORE', _TODOS_LOS_DIAS),
+    ('SOLENT', ['LUN', 'JUE', 'VIE', 'SAB']),
+    ('TURKISH', ['MIE', 'VIE', 'DOM']),
+]
+
+
+def _seed_dias_salida():
+    """Inserta los dias de salida iniciales si la tabla esta vacia."""
+    from lux_portal.cotizaciones.models import AirlineDepartureDays
+
+    if AirlineDepartureDays.query.first() is not None:
+        return
+
+    try:
+        for aerolinea, dias in _DIAS_SALIDA_SEED:
+            registro = AirlineDepartureDays(aerolinea=aerolinea)
+            registro.dias = dias
+            db.session.add(registro)
         db.session.commit()
     except Exception:
         db.session.rollback()
