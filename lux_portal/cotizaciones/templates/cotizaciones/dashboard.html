@@ -2,6 +2,32 @@
 
 {% block title %}Dashboard - FreightWise Cotizaciones{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* El modal usa fondo blanco (default de Bootstrap), pero el body del
+       portal define color: blanco para todo el texto oscuro. Sin esto el
+       texto queda blanco sobre blanco, invisible. */
+    #modalTarifasNetas .modal-content { background: #ffffff; }
+    #modalTarifasNetas .modal-title,
+    #modalTarifasNetas .form-check-label,
+    #modalTarifasNetas .text-muted { color: #1e293b !important; }
+    #modalTarifasNetas .btn-close { filter: none; }
+    #modalTarifasNetas #btnSelTodos,
+    #modalTarifasNetas #btnSelNinguno {
+        color: #475569 !important;
+        border-color: #cbd5e1 !important;
+        background: #ffffff !important;
+    }
+    #modalTarifasNetas #btnSelTodos:hover,
+    #modalTarifasNetas #btnSelNinguno:hover { background: #f1f5f9 !important; }
+    #modalTarifasNetas .modal-footer .btn-outline-secondary {
+        color: #475569 !important;
+        border-color: #cbd5e1 !important;
+        background: #ffffff !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col">
