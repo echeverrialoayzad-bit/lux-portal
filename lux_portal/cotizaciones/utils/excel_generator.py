@@ -784,6 +784,111 @@ def generar_desglose_tarifa_bytes(ruta, filas):
     return output
 
 
+def generar_desglose_tarifa_png_bytes(ruta, filas):
+    """Genera la misma tabla de desglose de tarifa que generar_desglose_tarifa_bytes
+    pero como imagen PNG (mismo estilo morado FreightWise)."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    PURPLE = (69, 53, 168)
+    LIGHT = (228, 223, 247)
+    WHITE = (255, 255, 255)
+    BLACK = (20, 20, 20)
+    BORDER = (183, 174, 222)
+    THICK = (0, 0, 0)
+
+    columnas = ['AEROLINEA', 'KG', 'TARIFA NETA', 'FSC', 'OPERATIVO', 'PROFIT', 'TARIFA VENTA']
+    col_widths = [240, 90, 140, 120, 140, 120, 160]
+    total_width = sum(col_widths)
+
+    title_h = 54
+    subtitle_h = 38
+    header_h = 42
+    row_h = 38
+    total_height = title_h + subtitle_h + header_h + row_h * max(len(filas), 1)
+
+    img = Image.new('RGB', (total_width, total_height), WHITE)
+    draw = ImageDraw.Draw(img)
+
+    font_title = ImageFont.load_default(size=24)
+    font_subtitle = ImageFont.load_default(size=16)
+    font_header = ImageFont.load_default(size=14)
+    font_data = ImageFont.load_default(size=14)
+
+    def center_text(x0, y0, x1, y1, text, font, fill):
+        bbox = draw.textbbox((0, 0), text, font=font)
+        w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        x = x0 + (x1 - x0 - w) / 2
+        y = y0 + (y1 - y0 - h) / 2 - bbox[1]
+        draw.text((x, y), text, font=font, fill=fill)
+
+    def right_text(x0, y0, x1, y1, text, font, fill, pad=10):
+        bbox = draw.textbbox((0, 0), text, font=font)
+        w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        x = x1 - pad - w
+        y = y0 + (y1 - y0 - h) / 2 - bbox[1]
+        draw.text((x, y), text, font=font, fill=fill)
+
+    def left_text(x0, y0, y1, text, font, fill, pad=12):
+        bbox = draw.textbbox((0, 0), text, font=font)
+        h = bbox[3] - bbox[1]
+        y = y0 + (y1 - y0 - h) / 2 - bbox[1]
+        draw.text((x0 + pad, y), text, font=font, fill=fill)
+
+    y = 0
+    draw.rectangle([0, y, total_width, y + title_h], fill=PURPLE)
+    center_text(0, y, total_width, y + title_h, 'FREIGHTWISE', font_title, WHITE)
+    y += title_h
+
+    draw.rectangle([0, y, total_width, y + subtitle_h], fill=PURPLE)
+    center_text(0, y, total_width, y + subtitle_h, f'DESGLOSE DE TARIFA - {ruta}', font_subtitle, WHITE)
+    y += subtitle_h
+
+    draw.rectangle([0, y, total_width, y + header_h], fill=PURPLE)
+    x = 0
+    for w, col_name in zip(col_widths, columnas):
+        center_text(x, y, x + w, y + header_h, col_name, font_header, WHITE)
+        x += w
+    y += header_h
+
+    aerolinea_anterior = None
+    for idx, f in enumerate(filas):
+        fill = LIGHT if idx % 2 == 0 else WHITE
+        draw.rectangle([0, y, total_width, y + row_h], fill=fill)
+
+        valores = [
+            (f['aerolinea'], 'left'), (str(f['kg']), 'center'),
+            (f"${f['tarifa_neta']:,.2f}", 'right'), (f"${f['fsc']:,.2f}", 'right'),
+            (f"${f['operativo']:,.2f}", 'right'), (f"${f['profit']:,.2f}", 'right'),
+            (f"${f['tarifa_venta']:,.2f}", 'right'),
+        ]
+        x = 0
+        for w, (texto, align) in zip(col_widths, valores):
+            if align == 'right':
+                right_text(x, y, x + w, y + row_h, texto, font_data, BLACK)
+            elif align == 'left':
+                left_text(x, y, y + row_h, texto, font_data, BLACK)
+            else:
+                center_text(x, y, x + w, y + row_h, texto, font_data, BLACK)
+            x += w
+
+        x = 0
+        for w in col_widths:
+            draw.rectangle([x, y, x + w, y + row_h], outline=BORDER, width=1)
+            x += w
+
+        if aerolinea_anterior is not None and f['aerolinea'] != aerolinea_anterior:
+            draw.line([0, y, total_width, y], fill=THICK, width=3)
+        aerolinea_anterior = f['aerolinea']
+        y += row_h
+
+    draw.rectangle([0, 0, total_width - 1, total_height - 1], outline=THICK, width=2)
+
+    output = io.BytesIO()
+    img.save(output, format='PNG')
+    output.seek(0)
+    return output
+
+
 def guardar_cotizacion_archivo(datos, ruta_guardado=None):
     """Genera la cotizacion y la guarda en disco."""
     wb = crear_cotizacion_excel(datos)

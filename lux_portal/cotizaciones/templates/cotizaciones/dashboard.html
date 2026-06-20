@@ -80,10 +80,24 @@
                                    class="btn btn-outline-success" title="Descargar Excel">
                                     <i class="bi bi-download"></i>
                                 </a>
-                                <a href="{{ url_for('cotizaciones.descargar_desglose', id=cotizacion.id) }}"
-                                   class="btn btn-outline-primary" title="Descargar Desglose de Tarifa (neta + FSC + operativo + profit)">
-                                    <i class="bi bi-pie-chart"></i>
-                                </a>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-primary dropdown-toggle"
+                                            data-bs-toggle="dropdown" title="Descargar Desglose de Tarifa (neta + FSC + operativo + profit)">
+                                        <i class="bi bi-pie-chart"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('cotizaciones.descargar_desglose', id=cotizacion.id, formato='excel') }}">
+                                                <i class="bi bi-file-earmark-excel me-2"></i>Excel
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('cotizaciones.descargar_desglose', id=cotizacion.id, formato='png') }}">
+                                                <i class="bi bi-file-earmark-image me-2"></i>Imagen PNG
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
                                 <button type="button" class="btn btn-outline-danger"
                                         onclick="eliminarCotizacion({{ cotizacion.id }})" title="Eliminar">
                                     <i class="bi bi-trash"></i>

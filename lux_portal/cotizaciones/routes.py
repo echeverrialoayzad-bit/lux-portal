@@ -15,7 +15,9 @@ from lux_portal.cotizaciones.models import (
 )
 from lux_portal.cotizaciones.data import AEROLINEAS_LISTA, CARGOS_COMUNES, CARGOS_FREIGHTWISE
 from lux_portal.cotizaciones.continentes import CONTINENTES, continente_de
-from lux_portal.cotizaciones.utils.excel_generator import guardar_cotizacion_bytes, generar_desglose_tarifa_bytes
+from lux_portal.cotizaciones.utils.excel_generator import (
+    guardar_cotizacion_bytes, generar_desglose_tarifa_bytes, generar_desglose_tarifa_png_bytes,
+)
 from lux_portal.cotizaciones.utils.pdf_generator import guardar_cotizacion_pdf_bytes
 from lux_portal.auth.decorators import login_required
 from lux_portal.extensions import db
@@ -255,6 +257,18 @@ def descargar_desglose(id):
                 })
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        formato = request.args.get('formato', 'excel')
+
+        if formato == 'png':
+            png_bytes = generar_desglose_tarifa_png_bytes(cotizacion.ruta, filas)
+            nombre_archivo = f"FreightWise_Desglose_{cotizacion.ruta}_{timestamp}.png"
+            return send_file(
+                png_bytes,
+                as_attachment=True,
+                download_name=nombre_archivo,
+                mimetype='image/png'
+            )
+
         excel_bytes = generar_desglose_tarifa_bytes(cotizacion.ruta, filas)
         nombre_archivo = f"FreightWise_Desglose_{cotizacion.ruta}_{timestamp}.xlsx"
 
