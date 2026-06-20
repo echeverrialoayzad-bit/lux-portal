@@ -697,6 +697,93 @@ def guardar_cotizacion_bytes(datos, idioma='ambos'):
     return output
 
 
+def generar_desglose_tarifa_bytes(ruta, filas):
+    """Genera un Excel mostrando, por aerolinea y tramo de kg, como se compone
+    la tarifa de venta (tarifa neta + FSC + operativo + profit = venta), con
+    el mismo look morado/FreightWise que las cotizaciones completas. `filas`
+    es una lista de dicts con: aerolinea, kg, tarifa_neta, fsc, operativo,
+    profit, tarifa_venta."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Desglose Tarifa"
+
+    PURPLE = '4535A8'
+    PURPLE_LIGHT = 'E4DFF7'
+    purple_fill = PatternFill(start_color=PURPLE, end_color=PURPLE, fill_type='solid')
+    light_fill = PatternFill(start_color=PURPLE_LIGHT, end_color=PURPLE_LIGHT, fill_type='solid')
+    no_fill = PatternFill(fill_type=None)
+    white_bold = Font(name='Arial', size=11, bold=True, color='FFFFFF')
+    header_font = Font(name='Arial', size=10, bold=True, color='FFFFFF')
+    black_font = Font(name='Arial', size=10, color='000000')
+    bold_black = Font(name='Arial', size=10, bold=True, color='000000')
+
+    thin = Side(style='thin', color='B7AEDE')
+    thick = Side(style='medium', color='000000')
+
+    columnas = ['AEROLINEA', 'KG', 'TARIFA NETA', 'FSC', 'OPERATIVO', 'PROFIT', 'TARIFA VENTA']
+    ultima_col = get_column_letter(len(columnas))
+
+    ws['A1'] = 'FREIGHTWISE'
+    ws.merge_cells(f'A1:{ultima_col}1')
+    ws['A1'].font = white_bold
+    ws['A1'].fill = purple_fill
+    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[1].height = 26
+
+    ws['A2'] = f'DESGLOSE DE TARIFA - {ruta}'
+    ws.merge_cells(f'A2:{ultima_col}2')
+    ws['A2'].font = Font(name='Arial', size=10, bold=True, color='FFFFFF')
+    ws['A2'].fill = purple_fill
+    ws['A2'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[2].height = 20
+
+    fila_enc = 3
+    for i, col_name in enumerate(columnas, start=1):
+        celda = ws.cell(row=fila_enc, column=i, value=col_name)
+        celda.font = header_font
+        celda.fill = purple_fill
+        celda.alignment = Alignment(horizontal='center', vertical='center')
+        celda.border = Border(top=thin, bottom=thin, left=thin, right=thin)
+    ws.row_dimensions[fila_enc].height = 18
+
+    fila = fila_enc + 1
+    aerolinea_anterior = None
+    for idx, f in enumerate(filas):
+        fill = light_fill if idx % 2 == 0 else no_fill
+        valores = [
+            f['aerolinea'], f['kg'],
+            f['tarifa_neta'], f['fsc'], f['operativo'], f['profit'], f['tarifa_venta'],
+        ]
+        for col_i, valor in enumerate(valores, start=1):
+            celda = ws.cell(row=fila, column=col_i, value=valor)
+            celda.fill = fill
+            celda.border = Border(top=thin, bottom=thin, left=thin, right=thin)
+            if col_i in (3, 4, 5, 6, 7):
+                celda.number_format = '"$"#,##0.00'
+                celda.font = bold_black if col_i == 7 else black_font
+                celda.alignment = Alignment(horizontal='right', vertical='center')
+            else:
+                celda.font = bold_black if col_i == 1 else black_font
+                celda.alignment = Alignment(horizontal='center', vertical='center')
+
+        if aerolinea_anterior is not None and f['aerolinea'] != aerolinea_anterior:
+            for col_i in range(1, len(columnas) + 1):
+                c = ws.cell(row=fila - 1, column=col_i)
+                b = c.border
+                c.border = Border(top=b.top, left=b.left, right=b.right, bottom=thick)
+        aerolinea_anterior = f['aerolinea']
+        fila += 1
+
+    anchos = [22, 10, 14, 12, 14, 12, 16]
+    for i, ancho in enumerate(anchos, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = ancho
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
 def guardar_cotizacion_archivo(datos, ruta_guardado=None):
     """Genera la cotizacion y la guarda en disco."""
     wb = crear_cotizacion_excel(datos)

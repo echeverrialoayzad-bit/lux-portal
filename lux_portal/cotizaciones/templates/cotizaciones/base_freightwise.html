@@ -708,6 +708,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'cotizaciones.continentes_dashboard' %}active{% endif %}"
+                           href="{{ url_for('cotizaciones.continentes_dashboard') }}">
+                            <i class="bi bi-globe-americas"></i> Continentes
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'cotizaciones.nueva_cotizacion' %}active{% endif %}"
                            href="{{ url_for('cotizaciones.nueva_cotizacion') }}">
                             <i class="bi bi-plus-circle"></i> Nueva Cotizacion

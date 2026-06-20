@@ -17,7 +17,7 @@ AVAILABLE_MODULES = [
         'name': 'FreightWise',
         'description': 'Cotizaciones de flete aereo internacional',
         'icon': 'bi-airplane',
-        'url': 'cotizaciones.dashboard',
+        'url': 'cotizaciones.continentes_dashboard',
         'color': '#924A4A'  # Burgundy para FreightWise
     },
     {

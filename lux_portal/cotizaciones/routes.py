@@ -14,18 +14,47 @@ from lux_portal.cotizaciones.models import (
     AirlineDepartureDays,
 )
 from lux_portal.cotizaciones.data import AEROLINEAS_LISTA, CARGOS_COMUNES, CARGOS_FREIGHTWISE
-from lux_portal.cotizaciones.utils.excel_generator import guardar_cotizacion_bytes
+from lux_portal.cotizaciones.continentes import CONTINENTES, continente_de
+from lux_portal.cotizaciones.utils.excel_generator import guardar_cotizacion_bytes, generar_desglose_tarifa_bytes
 from lux_portal.cotizaciones.utils.pdf_generator import guardar_cotizacion_pdf_bytes
 from lux_portal.auth.decorators import login_required
 from lux_portal.extensions import db
 
 
+@cotizaciones_bp.route('/continentes')
+@login_required
+def continentes_dashboard():
+    """Pantalla de seleccion de continente antes de ver las cotizaciones."""
+    cotizaciones = Cotizacion.query.all()
+    conteo = {c: 0 for c in CONTINENTES}
+    sin_clasificar = 0
+    for cot in cotizaciones:
+        cont = continente_de(cot.destino)
+        if cont:
+            conteo[cont] += 1
+        else:
+            sin_clasificar += 1
+    return render_template(
+        'cotizaciones/continentes.html',
+        continentes=CONTINENTES,
+        conteo=conteo,
+        total=len(cotizaciones),
+        sin_clasificar=sin_clasificar,
+    )
+
+
 @cotizaciones_bp.route('/')
 @login_required
 def dashboard():
-    """Dashboard principal - Lista de cotizaciones."""
-    cotizaciones = Cotizacion.query.order_by(Cotizacion.fecha_creacion.desc()).limit(50).all()
-    return render_template('cotizaciones/dashboard.html', cotizaciones=cotizaciones)
+    """Dashboard principal - Lista de cotizaciones, opcionalmente filtrada por continente."""
+    continente = request.args.get('continente', '').strip().upper()
+    query = Cotizacion.query.order_by(Cotizacion.fecha_creacion.desc())
+    if continente in CONTINENTES:
+        cotizaciones = [c for c in query.all() if continente_de(c.destino) == continente]
+    else:
+        continente = ''
+        cotizaciones = query.limit(50).all()
+    return render_template('cotizaciones/dashboard.html', cotizaciones=cotizaciones, continente_activo=continente)
 
 
 @cotizaciones_bp.route('/nueva')
@@ -183,6 +212,61 @@ def descargar_cotizacion(id):
 
     except Exception as e:
         flash(f'Error al generar archivo: {str(e)}', 'error')
+        return redirect(url_for('cotizaciones.dashboard'))
+
+
+@cotizaciones_bp.route('/descargar-desglose/<int:id>')
+@login_required
+def descargar_desglose(id):
+    """Genera un Excel mostrando, por aerolinea, como se compone la tarifa de
+    venta (neta + FSC + operativo + profit = venta), en el estilo visual
+    FreightWise (header morado, filas alternadas)."""
+    try:
+        cotizacion = Cotizacion.query.get_or_404(id)
+
+        invalidas = _validar_aerolineas(cotizacion)
+        if invalidas:
+            flash(
+                'No se puede imprimir: estas aerolineas no estan bien escritas o no '
+                'estan registradas en las tablas maestras (FSC / Cargos / Dias Salida): '
+                + ', '.join(invalidas) + '. Corrige el nombre en la cotizacion o agregalo '
+                'en las tablas maestras.',
+                'error'
+            )
+            return redirect(url_for('cotizaciones.editar_cotizacion', id=id))
+
+        filas = []
+        for entry in cotizacion.aerolineas:
+            aerolinea = entry.get('aerolinea', '')
+            for kr in entry.get('kg_rates') or []:
+                def _num(v):
+                    try:
+                        return float(v)
+                    except (TypeError, ValueError):
+                        return 0.0
+                filas.append({
+                    'aerolinea': aerolinea,
+                    'kg': kr.get('kg', ''),
+                    'tarifa_neta': _num(kr.get('tarifa')),
+                    'fsc': _num(kr.get('fsc')),
+                    'operativo': _num(kr.get('costo_operativo')),
+                    'profit': _num(kr.get('margen')),
+                    'tarifa_venta': _num(kr.get('tarifa_cliente')),
+                })
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        excel_bytes = generar_desglose_tarifa_bytes(cotizacion.ruta, filas)
+        nombre_archivo = f"FreightWise_Desglose_{cotizacion.ruta}_{timestamp}.xlsx"
+
+        return send_file(
+            excel_bytes,
+            as_attachment=True,
+            download_name=nombre_archivo,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    except Exception as e:
+        flash(f'Error al generar el desglose: {str(e)}', 'error')
         return redirect(url_for('cotizaciones.dashboard'))
 
 
