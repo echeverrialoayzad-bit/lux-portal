@@ -22,6 +22,15 @@
                     <i class="bi bi-globe-americas me-1"></i>Por Continente
                 </a>
                 {% endif %}
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" title="Exportar tarifas netas de todos los destinos">
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Tarifas Netas
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url_for('cotizaciones.exportar_netas', idioma='es') }}"><i class="bi bi-file-earmark-excel me-2"></i>Espanol</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('cotizaciones.exportar_netas', idioma='en') }}"><i class="bi bi-file-earmark-excel me-2"></i>English</a></li>
+                    </ul>
+                </div>
                 <a href="{{ url_for('cotizaciones.nueva_cotizacion') }}" class="btn btn-primary">
                     <i class="bi bi-plus-circle me-2"></i>Nueva Cotizacion
                 </a>

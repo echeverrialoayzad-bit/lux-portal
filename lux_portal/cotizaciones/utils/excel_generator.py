@@ -723,19 +723,14 @@ def _grupos_por_aerolinea(filas):
     return grupos
 
 
-def generar_desglose_tarifa_bytes(ruta, filas, idioma='es'):
-    """Genera un Excel mostrando, por aerolinea y tramo de kg, como se compone
-    la tarifa de venta (tarifa neta + FSC + operativo + profit = venta), con
-    el mismo look morado/FreightWise que las cotizaciones completas. `filas`
-    es una lista de dicts con: aerolinea, kg, tarifa_neta, fsc, operativo,
-    profit, tarifa_venta. Filas consecutivas de la misma aerolinea combinan
-    esa celda en vez de repetir el nombre."""
+def _escribir_hoja_desglose(ws, subtitulo, filas, idioma='es'):
+    """Escribe la tabla de desglose de tarifa (header FREIGHTWISE + subtitulo +
+    columnas + filas, con la columna AEROLINEA combinada por grupos) dentro de
+    una hoja `ws` ya creada. Reusado tanto para un Excel de una sola hoja
+    (descargar_desglose) como para un reporte de varias hojas, una por
+    destino (exportar_netas)."""
     textos = _DESGLOSE_TEXTOS.get(idioma, _DESGLOSE_TEXTOS['es'])
     columnas = textos['columnas']
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Desglose Tarifa"
 
     PURPLE = '4535A8'
     PURPLE_LIGHT = 'E4DFF7'
@@ -759,7 +754,7 @@ def generar_desglose_tarifa_bytes(ruta, filas, idioma='es'):
     ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
     ws.row_dimensions[1].height = 26
 
-    ws['A2'] = f"{textos['titulo']} - {ruta}"
+    ws['A2'] = subtitulo
     ws.merge_cells(f'A2:{ultima_col}2')
     ws['A2'].font = Font(name='Arial', size=10, bold=True, color='FFFFFF')
     ws['A2'].fill = purple_fill
@@ -776,6 +771,9 @@ def generar_desglose_tarifa_bytes(ruta, filas, idioma='es'):
     ws.row_dimensions[fila_enc].height = 18
 
     fila_inicial = fila_enc + 1
+    if not filas:
+        ws.cell(row=fila_inicial, column=1, value='(sin datos)').font = black_font
+
     for idx, f in enumerate(filas):
         fila = fila_inicial + idx
         fill = light_fill if idx % 2 == 0 else no_fill
@@ -822,6 +820,60 @@ def generar_desglose_tarifa_bytes(ruta, filas, idioma='es'):
     anchos = [22, 10, 14, 12, 14, 12, 16]
     for i, ancho in enumerate(anchos, start=1):
         ws.column_dimensions[get_column_letter(i)].width = ancho
+
+
+def generar_desglose_tarifa_bytes(ruta, filas, idioma='es'):
+    """Genera un Excel de una sola hoja mostrando, por aerolinea y tramo de
+    kg, como se compone la tarifa de venta (tarifa neta + FSC + operativo +
+    profit = venta), con el look morado/FreightWise. `filas` es una lista de
+    dicts con: aerolinea, kg, tarifa_neta, fsc, operativo, profit,
+    tarifa_venta."""
+    textos = _DESGLOSE_TEXTOS.get(idioma, _DESGLOSE_TEXTOS['es'])
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Desglose Tarifa"
+    _escribir_hoja_desglose(ws, f"{textos['titulo']} - {ruta}", filas, idioma)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+def generar_reporte_netas_bytes(destinos_filas, idioma='es', errores=None):
+    """Genera un Excel con UNA HOJA POR DESTINO (como el archivo de
+    referencia de tarifas netas), sacando los datos de las cotizaciones
+    guardadas en vez de un Excel mantenido aparte. `destinos_filas` es una
+    lista de tuplas (destino, filas) ya resueltas (la mas reciente
+    cotizacion guardada para ese destino). `errores` es una lista opcional
+    de strings (destinos que se excluyeron por tener datos invalidos) que se
+    agregan como una hoja final de avisos."""
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    nombres_usados = set()
+    for destino, filas in destinos_filas:
+        nombre_hoja = re.sub(r'[\[\]:\*\?/\\]', ' ', destino or 'SD').strip()[:31] or 'SD'
+        base, i = nombre_hoja, 2
+        while nombre_hoja in nombres_usados:
+            nombre_hoja = f"{base[:28]} ({i})"
+            i += 1
+        nombres_usados.add(nombre_hoja)
+
+        ws = wb.create_sheet(nombre_hoja)
+        _escribir_hoja_desglose(ws, f"UIO-{destino}", filas, idioma)
+
+    if errores:
+        ws = wb.create_sheet('Avisos')
+        ws['A1'] = 'Destinos excluidos de este reporte (corrige y vuelve a exportar):'
+        ws['A1'].font = Font(name='Arial', size=11, bold=True)
+        for i, err in enumerate(errores, start=2):
+            ws.cell(row=i, column=1, value=err)
+        ws.column_dimensions['A'].width = 100
+
+    if not wb.sheetnames:
+        ws = wb.create_sheet('Sin datos')
+        ws['A1'] = 'No hay cotizaciones validas para exportar.'
 
     output = io.BytesIO()
     wb.save(output)

@@ -17,6 +17,7 @@ from lux_portal.cotizaciones.data import AEROLINEAS_LISTA, CARGOS_COMUNES, CARGO
 from lux_portal.cotizaciones.continentes import CONTINENTES, continente_de
 from lux_portal.cotizaciones.utils.excel_generator import (
     guardar_cotizacion_bytes, generar_desglose_tarifa_bytes, generar_desglose_tarifa_png_bytes,
+    generar_reporte_netas_bytes,
 )
 from lux_portal.cotizaciones.utils.pdf_generator import guardar_cotizacion_pdf_bytes
 from lux_portal.auth.decorators import login_required
@@ -237,6 +238,41 @@ def descargar_cotizacion(id):
         return redirect(url_for('cotizaciones.dashboard'))
 
 
+def _filas_desglose_de(cotizacion):
+    """Construye las filas (aerolinea, kg, tarifa_neta, fsc, operativo,
+    profit, tarifa_venta) para el desglose de una cotizacion, separando el
+    FSC de Operativo cuando no viene explicito (ver BASE_OPERATIVO)."""
+    def _num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
+
+    filas = []
+    for entry in cotizacion.aerolineas:
+        aerolinea = entry.get('aerolinea', '')
+        for kr in entry.get('kg_rates') or []:
+            fsc_val = _num(kr.get('fsc'))
+            operativo_val = _num(kr.get('costo_operativo'))
+            # Si el FSC no esta explicito (cotizaciones viejas o aerolineas
+            # como Avianca que varian por destino y no tienen regla maestra),
+            # viene mezclado dentro de Operativo: se separa para el desglose.
+            if fsc_val == 0 and operativo_val > BASE_OPERATIVO:
+                fsc_val = round(operativo_val - BASE_OPERATIVO, 2)
+                operativo_val = BASE_OPERATIVO
+
+            filas.append({
+                'aerolinea': aerolinea,
+                'kg': kr.get('kg', ''),
+                'tarifa_neta': _num(kr.get('tarifa')),
+                'fsc': fsc_val,
+                'operativo': operativo_val,
+                'profit': _num(kr.get('margen')),
+                'tarifa_venta': _num(kr.get('tarifa_cliente')),
+            })
+    return filas
+
+
 @cotizaciones_bp.route('/descargar-desglose/<int:id>')
 @login_required
 def descargar_desglose(id):
@@ -251,34 +287,7 @@ def descargar_desglose(id):
             flash('No se puede imprimir: ' + ' | '.join(errores) + '. Corrige la cotizacion e intenta de nuevo.', 'error')
             return redirect(url_for('cotizaciones.editar_cotizacion', id=id))
 
-        filas = []
-        for entry in cotizacion.aerolineas:
-            aerolinea = entry.get('aerolinea', '')
-            for kr in entry.get('kg_rates') or []:
-                def _num(v):
-                    try:
-                        return float(v)
-                    except (TypeError, ValueError):
-                        return 0.0
-
-                fsc_val = _num(kr.get('fsc'))
-                operativo_val = _num(kr.get('costo_operativo'))
-                # Si el FSC no esta explicito (cotizaciones viejas o aerolineas
-                # como Avianca que varian por destino y no tienen regla maestra),
-                # viene mezclado dentro de Operativo: se separa para el desglose.
-                if fsc_val == 0 and operativo_val > BASE_OPERATIVO:
-                    fsc_val = round(operativo_val - BASE_OPERATIVO, 2)
-                    operativo_val = BASE_OPERATIVO
-
-                filas.append({
-                    'aerolinea': aerolinea,
-                    'kg': kr.get('kg', ''),
-                    'tarifa_neta': _num(kr.get('tarifa')),
-                    'fsc': fsc_val,
-                    'operativo': operativo_val,
-                    'profit': _num(kr.get('margen')),
-                    'tarifa_venta': _num(kr.get('tarifa_cliente')),
-                })
+        filas = _filas_desglose_de(cotizacion)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         formato = request.args.get('formato', 'excel')
@@ -307,6 +316,51 @@ def descargar_desglose(id):
 
     except Exception as e:
         flash(f'Error al generar el desglose: {str(e)}', 'error')
+        return redirect(url_for('cotizaciones.dashboard'))
+
+
+@cotizaciones_bp.route('/exportar-netas')
+@login_required
+def exportar_netas():
+    """Genera un Excel con una hoja por destino (formato 'tarifas netas',
+    como el archivo de referencia AMS/LHR/etc), sacando los datos de la
+    cotizacion mas reciente guardada para cada destino. Destinos cuya
+    cotizacion mas reciente tenga errores (aerolinea no reconocida, tramo de
+    kg repetido) se excluyen y quedan listados en una hoja de Avisos."""
+    try:
+        cotizaciones = Cotizacion.query.order_by(Cotizacion.fecha_modificacion.desc()).all()
+
+        mas_reciente_por_destino = {}
+        for cot in cotizaciones:
+            destino = (cot.destino or '').strip().upper()
+            if destino and destino not in mas_reciente_por_destino:
+                mas_reciente_por_destino[destino] = cot
+
+        destinos_filas = []
+        errores_generales = []
+        for destino in sorted(mas_reciente_por_destino.keys()):
+            cot = mas_reciente_por_destino[destino]
+            errores = _validar_cotizacion(cot)
+            if errores:
+                errores_generales.append(f"{destino} (cotizacion {cot.id}): " + ' | '.join(errores))
+                continue
+            destinos_filas.append((destino, _filas_desglose_de(cot)))
+
+        idioma = request.args.get('idioma', 'es')
+        excel_bytes = generar_reporte_netas_bytes(destinos_filas, idioma=idioma, errores=errores_generales)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        sufijo_idioma = '_EN' if idioma == 'en' else ''
+        nombre_archivo = f"FreightWise_Tarifas_Netas{sufijo_idioma}_{timestamp}.xlsx"
+
+        return send_file(
+            excel_bytes,
+            as_attachment=True,
+            download_name=nombre_archivo,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        flash(f'Error al generar el reporte de tarifas netas: {str(e)}', 'error')
         return redirect(url_for('cotizaciones.dashboard'))
 
 
