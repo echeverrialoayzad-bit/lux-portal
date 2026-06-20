@@ -14,6 +14,25 @@
 {% block extra_css %}
 <style>
     .eo-card { border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+
+    /* ---- Ribbon ---- */
+    .eo-ribbon { display: flex; flex-wrap: wrap; background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 6px 8px; gap: 0; user-select: none; }
+    .eo-rib-group { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 10px; border-right: 1px solid #e2e8f0; }
+    .eo-rib-group:last-child { border-right: none; }
+    .eo-rib-row { display: flex; align-items: center; gap: 3px; }
+    .eo-rib-label { font-size: 0.65rem; color: #94a3b8; margin-top: 2px; text-transform: uppercase; letter-spacing: .03em; }
+    .eo-rib-btn {
+        background: transparent; border: 1px solid transparent; border-radius: 4px;
+        width: 28px; height: 26px; display: flex; align-items: center; justify-content: center;
+        color: #334155; cursor: pointer; font-size: 0.85rem;
+    }
+    .eo-rib-btn:hover { background: #e2e8f0; }
+    .eo-rib-btn.active { background: #ede9fe; border-color: #7c3aed; color: #7c3aed; }
+    .eo-rib-select { border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.78rem; padding: 3px 4px; background: #fff; color: #334155; }
+    .eo-rib-color { width: 26px; height: 26px; padding: 0; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; }
+    .eo-rib-wide { width: auto; padding: 0 8px; gap: 4px; }
+
+    /* ---- Grid ---- */
     .eo-table { width: 100%; border-collapse: collapse; }
     .eo-table th {
         background: linear-gradient(135deg, #7c3aed, #6d28d9);
@@ -35,12 +54,14 @@
         border: 1px solid #cbd5e1;
         padding: 6px 8px;
         font-size: 0.85rem;
-        vertical-align: middle;
         min-width: 110px;
         outline: none;
+        cursor: cell;
     }
+    .eo-table td.eo-selected { background: rgba(124,58,237,0.12) !important; box-shadow: inset 0 0 0 1px #7c3aed; }
     .eo-table td:focus { background: #faf5ff; box-shadow: inset 0 0 0 2px #7c3aed; }
     .eo-table tr:nth-child(even) td:not(.eo-row-handle) { background: #f8fafc; }
+    .eo-table tr:nth-child(even) td.eo-selected { background: rgba(124,58,237,0.12) !important; }
     .eo-row-handle {
         width: 38px;
         min-width: 38px;
@@ -77,10 +98,6 @@
             <h1 class="section-title"><i class="bi bi-grid-3x3 me-2"></i>Excel Online</h1>
             <p class="text-muted mt-1">Hojas de calculo dinamicas, como un Excel dentro del portal</p>
         </div>
-        <div class="d-flex gap-2" id="gridToolbar" style="display:none !important;">
-            <button class="btn btn-outline-secondary" id="btnAddCol"><i class="bi bi-plus-lg"></i> Columna</button>
-            <button class="btn btn-outline-secondary" id="btnAddRow"><i class="bi bi-plus-lg"></i> Fila</button>
-        </div>
     </div>
 
     <div id="eoEmptyState" class="empty-state" {% if sheets %}style="display:none;"{% endif %}>
@@ -92,6 +109,94 @@
 
     <div id="eoContent" {% if not sheets %}style="display:none;"{% endif %}>
         <div class="card eo-card">
+            <div class="eo-ribbon" id="eoRibbon">
+                <div class="eo-rib-group">
+                    <div class="eo-rib-row">
+                        <button class="eo-rib-btn" id="rbCut" title="Cortar"><i class="bi bi-scissors"></i></button>
+                        <button class="eo-rib-btn" id="rbCopy" title="Copiar"><i class="bi bi-clipboard"></i></button>
+                        <button class="eo-rib-btn" id="rbPaste" title="Pegar"><i class="bi bi-clipboard-check"></i></button>
+                    </div>
+                    <span class="eo-rib-label">Portapapeles</span>
+                </div>
+
+                <div class="eo-rib-group">
+                    <div class="eo-rib-row">
+                        <select class="eo-rib-select" id="rbFontFamily" style="width:120px;" title="Fuente">
+                            <option value="Calibri, sans-serif">Calibri</option>
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="'Times New Roman', serif">Times New Roman</option>
+                            <option value="Georgia, serif">Georgia</option>
+                            <option value="Verdana, sans-serif">Verdana</option>
+                            <option value="'Courier New', monospace">Courier New</option>
+                        </select>
+                        <select class="eo-rib-select" id="rbFontSize" style="width:56px;" title="Tamano de fuente">
+                            <option>8</option><option>9</option><option>10</option>
+                            <option selected>11</option><option>12</option><option>14</option>
+                            <option>16</option><option>18</option><option>20</option>
+                            <option>24</option><option>28</option><option>36</option>
+                        </select>
+                    </div>
+                    <div class="eo-rib-row">
+                        <button class="eo-rib-btn" id="rbBold" title="Negrita"><i class="bi bi-type-bold"></i></button>
+                        <button class="eo-rib-btn" id="rbItalic" title="Cursiva"><i class="bi bi-type-italic"></i></button>
+                        <button class="eo-rib-btn" id="rbUnderline" title="Subrayado"><i class="bi bi-type-underline"></i></button>
+                        <button class="eo-rib-btn" id="rbStrike" title="Tachado"><i class="bi bi-type-strikethrough"></i></button>
+                        <button class="eo-rib-btn" id="rbBorder" title="Bordes"><i class="bi bi-border-all"></i></button>
+                        <label class="eo-rib-btn" style="position:relative;" title="Color de relleno">
+                            <i class="bi bi-paint-bucket"></i>
+                            <input type="color" id="rbFillColor" style="position:absolute; inset:0; opacity:0; cursor:pointer;">
+                        </label>
+                        <label class="eo-rib-btn" style="position:relative;" title="Color de fuente">
+                            <i class="bi bi-fonts"></i>
+                            <input type="color" id="rbFontColor" style="position:absolute; inset:0; opacity:0; cursor:pointer;">
+                        </label>
+                    </div>
+                    <span class="eo-rib-label">Fuente</span>
+                </div>
+
+                <div class="eo-rib-group">
+                    <div class="eo-rib-row">
+                        <button class="eo-rib-btn" id="rbValignTop" title="Alinear arriba"><i class="bi bi-align-top"></i></button>
+                        <button class="eo-rib-btn" id="rbValignMiddle" title="Alinear medio"><i class="bi bi-align-middle"></i></button>
+                        <button class="eo-rib-btn" id="rbValignBottom" title="Alinear abajo"><i class="bi bi-align-bottom"></i></button>
+                    </div>
+                    <div class="eo-rib-row">
+                        <button class="eo-rib-btn" id="rbAlignLeft" title="Alinear izquierda"><i class="bi bi-text-left"></i></button>
+                        <button class="eo-rib-btn" id="rbAlignCenter" title="Centrar"><i class="bi bi-text-center"></i></button>
+                        <button class="eo-rib-btn" id="rbAlignRight" title="Alinear derecha"><i class="bi bi-text-right"></i></button>
+                    </div>
+                    <span class="eo-rib-label">Alineacion</span>
+                </div>
+
+                <div class="eo-rib-group">
+                    <div class="eo-rib-row eo-rib-wide">
+                        <select class="eo-rib-select" id="rbNumFmt" style="width:110px;" title="Formato de numero">
+                            <option value="general">General</option>
+                            <option value="number">Numero</option>
+                            <option value="currency">Moneda</option>
+                            <option value="accounting">Contabilidad</option>
+                            <option value="percentage">Porcentaje</option>
+                        </select>
+                        <button class="eo-rib-btn" id="rbDecDown" title="Disminuir decimales"><i class="bi bi-dash-lg"></i>0</button>
+                        <button class="eo-rib-btn" id="rbDecUp" title="Aumentar decimales">0<i class="bi bi-plus-lg"></i></button>
+                    </div>
+                    <span class="eo-rib-label">Numero</span>
+                </div>
+
+                <div class="eo-rib-group">
+                    <div class="eo-rib-row">
+                        <button class="eo-rib-btn" id="rbInsRowAbove" title="Insertar fila arriba"><i class="bi bi-arrow-bar-up"></i></button>
+                        <button class="eo-rib-btn" id="rbInsRowBelow" title="Insertar fila abajo"><i class="bi bi-arrow-bar-down"></i></button>
+                        <button class="eo-rib-btn" id="rbDelRow" title="Eliminar fila"><i class="bi bi-dash-square"></i></button>
+                    </div>
+                    <div class="eo-rib-row">
+                        <button class="eo-rib-btn" id="rbInsColLeft" title="Insertar columna izquierda"><i class="bi bi-arrow-bar-left"></i></button>
+                        <button class="eo-rib-btn" id="rbInsColRight" title="Insertar columna derecha"><i class="bi bi-arrow-bar-right"></i></button>
+                        <button class="eo-rib-btn" id="rbDelCol" title="Eliminar columna"><i class="bi bi-dash-square-dotted"></i></button>
+                    </div>
+                    <span class="eo-rib-label">Celdas</span>
+                </div>
+            </div>
             <div class="table-responsive" id="gridContainer"></div>
         </div>
         <div class="eo-tabs" id="sheetTabs"></div>
@@ -106,21 +211,22 @@
 const BASE = "{{ url_for('excel_online.index') }}".replace(/\/$/, '');
 let sheets = JSON.parse(document.getElementById('sheetsData').textContent);
 let activeId = sheets.length ? sheets[0].id : null;
-let saveTimer = null;
+let saveTimers = {};
+
+let selection = null;       // {sr, sc, er, ec} anchor/focus in data-cell coords
+let isMouseDown = false;
+let clipboard = null;
+let clipboardCut = false;
+let clipboardSrc = null;
 
 function activeSheet() {
     return sheets.find(s => s.id === activeId);
-}
-
-function showToolbar(show) {
-    document.getElementById('gridToolbar').style.setProperty('display', show ? 'flex' : 'none', 'important');
 }
 
 function renderAll() {
     const hasSheets = sheets.length > 0;
     document.getElementById('eoEmptyState').style.display = hasSheets ? 'none' : '';
     document.getElementById('eoContent').style.display = hasSheets ? '' : 'none';
-    showToolbar(hasSheets);
     if (!hasSheets) return;
     if (!activeSheet()) activeId = sheets[0].id;
     renderTabs();
@@ -161,10 +267,65 @@ function renderTabs() {
     wrap.appendChild(add);
 }
 
+/* ---------------- Cell model helpers ---------------- */
+/* A cell is either a plain string (legacy / unformatted) or an
+   object {v, b,i,u,s, fc,bg, ff,fs, ha,va, nf,dec, bd}. */
+
+function getCell(r, c) {
+    const sheet = activeSheet();
+    const raw = sheet.rows[r][c];
+    if (raw === undefined || raw === null) { sheet.rows[r][c] = { v: '' }; return sheet.rows[r][c]; }
+    if (typeof raw === 'object') return raw;
+    sheet.rows[r][c] = { v: String(raw) };
+    return sheet.rows[r][c];
+}
+
+function cellValue(raw) {
+    if (raw === undefined || raw === null) return '';
+    return typeof raw === 'object' ? (raw.v || '') : String(raw);
+}
+
+function cellStyle(raw) {
+    const f = (typeof raw === 'object') ? raw : {};
+    const style = {};
+    if (f.b) style.fontWeight = 'bold';
+    if (f.i) style.fontStyle = 'italic';
+    let td = '';
+    if (f.u) td += 'underline ';
+    if (f.s) td += 'line-through ';
+    if (td) style.textDecoration = td.trim();
+    if (f.fc) style.color = f.fc;
+    if (f.bg) style.backgroundColor = f.bg;
+    if (f.ff) style.fontFamily = f.ff;
+    if (f.fs) style.fontSize = f.fs + 'px';
+    if (f.ha) style.textAlign = f.ha;
+    if (f.va) style.verticalAlign = f.va;
+    if (f.bd) style.boxShadow = 'inset 0 0 0 2px #1e293b';
+    return style;
+}
+
+function formatDisplay(raw) {
+    const value = cellValue(raw);
+    const f = (typeof raw === 'object') ? raw : {};
+    const nf = f.nf || 'general';
+    if (nf === 'general' || value === '' || isNaN(parseFloat(value))) return value;
+    const num = parseFloat(value);
+    const dec = f.dec !== undefined ? f.dec : 2;
+    if (nf === 'number') return num.toFixed(dec);
+    if (nf === 'currency') return (num < 0 ? '-$' : '$') + Math.abs(num).toFixed(dec);
+    if (nf === 'accounting') return num < 0 ? `($${Math.abs(num).toFixed(dec)})` : `$${num.toFixed(dec)}`;
+    if (nf === 'percentage') return (num * 100).toFixed(dec) + '%';
+    return value;
+}
+
+/* ---------------- Grid rendering ---------------- */
+
 function renderGrid() {
     const sheet = activeSheet();
     const container = document.getElementById('gridContainer');
     if (!sheet) { container.innerHTML = ''; return; }
+
+    const sel = selection ? normalizeRange() : null;
 
     const table = document.createElement('table');
     table.className = 'eo-table';
@@ -208,9 +369,49 @@ function renderGrid() {
 
         sheet.headers.forEach((h, c) => {
             const td = document.createElement('td');
+            const cell = row[c];
+            Object.assign(td.style, cellStyle(cell));
             td.contentEditable = 'true';
-            td.textContent = row[c] !== undefined ? row[c] : '';
-            td.oninput = () => { row[c] = td.textContent; scheduleSave(); };
+            td.textContent = formatDisplay(cell);
+            if (sel && r >= sel.r0 && r <= sel.r1 && c >= sel.c0 && c <= sel.c1) {
+                td.classList.add('eo-selected');
+            }
+
+            td.onfocus = () => {
+                td.textContent = cellValue(activeSheet().rows[r][c]);
+                const range = document.createRange();
+                range.selectNodeContents(td);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            };
+            td.onblur = () => {
+                const cell = getCell(r, c);
+                cell.v = td.textContent;
+                td.textContent = formatDisplay(cell);
+                scheduleSave();
+            };
+            td.oninput = () => { getCell(r, c).v = td.textContent; scheduleSave(); };
+
+            td.onmousedown = (e) => {
+                isMouseDown = true;
+                if (e.shiftKey && selection) {
+                    selection.er = r; selection.ec = c;
+                } else {
+                    selection = { sr: r, sc: c, er: r, ec: c };
+                }
+                renderSelectionHighlightOnly();
+            };
+            td.onmouseenter = () => {
+                if (isMouseDown && selection) {
+                    if (selection.er !== r || selection.ec !== c) {
+                        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+                    }
+                    selection.er = r; selection.ec = c;
+                    renderSelectionHighlightOnly();
+                }
+            };
+
             tr.appendChild(td);
         });
         tbody.appendChild(tr);
@@ -221,24 +422,71 @@ function renderGrid() {
     container.appendChild(table);
 }
 
+function renderSelectionHighlightOnly() {
+    const container = document.getElementById('gridContainer');
+    const sel = normalizeRange();
+    const rows = container.querySelectorAll('tbody tr');
+    rows.forEach((tr, r) => {
+        const cells = tr.querySelectorAll('td:not(.eo-row-handle)');
+        cells.forEach((td, c) => {
+            td.classList.toggle('eo-selected', r >= sel.r0 && r <= sel.r1 && c >= sel.c0 && c <= sel.c1);
+        });
+    });
+}
+
+document.addEventListener('mouseup', () => { isMouseDown = false; });
+
+function normalizeRange() {
+    if (!selection) return { r0: 0, c0: 0, r1: 0, c1: 0 };
+    return {
+        r0: Math.min(selection.sr, selection.er),
+        r1: Math.max(selection.sr, selection.er),
+        c0: Math.min(selection.sc, selection.ec),
+        c1: Math.max(selection.sc, selection.ec),
+    };
+}
+
+function selectedCells() {
+    const sheet = activeSheet();
+    if (!sheet || !selection) return [];
+    const { r0, r1, c0, c1 } = normalizeRange();
+    const out = [];
+    for (let r = r0; r <= r1 && r < sheet.rows.length; r++) {
+        for (let c = c0; c <= c1 && c < sheet.headers.length; c++) out.push({ r, c });
+    }
+    return out;
+}
+
+function applyToSelection(fn) {
+    const cells = selectedCells();
+    if (!cells.length) return;
+    cells.forEach(({ r, c }) => fn(getCell(r, c)));
+    renderGrid();
+    scheduleSave();
+}
+
+/* ---------------- Sheet management ---------------- */
+
 function switchSheet(id) {
     activeId = id;
+    selection = null;
     renderTabs();
     renderGrid();
 }
 
 function scheduleSave() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveActiveSheet, 600);
+    const sheetId = activeId;
+    clearTimeout(saveTimers[sheetId]);
+    saveTimers[sheetId] = setTimeout(() => saveSheetById(sheetId), 600);
 }
 
-function saveActiveSheet() {
-    const sheet = activeSheet();
+function saveSheetById(id) {
+    const sheet = sheets.find(s => s.id === id);
     if (!sheet) return;
-    fetch(`${BASE}/api/sheet/${sheet.id}`, {
+    fetch(`${BASE}/api/sheet/${id}`, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({headers: sheet.headers, rows: sheet.rows})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headers: sheet.headers, rows: sheet.rows })
     }).then(r => r.json()).then(data => { if (!data.success) alert('Error al guardar: ' + (data.error || '')); });
 }
 
@@ -254,16 +502,16 @@ function renameSheet(id, newName) {
     sheet.name = newName;
     fetch(`${BASE}/api/sheet/${id}`, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name: newName})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName })
     }).then(r => r.json()).then(data => { if (!data.success) alert('Error al renombrar: ' + (data.error || '')); });
 }
 
 function addSheet() {
     fetch(`${BASE}/api/sheet`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name: 'Hoja ' + (sheets.length + 1)})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Hoja ' + (sheets.length + 1) })
     }).then(r => r.json()).then(data => {
         if (data.success) {
             sheets.push(data.sheet);
@@ -278,7 +526,7 @@ function addSheet() {
 function deleteSheet(id) {
     const sheet = sheets.find(s => s.id === id);
     if (!sheet || !confirm(`¿Eliminar la hoja "${sheet.name}"?`)) return;
-    fetch(`${BASE}/api/sheet/${id}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+    fetch(`${BASE}/api/sheet/${id}`, { method: 'DELETE' }).then(r => r.json()).then(data => {
         if (data.success) {
             sheets = sheets.filter(s => s.id !== id);
             if (activeId === id) activeId = sheets.length ? sheets[0].id : null;
@@ -289,29 +537,13 @@ function deleteSheet(id) {
     });
 }
 
-function addColumn() {
-    const sheet = activeSheet();
-    if (!sheet) return;
-    sheet.headers.push('Columna ' + (sheet.headers.length + 1));
-    sheet.rows.forEach(row => row.push(''));
-    renderGrid();
-    scheduleSave();
-}
-
 function deleteColumn(c) {
     const sheet = activeSheet();
     if (!sheet || sheet.headers.length <= 1) return;
     if (!confirm(`¿Eliminar la columna "${sheet.headers[c]}"?`)) return;
     sheet.headers.splice(c, 1);
     sheet.rows.forEach(row => row.splice(c, 1));
-    renderGrid();
-    scheduleSave();
-}
-
-function addRow() {
-    const sheet = activeSheet();
-    if (!sheet) return;
-    sheet.rows.push(sheet.headers.map(() => ''));
+    selection = null;
     renderGrid();
     scheduleSave();
 }
@@ -320,13 +552,137 @@ function deleteRow(r) {
     const sheet = activeSheet();
     if (!sheet) return;
     sheet.rows.splice(r, 1);
+    selection = null;
     renderGrid();
     scheduleSave();
 }
 
-document.getElementById('btnAddCol').onclick = addColumn;
-document.getElementById('btnAddRow').onclick = addRow;
+/* ---------------- Ribbon: Cells (insert/delete) ---------------- */
+
+function insertRow(offset) {
+    const sheet = activeSheet();
+    if (!sheet) return;
+    const base = selection ? normalizeRange().r0 : 0;
+    const r = base + offset;
+    sheet.rows.splice(r, 0, sheet.headers.map(() => ''));
+    selection = null;
+    renderGrid();
+    scheduleSave();
+}
+
+function insertCol(offset) {
+    const sheet = activeSheet();
+    if (!sheet) return;
+    const base = selection ? normalizeRange().c0 : sheet.headers.length - 1;
+    const c = base + offset;
+    sheet.headers.splice(c, 0, 'Columna');
+    sheet.rows.forEach(row => row.splice(c, 0, ''));
+    selection = null;
+    renderGrid();
+    scheduleSave();
+}
+
+function deleteSelectedRows() {
+    const sheet = activeSheet();
+    if (!sheet || !selection) return;
+    const { r0, r1 } = normalizeRange();
+    sheet.rows.splice(r0, r1 - r0 + 1);
+    if (!sheet.rows.length) sheet.rows.push(sheet.headers.map(() => ''));
+    selection = null;
+    renderGrid();
+    scheduleSave();
+}
+
+function deleteSelectedCols() {
+    const sheet = activeSheet();
+    if (!sheet || !selection) return;
+    const { c0, c1 } = normalizeRange();
+    const removed = c1 - c0 + 1;
+    if (sheet.headers.length - removed < 1) return;
+    sheet.headers.splice(c0, removed);
+    sheet.rows.forEach(row => row.splice(c0, removed));
+    selection = null;
+    renderGrid();
+    scheduleSave();
+}
+
+/* ---------------- Ribbon: Clipboard ---------------- */
+
+function copySelection(cut) {
+    if (!selection) return;
+    const { r0, r1, c0, c1 } = normalizeRange();
+    clipboard = [];
+    for (let r = r0; r <= r1; r++) {
+        const rowData = [];
+        for (let c = c0; c <= c1; c++) rowData.push(JSON.parse(JSON.stringify(getCell(r, c))));
+        clipboard.push(rowData);
+    }
+    clipboardCut = cut;
+    clipboardSrc = { r0, r1, c0, c1 };
+}
+
+function pasteClipboard() {
+    const sheet = activeSheet();
+    if (!sheet || !clipboard || !selection) return;
+    const startR = normalizeRange().r0;
+    const startC = normalizeRange().c0;
+    clipboard.forEach((rowData, i) => {
+        const r = startR + i;
+        while (r >= sheet.rows.length) sheet.rows.push(sheet.headers.map(() => ''));
+        rowData.forEach((cell, j) => {
+            const c = startC + j;
+            if (c >= sheet.headers.length) return;
+            sheet.rows[r][c] = JSON.parse(JSON.stringify(cell));
+        });
+    });
+    if (clipboardCut && clipboardSrc) {
+        for (let r = clipboardSrc.r0; r <= clipboardSrc.r1; r++) {
+            for (let c = clipboardSrc.c0; c <= clipboardSrc.c1; c++) {
+                if (sheet.rows[r]) sheet.rows[r][c] = '';
+            }
+        }
+        clipboard = null; clipboardCut = false; clipboardSrc = null;
+    }
+    renderGrid();
+    scheduleSave();
+}
+
+/* ---------------- Ribbon wiring ---------------- */
+
 document.getElementById('btnAddSheetEmpty').onclick = addSheet;
+
+document.getElementById('rbCut').onclick = () => copySelection(true);
+document.getElementById('rbCopy').onclick = () => copySelection(false);
+document.getElementById('rbPaste').onclick = pasteClipboard;
+
+document.getElementById('rbBold').onclick = () => applyToSelection(c => { c.b = !c.b; });
+document.getElementById('rbItalic').onclick = () => applyToSelection(c => { c.i = !c.i; });
+document.getElementById('rbUnderline').onclick = () => applyToSelection(c => { c.u = !c.u; });
+document.getElementById('rbStrike').onclick = () => applyToSelection(c => { c.s = !c.s; });
+document.getElementById('rbBorder').onclick = () => applyToSelection(c => { c.bd = !c.bd; });
+
+document.getElementById('rbFontFamily').onchange = (e) => applyToSelection(c => { c.ff = e.target.value; });
+document.getElementById('rbFontSize').onchange = (e) => applyToSelection(c => { c.fs = parseInt(e.target.value, 10); });
+document.getElementById('rbFillColor').onchange = (e) => applyToSelection(c => { c.bg = e.target.value; });
+document.getElementById('rbFontColor').onchange = (e) => applyToSelection(c => { c.fc = e.target.value; });
+
+document.getElementById('rbAlignLeft').onclick = () => applyToSelection(c => { c.ha = 'left'; });
+document.getElementById('rbAlignCenter').onclick = () => applyToSelection(c => { c.ha = 'center'; });
+document.getElementById('rbAlignRight').onclick = () => applyToSelection(c => { c.ha = 'right'; });
+document.getElementById('rbValignTop').onclick = () => applyToSelection(c => { c.va = 'top'; });
+document.getElementById('rbValignMiddle').onclick = () => applyToSelection(c => { c.va = 'middle'; });
+document.getElementById('rbValignBottom').onclick = () => applyToSelection(c => { c.va = 'bottom'; });
+
+document.getElementById('rbNumFmt').onchange = (e) => applyToSelection(c => { c.nf = e.target.value; });
+document.getElementById('rbDecUp').onclick = () => applyToSelection(c => { c.dec = Math.min((c.dec !== undefined ? c.dec : 2) + 1, 6); });
+document.getElementById('rbDecDown').onclick = () => applyToSelection(c => { c.dec = Math.max((c.dec !== undefined ? c.dec : 2) - 1, 0); });
+
+document.getElementById('rbInsRowAbove').onclick = () => insertRow(0);
+document.getElementById('rbInsRowBelow').onclick = () => insertRow(1);
+document.getElementById('rbDelRow').onclick = deleteSelectedRows;
+document.getElementById('rbInsColLeft').onclick = () => insertCol(0);
+document.getElementById('rbInsColRight').onclick = () => insertCol(1);
+document.getElementById('rbDelCol').onclick = deleteSelectedCols;
 
 renderAll();
 </script>
