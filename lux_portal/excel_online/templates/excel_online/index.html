@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block title %}Excel Online - Lux Portal{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item">
+    <a class="nav-link" href="{{ url_for('excel_online.index') }}">
+        <i class="bi bi-grid-3x3"></i>
+        <span>Excel Online</span>
+    </a>
+</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .eo-card { border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .eo-table { width: 100%; border-collapse: collapse; }
+    .eo-table th {
+        background: linear-gradient(135deg, #7c3aed, #6d28d9);
+        color: #fff;
+        font-size: 0.8rem;
+        padding: 0;
+        border: 1px solid #5b21b6;
+        white-space: nowrap;
+        position: relative;
+        min-width: 110px;
+    }
+    .eo-th-wrap { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; }
+    .eo-th-text { outline: none; min-width: 20px; }
+    .eo-th-text:focus { background: rgba(255,255,255,0.15); border-radius: 4px; }
+    .eo-th-del { background: none; border: none; color: rgba(255,255,255,0.6); opacity: 0; cursor: pointer; padding: 0; line-height: 1; }
+    .eo-table th:hover .eo-th-del { opacity: 1; }
+    .eo-th-del:hover { color: #fff; }
+    .eo-table td {
+        border: 1px solid #cbd5e1;
+        padding: 6px 8px;
+        font-size: 0.85rem;
+        vertical-align: middle;
+        min-width: 110px;
+        outline: none;
+    }
+    .eo-table td:focus { background: #faf5ff; box-shadow: inset 0 0 0 2px #7c3aed; }
+    .eo-table tr:nth-child(even) td:not(.eo-row-handle) { background: #f8fafc; }
+    .eo-row-handle {
+        width: 38px;
+        min-width: 38px;
+        text-align: center;
+        background: #f1f5f9 !important;
+        color: #94a3b8;
+        font-size: 0.75rem;
+        position: relative;
+        cursor: default;
+    }
+    .eo-row-del { background: none; border: none; color: #94a3b8; opacity: 0; cursor: pointer; position: absolute; right: 2px; top: 50%; transform: translateY(-50%); padding: 0; }
+    .eo-table tr:hover .eo-row-del { opacity: 1; }
+    .eo-row-del:hover { color: #ef4444; }
+    .eo-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; align-items: center; }
+    .eo-tab {
+        display: flex; align-items: center; gap: 6px;
+        background: #fff; border: 1px solid #cbd5e1; border-bottom: 3px solid transparent;
+        border-radius: 6px 6px 0 0; padding: 6px 10px; font-size: 0.8rem; cursor: pointer; color: #475569;
+    }
+    .eo-tab.active { border-bottom-color: #7c3aed; color: #7c3aed; font-weight: 700; background: #faf5ff; }
+    .eo-tab-name { outline: none; }
+    .eo-tab-del { background: none; border: none; color: #94a3b8; opacity: 0; cursor: pointer; padding: 0; line-height: 1; }
+    .eo-tab:hover .eo-tab-del { opacity: 1; }
+    .eo-tab-del:hover { color: #ef4444; }
+    .eo-tab-add { background: transparent; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 6px 12px; color: #94a3b8; cursor: pointer; font-size: 0.85rem; }
+    .eo-tab-add:hover { color: #7c3aed; border-color: #7c3aed; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="section-title"><i class="bi bi-grid-3x3 me-2"></i>Excel Online</h1>
+            <p class="text-muted mt-1">Hojas de calculo dinamicas, como un Excel dentro del portal</p>
+        </div>
+        <div class="d-flex gap-2" id="gridToolbar" style="display:none !important;">
+            <button class="btn btn-outline-secondary" id="btnAddCol"><i class="bi bi-plus-lg"></i> Columna</button>
+            <button class="btn btn-outline-secondary" id="btnAddRow"><i class="bi bi-plus-lg"></i> Fila</button>
+        </div>
+    </div>
+
+    <div id="eoEmptyState" class="empty-state" {% if sheets %}style="display:none;"{% endif %}>
+        <i class="bi bi-grid-3x3"></i>
+        <h5>No hay hojas todavia</h5>
+        <p>Crea tu primera hoja para comenzar</p>
+        <button class="btn btn-primary" id="btnAddSheetEmpty"><i class="bi bi-plus-lg"></i> Nueva Hoja</button>
+    </div>
+
+    <div id="eoContent" {% if not sheets %}style="display:none;"{% endif %}>
+        <div class="card eo-card">
+            <div class="table-responsive" id="gridContainer"></div>
+        </div>
+        <div class="eo-tabs" id="sheetTabs"></div>
+    </div>
+</div>
+
+<script id="sheetsData" type="application/json">{{ sheets|tojson }}</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BASE = "{{ url_for('excel_online.index') }}".replace(/\/$/, '');
+let sheets = JSON.parse(document.getElementById('sheetsData').textContent);
+let activeId = sheets.length ? sheets[0].id : null;
+let saveTimer = null;
+
+function activeSheet() {
+    return sheets.find(s => s.id === activeId);
+}
+
+function showToolbar(show) {
+    document.getElementById('gridToolbar').style.setProperty('display', show ? 'flex' : 'none', 'important');
+}
+
+function renderAll() {
+    const hasSheets = sheets.length > 0;
+    document.getElementById('eoEmptyState').style.display = hasSheets ? 'none' : '';
+    document.getElementById('eoContent').style.display = hasSheets ? '' : 'none';
+    showToolbar(hasSheets);
+    if (!hasSheets) return;
+    if (!activeSheet()) activeId = sheets[0].id;
+    renderTabs();
+    renderGrid();
+}
+
+function renderTabs() {
+    const wrap = document.getElementById('sheetTabs');
+    wrap.innerHTML = '';
+    sheets.forEach(s => {
+        const tab = document.createElement('div');
+        tab.className = 'eo-tab' + (s.id === activeId ? ' active' : '');
+        tab.onclick = (e) => { if (e.target.closest('.eo-tab-del') || e.target.closest('.eo-tab-name')) return; switchSheet(s.id); };
+
+        const name = document.createElement('span');
+        name.className = 'eo-tab-name';
+        name.contentEditable = 'true';
+        name.textContent = s.name;
+        name.onblur = () => renameSheet(s.id, name.textContent.trim() || 'Hoja');
+        name.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); name.blur(); } };
+
+        const del = document.createElement('button');
+        del.className = 'eo-tab-del';
+        del.innerHTML = '<i class="bi bi-x-lg"></i>';
+        del.title = 'Eliminar hoja';
+        del.onclick = (e) => { e.stopPropagation(); deleteSheet(s.id); };
+
+        tab.appendChild(name);
+        tab.appendChild(del);
+        wrap.appendChild(tab);
+    });
+
+    const add = document.createElement('button');
+    add.className = 'eo-tab-add';
+    add.innerHTML = '<i class="bi bi-plus-lg"></i>';
+    add.title = 'Nueva hoja';
+    add.onclick = addSheet;
+    wrap.appendChild(add);
+}
+
+function renderGrid() {
+    const sheet = activeSheet();
+    const container = document.getElementById('gridContainer');
+    if (!sheet) { container.innerHTML = ''; return; }
+
+    const table = document.createElement('table');
+    table.className = 'eo-table';
+
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    const corner = document.createElement('th');
+    corner.className = 'eo-row-handle';
+    headRow.appendChild(corner);
+    sheet.headers.forEach((h, c) => {
+        const th = document.createElement('th');
+        const wrapDiv = document.createElement('div');
+        wrapDiv.className = 'eo-th-wrap';
+        const span = document.createElement('span');
+        span.className = 'eo-th-text';
+        span.contentEditable = 'true';
+        span.textContent = h;
+        span.onblur = () => updateHeader(c, span.textContent);
+        span.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); span.blur(); } };
+        const del = document.createElement('button');
+        del.className = 'eo-th-del';
+        del.innerHTML = '<i class="bi bi-x-lg"></i>';
+        del.title = 'Eliminar columna';
+        del.onclick = () => deleteColumn(c);
+        wrapDiv.appendChild(span);
+        wrapDiv.appendChild(del);
+        th.appendChild(wrapDiv);
+        headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    sheet.rows.forEach((row, r) => {
+        const tr = document.createElement('tr');
+        const handle = document.createElement('td');
+        handle.className = 'eo-row-handle';
+        handle.innerHTML = `<span>${r + 1}</span><button class="eo-row-del" title="Eliminar fila"><i class="bi bi-x-lg"></i></button>`;
+        handle.querySelector('.eo-row-del').onclick = () => deleteRow(r);
+        tr.appendChild(handle);
+
+        sheet.headers.forEach((h, c) => {
+            const td = document.createElement('td');
+            td.contentEditable = 'true';
+            td.textContent = row[c] !== undefined ? row[c] : '';
+            td.oninput = () => { row[c] = td.textContent; scheduleSave(); };
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+
+    container.innerHTML = '';
+    container.appendChild(table);
+}
+
+function switchSheet(id) {
+    activeId = id;
+    renderTabs();
+    renderGrid();
+}
+
+function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveActiveSheet, 600);
+}
+
+function saveActiveSheet() {
+    const sheet = activeSheet();
+    if (!sheet) return;
+    fetch(`${BASE}/api/sheet/${sheet.id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({headers: sheet.headers, rows: sheet.rows})
+    }).then(r => r.json()).then(data => { if (!data.success) alert('Error al guardar: ' + (data.error || '')); });
+}
+
+function updateHeader(c, value) {
+    const sheet = activeSheet();
+    sheet.headers[c] = value;
+    scheduleSave();
+}
+
+function renameSheet(id, newName) {
+    const sheet = sheets.find(s => s.id === id);
+    if (!sheet || sheet.name === newName) return;
+    sheet.name = newName;
+    fetch(`${BASE}/api/sheet/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: newName})
+    }).then(r => r.json()).then(data => { if (!data.success) alert('Error al renombrar: ' + (data.error || '')); });
+}
+
+function addSheet() {
+    fetch(`${BASE}/api/sheet`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: 'Hoja ' + (sheets.length + 1)})
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            sheets.push(data.sheet);
+            activeId = data.sheet.id;
+            renderAll();
+        } else {
+            alert('Error al crear hoja: ' + (data.error || ''));
+        }
+    });
+}
+
+function deleteSheet(id) {
+    const sheet = sheets.find(s => s.id === id);
+    if (!sheet || !confirm(`¿Eliminar la hoja "${sheet.name}"?`)) return;
+    fetch(`${BASE}/api/sheet/${id}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+        if (data.success) {
+            sheets = sheets.filter(s => s.id !== id);
+            if (activeId === id) activeId = sheets.length ? sheets[0].id : null;
+            renderAll();
+        } else {
+            alert('Error al eliminar: ' + (data.error || ''));
+        }
+    });
+}
+
+function addColumn() {
+    const sheet = activeSheet();
+    if (!sheet) return;
+    sheet.headers.push('Columna ' + (sheet.headers.length + 1));
+    sheet.rows.forEach(row => row.push(''));
+    renderGrid();
+    scheduleSave();
+}
+
+function deleteColumn(c) {
+    const sheet = activeSheet();
+    if (!sheet || sheet.headers.length <= 1) return;
+    if (!confirm(`¿Eliminar la columna "${sheet.headers[c]}"?`)) return;
+    sheet.headers.splice(c, 1);
+    sheet.rows.forEach(row => row.splice(c, 1));
+    renderGrid();
+    scheduleSave();
+}
+
+function addRow() {
+    const sheet = activeSheet();
+    if (!sheet) return;
+    sheet.rows.push(sheet.headers.map(() => ''));
+    renderGrid();
+    scheduleSave();
+}
+
+function deleteRow(r) {
+    const sheet = activeSheet();
+    if (!sheet) return;
+    sheet.rows.splice(r, 1);
+    renderGrid();
+    scheduleSave();
+}
+
+document.getElementById('btnAddCol').onclick = addColumn;
+document.getElementById('btnAddRow').onclick = addRow;
+document.getElementById('btnAddSheetEmpty').onclick = addSheet;
+
+renderAll();
+</script>
+{% endblock %}

@@ -52,6 +52,14 @@ AVAILABLE_MODULES = [
         'url': 'fw_fruta.dashboard',
         'color': '#2e7d32'  # Green para FW Fruta
     },
+    {
+        'id': 'excel_online',
+        'name': 'Excel Online',
+        'description': 'Hojas de calculo dinamicas dentro del portal',
+        'icon': 'bi-grid-3x3-gap-fill',
+        'url': 'excel_online.index',
+        'color': '#0EA5E9'  # Sky blue para Excel Online
+    },
 ]
 
 

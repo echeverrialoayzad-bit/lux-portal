@@ -26,6 +26,7 @@ def create_app(config_name='default'):
     from lux_portal.planner import planner_bp
     from lux_portal.current_status import current_status_bp
     from lux_portal.fw_fruta import fw_fruta_bp
+    from lux_portal.excel_online import excel_online_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -34,12 +35,14 @@ def create_app(config_name='default'):
     app.register_blueprint(planner_bp)
     app.register_blueprint(current_status_bp)
     app.register_blueprint(fw_fruta_bp, url_prefix='/fw-fruta')
+    app.register_blueprint(excel_online_bp, url_prefix='/excel-online')
 
     # Crear tablas de base de datos y migrar columnas faltantes
     with app.app_context():
         db.create_all()
         _migrate_db(app)
         _seed_cotizaciones()
+        _seed_excel_online()
 
     return app
 
@@ -556,3 +559,33 @@ def _seed_cotizaciones():
                 db.session.commit()
         except Exception:
             db.session.rollback()
+
+
+# ---------------------------------------------------------------------------
+# Excel Online: siembra las hojas iniciales (tarifas por destino) si la
+# tabla esta vacia, leyendo lux_portal/excel_online/seed_data.json
+# ---------------------------------------------------------------------------
+def _seed_excel_online():
+    """Inserta las hojas iniciales del modulo Excel Online si no hay ninguna."""
+    import json
+    import os
+    from lux_portal.excel_online.models import ExcelSheet
+
+    if ExcelSheet.query.first() is not None:
+        return
+
+    seed_path = os.path.join(os.path.dirname(__file__), 'excel_online', 'seed_data.json')
+    if not os.path.exists(seed_path):
+        return
+
+    try:
+        with open(seed_path, 'r', encoding='utf-8') as f:
+            seed_sheets = json.load(f)
+        for order, entry in enumerate(seed_sheets):
+            sheet = ExcelSheet(name=entry['name'], order=order)
+            sheet.headers = entry['headers']
+            sheet.rows = entry['rows']
+            db.session.add(sheet)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
