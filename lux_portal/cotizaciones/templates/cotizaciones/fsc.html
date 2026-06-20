@@ -48,10 +48,10 @@
 
 <div id="aerolineasContainer">
     {% for aerolinea, reglas in aerolineas.items() %}
-    <div class="card fsc-airline-card" data-aerolinea="{{ aerolinea }}">
+    <div class="card fsc-airline-card" data-aerolinea="{{ aerolinea }}" data-group-id="{{ grupo_ids[aerolinea] }}">
         <div class="card-header">
             <h5><i class="bi bi-airplane me-2"></i>{{ aerolinea }}</h5>
-            <button class="btn btn-outline-light btn-sm" onclick="eliminarAerolinea(this)" title="Eliminar todas las reglas de esta aerolinea">
+            <button class="btn btn-outline-light btn-sm" onclick="eliminarAerolinea(this)" title="Eliminar esta aerolinea de la tabla de FSC">
                 <i class="bi bi-trash"></i>
             </button>
         </div>
@@ -162,10 +162,11 @@ function eliminarRegla(btn) {
 function eliminarAerolinea(btn) {
     const card = btn.closest('.fsc-airline-card');
     const nombre = card.dataset.aerolinea;
-    if (!confirm(`¿Eliminar TODAS las reglas de FSC de "${nombre}"?`)) return;
-    const ids = Array.from(card.querySelectorAll('.fsc-rule-row')).map(r => r.dataset.id);
-    Promise.all(ids.map(id => fetch(`${BASE}/api/fsc-rule/${id}`, {method: 'DELETE'})))
-        .then(() => card.remove());
+    if (!confirm(`¿Eliminar "${nombre}" por completo de la tabla de FSC?`)) return;
+    fetch(`${BASE}/api/fsc-aerolinea/${card.dataset.groupId}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+        if (data.success) card.remove();
+        else alert('Error: ' + (data.error || ''));
+    });
 }
 
 const addAirlineForm = document.getElementById('addAirlineForm');

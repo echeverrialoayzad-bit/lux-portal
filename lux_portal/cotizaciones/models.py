@@ -83,6 +83,16 @@ class Cotizacion(db.Model):
         }
 
 
+class AirlineFscGroup(db.Model):
+    """Marca que una aerolinea esta gestionada en la tabla maestra de FSC,
+    incluso si en este momento no tiene ninguna regla (0 reglas = FSC debe
+    quedar en 0 al actualizar, en vez de dejarse intacto)."""
+    __tablename__ = 'cotizacion_fsc_airlines'
+
+    id = db.Column(db.Integer, primary_key=True)
+    aerolinea = db.Column(db.String(100), nullable=False, unique=True)
+
+
 class AirlineFscRule(db.Model):
     """Regla de FSC por aerolinea. Una aerolinea puede tener varias reglas:
     una por destino/region especifica (destinos_json no vacio) y opcionalmente
@@ -114,6 +124,21 @@ class AirlineFscRule(db.Model):
             'fsc': self.fsc,
             'order': self.order,
         }
+
+
+class AirlineCargoGroup(db.Model):
+    """Marca que una aerolinea esta gestionada en la tabla maestra de cargos
+    adicionales (igual razon que AirlineFscGroup: 0 cargos = se debe limpiar
+    al actualizar). Tambien guarda la nota general de la aerolinea, que se
+    agrega (no reemplaza) a la nota especifica de cada cotizacion."""
+    __tablename__ = 'cotizacion_cargo_airlines'
+
+    id = db.Column(db.Integer, primary_key=True)
+    aerolinea = db.Column(db.String(100), nullable=False, unique=True)
+    notas = db.Column(db.Text, default='')
+
+    def to_dict(self):
+        return {'id': self.id, 'aerolinea': self.aerolinea, 'notas': self.notas or ''}
 
 
 class AirlineCargoRule(db.Model):

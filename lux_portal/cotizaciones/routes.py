@@ -8,7 +8,7 @@ from flask import render_template, request, jsonify, send_file, redirect, url_fo
 from datetime import datetime
 from collections import defaultdict
 from lux_portal.cotizaciones import cotizaciones_bp
-from lux_portal.cotizaciones.models import Cotizacion, AirlineFscRule, AirlineCargoRule
+from lux_portal.cotizaciones.models import Cotizacion, AirlineFscRule, AirlineFscGroup, AirlineCargoRule, AirlineCargoGroup
 from lux_portal.cotizaciones.data import AEROLINEAS_LISTA, CARGOS_COMUNES, CARGOS_FREIGHTWISE
 from lux_portal.cotizaciones.utils.excel_generator import guardar_cotizacion_bytes
 from lux_portal.cotizaciones.utils.pdf_generator import guardar_cotizacion_pdf_bytes
@@ -176,15 +176,33 @@ def obtener_cargos():
 BASE_OPERATIVO = 0.09
 
 
+def _get_or_create_fsc_group(aerolinea):
+    grupo = AirlineFscGroup.query.filter_by(aerolinea=aerolinea).first()
+    if not grupo:
+        grupo = AirlineFscGroup(aerolinea=aerolinea)
+        db.session.add(grupo)
+        db.session.flush()
+    return grupo
+
+
 @cotizaciones_bp.route('/fsc')
 @login_required
 def fsc_dashboard():
     """Tabla maestra editable de FSC por aerolinea/destino."""
+    grupos = AirlineFscGroup.query.order_by(AirlineFscGroup.aerolinea).all()
     reglas = AirlineFscRule.query.order_by(AirlineFscRule.aerolinea, AirlineFscRule.order, AirlineFscRule.id).all()
     aerolineas = defaultdict(list)
+    grupos_por_nombre = {}
+    for g in grupos:
+        aerolineas[g.aerolinea]  # asegura que la aerolinea aparezca aunque tenga 0 reglas
+        grupos_por_nombre[g.aerolinea] = g.id
     for r in reglas:
         aerolineas[r.aerolinea].append(r.to_dict())
-    return render_template('cotizaciones/fsc.html', aerolineas=dict(sorted(aerolineas.items())))
+    return render_template(
+        'cotizaciones/fsc.html',
+        aerolineas=dict(sorted(aerolineas.items())),
+        grupo_ids=grupos_por_nombre,
+    )
 
 
 @cotizaciones_bp.route('/api/fsc-rule', methods=['POST'])
@@ -195,6 +213,7 @@ def crear_fsc_rule():
         aerolinea = (data.get('aerolinea') or '').strip().upper()
         if not aerolinea:
             return jsonify({'success': False, 'error': 'Falta el nombre de la aerolinea'}), 400
+        _get_or_create_fsc_group(aerolinea)
         max_order = db.session.query(db.func.max(AirlineFscRule.order)).filter_by(aerolinea=aerolinea).scalar() or 0
         regla = AirlineFscRule(
             aerolinea=aerolinea,
@@ -233,6 +252,9 @@ def actualizar_fsc_rule(id):
 @cotizaciones_bp.route('/api/fsc-rule/<int:id>', methods=['DELETE'])
 @login_required
 def eliminar_fsc_rule(id):
+    """Elimina solo esta regla. La aerolinea (AirlineFscGroup) se mantiene
+    aunque quede en 0 reglas, para que Actualizar la siga reconociendo y
+    limpie el FSC en sus cotizaciones en vez de dejarlo intacto."""
     regla = AirlineFscRule.query.get_or_404(id)
     try:
         db.session.delete(regla)
@@ -243,12 +265,32 @@ def eliminar_fsc_rule(id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def _resolver_fsc(reglas_por_aerolinea, aerolinea, destino):
-    """Busca la regla de FSC que aplica: primero una con el destino especifico
-    en su lista de codigos IATA, si no hay, la regla 'catch-all' (destinos vacios)."""
-    reglas = reglas_por_aerolinea.get((aerolinea or '').strip().upper())
-    if not reglas:
+@cotizaciones_bp.route('/api/fsc-aerolinea/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_fsc_aerolinea(id):
+    """Elimina la aerolinea por completo de la tabla de FSC (grupo + reglas)."""
+    grupo = AirlineFscGroup.query.get_or_404(id)
+    try:
+        AirlineFscRule.query.filter_by(aerolinea=grupo.aerolinea).delete()
+        db.session.delete(grupo)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def _resolver_fsc(reglas_por_aerolinea, aerolineas_gestionadas, aerolinea, destino):
+    """Resuelve el FSC a aplicar:
+    - Si la aerolinea no esta gestionada en la tabla maestra: None (no tocar).
+    - Si esta gestionada y hay una regla que calza el destino (o catch-all): ese valor.
+    - Si esta gestionada pero ninguna regla calza (incluye 0 reglas): '0.00' (limpiar)."""
+    key = (aerolinea or '').strip().upper()
+    if key not in aerolineas_gestionadas:
         return None
+    reglas = reglas_por_aerolinea.get(key)
+    if not reglas:
+        return '0.00'
     destino_u = (destino or '').strip().upper()
     catch_all = None
     for r in reglas:
@@ -257,17 +299,20 @@ def _resolver_fsc(reglas_por_aerolinea, aerolinea, destino):
             return r.fsc
         if not codigos:
             catch_all = r
-    return catch_all.fsc if catch_all else None
+    return catch_all.fsc if catch_all else '0.00'
 
 
 @cotizaciones_bp.route('/api/fsc-aplicar', methods=['POST'])
 @login_required
 def aplicar_fsc_a_cotizaciones():
-    """Aplica la tabla maestra de FSC a TODAS las cotizaciones guardadas que
-    calcen por aerolinea+destino, sobrescribiendo su campo fsc y recalculando
-    el precio final. Tambien resetea Costo Operativo a su base (0.09) ya que
-    en cotizaciones viejas el FSC venia mezclado dentro de ese campo."""
+    """Aplica la tabla maestra de FSC a TODAS las cotizaciones guardadas cuya
+    aerolinea este gestionada aqui (tenga o no reglas activas en este momento),
+    sobrescribiendo su campo fsc y recalculando el precio final. Tambien
+    resetea Costo Operativo a su base (0.09) ya que en cotizaciones viejas el
+    FSC venia mezclado dentro de ese campo. Aerolineas que no aparecen en la
+    tabla quedan completamente intactas."""
     try:
+        aerolineas_gestionadas = {g.aerolinea for g in AirlineFscGroup.query.all()}
         reglas = AirlineFscRule.query.all()
         reglas_por_aerolinea = defaultdict(list)
         for r in reglas:
@@ -281,7 +326,7 @@ def aplicar_fsc_a_cotizaciones():
             aerolineas = cot.aerolineas
             cambio = False
             for entry in aerolineas:
-                fsc_resuelto = _resolver_fsc(reglas_por_aerolinea, entry.get('aerolinea', ''), cot.destino)
+                fsc_resuelto = _resolver_fsc(reglas_por_aerolinea, aerolineas_gestionadas, entry.get('aerolinea', ''), cot.destino)
                 if fsc_resuelto is None:
                     continue
                 try:
@@ -316,15 +361,31 @@ def aplicar_fsc_a_cotizaciones():
 
 # ===================== CARGOS ADICIONALES POR AEROLINEA =====================
 
+def _get_or_create_cargo_group(aerolinea):
+    grupo = AirlineCargoGroup.query.filter_by(aerolinea=aerolinea).first()
+    if not grupo:
+        grupo = AirlineCargoGroup(aerolinea=aerolinea, notas='')
+        db.session.add(grupo)
+        db.session.flush()
+    return grupo
+
+
 @cotizaciones_bp.route('/cargos')
 @login_required
 def cargos_dashboard():
     """Tabla maestra editable de cargos adicionales fijos por aerolinea."""
+    grupos = AirlineCargoGroup.query.order_by(AirlineCargoGroup.aerolinea).all()
     reglas = AirlineCargoRule.query.order_by(AirlineCargoRule.aerolinea, AirlineCargoRule.order, AirlineCargoRule.id).all()
-    aerolineas = defaultdict(list)
+    aerolineas = {}
+    grupos_por_nombre = {}
+    for g in grupos:
+        aerolineas[g.aerolinea] = []
+        grupos_por_nombre[g.aerolinea] = g
     for r in reglas:
-        aerolineas[r.aerolinea].append(r.to_dict())
-    return render_template('cotizaciones/cargos.html', aerolineas=dict(sorted(aerolineas.items())))
+        aerolineas.setdefault(r.aerolinea, []).append(r.to_dict())
+    aerolineas = dict(sorted(aerolineas.items()))
+    grupos_dict = {nombre: g.to_dict() for nombre, g in grupos_por_nombre.items()}
+    return render_template('cotizaciones/cargos.html', aerolineas=aerolineas, grupos=grupos_dict)
 
 
 @cotizaciones_bp.route('/api/cargo-rule', methods=['POST'])
@@ -335,6 +396,7 @@ def crear_cargo_rule():
         aerolinea = (data.get('aerolinea') or '').strip().upper()
         if not aerolinea:
             return jsonify({'success': False, 'error': 'Falta el nombre de la aerolinea'}), 400
+        _get_or_create_cargo_group(aerolinea)
         max_order = db.session.query(db.func.max(AirlineCargoRule.order)).filter_by(aerolinea=aerolinea).scalar() or 0
         regla = AirlineCargoRule(
             aerolinea=aerolinea,
@@ -370,9 +432,40 @@ def actualizar_cargo_rule(id):
 @cotizaciones_bp.route('/api/cargo-rule/<int:id>', methods=['DELETE'])
 @login_required
 def eliminar_cargo_rule(id):
+    """Elimina solo este cargo. La aerolinea (AirlineCargoGroup) se mantiene
+    aunque quede en 0 cargos, para que Actualizar la siga reconociendo."""
     regla = AirlineCargoRule.query.get_or_404(id)
     try:
         db.session.delete(regla)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/cargo-aerolinea/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_cargo_aerolinea(id):
+    """Elimina la aerolinea por completo de la tabla de cargos (grupo + reglas)."""
+    grupo = AirlineCargoGroup.query.get_or_404(id)
+    try:
+        AirlineCargoRule.query.filter_by(aerolinea=grupo.aerolinea).delete()
+        db.session.delete(grupo)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/cargo-aerolinea/<int:id>/notas', methods=['PUT'])
+@login_required
+def actualizar_cargo_notas(id):
+    grupo = AirlineCargoGroup.query.get_or_404(id)
+    try:
+        data = request.get_json()
+        grupo.notas = data.get('notas', '')
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -384,9 +477,16 @@ def eliminar_cargo_rule(id):
 @login_required
 def aplicar_cargos_a_cotizaciones():
     """Aplica la tabla maestra de cargos adicionales a TODAS las cotizaciones
-    guardadas cuya aerolinea tenga reglas, reemplazando su lista de cargos
-    adicionales. Aerolineas sin reglas en la tabla maestra quedan intactas."""
+    guardadas cuya aerolinea este gestionada aqui (tenga o no cargos activos
+    en este momento), reemplazando su lista de cargos adicionales. Tambien
+    agrega (sin borrar) la nota general de la aerolinea a la nota especifica
+    de cada cotizacion, si todavia no esta incluida. Aerolineas que no
+    aparecen en la tabla quedan completamente intactas."""
     try:
+        grupos = AirlineCargoGroup.query.all()
+        aerolineas_gestionadas = {g.aerolinea for g in grupos}
+        notas_por_aerolinea = {g.aerolinea: (g.notas or '').strip() for g in grupos}
+
         reglas = AirlineCargoRule.query.order_by(AirlineCargoRule.order, AirlineCargoRule.id).all()
         reglas_por_aerolinea = defaultdict(list)
         for r in reglas:
@@ -401,11 +501,16 @@ def aplicar_cargos_a_cotizaciones():
             cambio = False
             for entry in aerolineas:
                 key = (entry.get('aerolinea') or '').strip().upper()
-                if key not in reglas_por_aerolinea:
+                if key not in aerolineas_gestionadas:
                     continue
                 entry['cargos_adicionales'] = [
-                    {'concepto': r.concepto, 'monto': r.monto} for r in reglas_por_aerolinea[key]
+                    {'concepto': r.concepto, 'monto': r.monto} for r in reglas_por_aerolinea.get(key, [])
                 ]
+                nota_general = notas_por_aerolinea.get(key, '')
+                if nota_general:
+                    nota_actual = (entry.get('notas') or '').strip()
+                    if nota_general not in nota_actual:
+                        entry['notas'] = f"{nota_actual}\n{nota_general}".strip() if nota_actual else nota_general
                 entradas_actualizadas += 1
                 cambio = True
             if cambio:

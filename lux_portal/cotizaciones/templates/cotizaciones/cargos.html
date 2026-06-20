@@ -17,6 +17,9 @@
     .cargo-field-concepto { flex: 1; }
     .cargo-field-monto { flex: 0 0 130px; }
     .cargo-add-rule-btn { margin: 12px 16px; }
+    .cargo-notas-wrap { padding: 14px 16px; border-top: 1px solid var(--border); }
+    .cargo-notas-wrap label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; display: block; }
+    .cargo-notas-wrap textarea { min-height: 60px; font-size: 0.85rem; }
 </style>
 {% endblock %}
 
@@ -46,10 +49,10 @@
 
 <div id="aerolineasContainer">
     {% for aerolinea, reglas in aerolineas.items() %}
-    <div class="card cargo-airline-card" data-aerolinea="{{ aerolinea }}">
+    <div class="card cargo-airline-card" data-aerolinea="{{ aerolinea }}" data-group-id="{{ grupos[aerolinea].id }}">
         <div class="card-header">
             <h5><i class="bi bi-airplane me-2"></i>{{ aerolinea }}</h5>
-            <button class="btn btn-outline-light btn-sm" onclick="eliminarAerolinea(this)" title="Eliminar todos los cargos de esta aerolinea">
+            <button class="btn btn-outline-light btn-sm" onclick="eliminarAerolinea(this)" title="Eliminar esta aerolinea de la tabla de cargos">
                 <i class="bi bi-trash"></i>
             </button>
         </div>
@@ -72,6 +75,10 @@
             <button class="btn btn-outline-secondary btn-sm cargo-add-rule-btn" onclick="agregarRegla(this)">
                 <i class="bi bi-plus"></i> Agregar Cargo
             </button>
+            <div class="cargo-notas-wrap">
+                <label><i class="bi bi-sticky me-1"></i>Nota general de la aerolinea (se agrega a la nota de cada cotizacion al Actualizar)</label>
+                <textarea class="form-control notas-input" placeholder="Ej. Trabajan bajo BSA, posiciones de 1500kg...">{{ grupos[aerolinea].notas }}</textarea>
+            </div>
         </div>
     </div>
     {% endfor %}
@@ -150,11 +157,28 @@ function eliminarRegla(btn) {
 function eliminarAerolinea(btn) {
     const card = btn.closest('.cargo-airline-card');
     const nombre = card.dataset.aerolinea;
-    if (!confirm(`¿Eliminar TODOS los cargos de "${nombre}"?`)) return;
-    const ids = Array.from(card.querySelectorAll('.cargo-rule-row')).map(r => r.dataset.id);
-    Promise.all(ids.map(id => fetch(`${BASE}/api/cargo-rule/${id}`, {method: 'DELETE'})))
-        .then(() => card.remove());
+    if (!confirm(`¿Eliminar "${nombre}" por completo de la tabla de cargos?`)) return;
+    fetch(`${BASE}/api/cargo-aerolinea/${card.dataset.groupId}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+        if (data.success) card.remove();
+        else alert('Error: ' + (data.error || ''));
+    });
 }
+
+function guardarNotas(card) {
+    const groupId = card.dataset.groupId;
+    const notas = card.querySelector('.notas-input').value;
+    fetch(`${BASE}/api/cargo-aerolinea/${groupId}/notas`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({notas: notas})
+    }).then(r => r.json()).then(data => {
+        if (!data.success) alert('Error al guardar nota: ' + (data.error || ''));
+    });
+}
+
+document.querySelectorAll('.cargo-airline-card').forEach(card => {
+    card.querySelector('.notas-input').addEventListener('blur', () => guardarNotas(card));
+});
 
 const addAirlineForm = document.getElementById('addAirlineForm');
 const newAirlineInput = document.getElementById('newAirlineName');

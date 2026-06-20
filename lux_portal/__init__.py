@@ -45,6 +45,7 @@ def create_app(config_name='default'):
         _seed_excel_online()
         _seed_fsc_rules()
         _seed_cargo_rules()
+        _migrate_fsc_cargo_groups()
 
     return app
 
@@ -685,6 +686,35 @@ def _seed_cargo_rules():
                     monto=monto,
                     order=order,
                 ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+def _migrate_fsc_cargo_groups():
+    """Crea las filas de AirlineFscGroup/AirlineCargoGroup que falten para
+    aerolineas que ya tienen reglas pero todavia no tienen su 'grupo' (esto
+    pasa la primera vez que se despliega esta tabla, ya que es nueva)."""
+    from lux_portal.cotizaciones.models import (
+        AirlineFscRule, AirlineFscGroup, AirlineCargoRule, AirlineCargoGroup
+    )
+
+    try:
+        existentes = {g.aerolinea for g in AirlineFscGroup.query.all()}
+        for (aerolinea,) in db.session.query(AirlineFscRule.aerolinea).distinct():
+            if aerolinea not in existentes:
+                db.session.add(AirlineFscGroup(aerolinea=aerolinea))
+                existentes.add(aerolinea)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    try:
+        existentes = {g.aerolinea for g in AirlineCargoGroup.query.all()}
+        for (aerolinea,) in db.session.query(AirlineCargoRule.aerolinea).distinct():
+            if aerolinea not in existentes:
+                db.session.add(AirlineCargoGroup(aerolinea=aerolinea, notas=''))
+                existentes.add(aerolinea)
         db.session.commit()
     except Exception:
         db.session.rollback()
