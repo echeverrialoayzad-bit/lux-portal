@@ -6,8 +6,9 @@ Rutas del modulo Cotizaciones FreightWise
 
 from flask import render_template, request, jsonify, send_file, redirect, url_for, flash
 from datetime import datetime
+from collections import defaultdict
 from lux_portal.cotizaciones import cotizaciones_bp
-from lux_portal.cotizaciones.models import Cotizacion
+from lux_portal.cotizaciones.models import Cotizacion, AirlineFscRule
 from lux_portal.cotizaciones.data import AEROLINEAS_LISTA, CARGOS_COMUNES, CARGOS_FREIGHTWISE
 from lux_portal.cotizaciones.utils.excel_generator import guardar_cotizacion_bytes
 from lux_portal.cotizaciones.utils.pdf_generator import guardar_cotizacion_pdf_bytes
@@ -168,3 +169,146 @@ def obtener_aerolineas():
 def obtener_cargos():
     """Obtener cargos comunes predefinidos."""
     return jsonify(CARGOS_COMUNES)
+
+
+# ===================== FSC POR AEROLINEA =====================
+
+BASE_OPERATIVO = 0.09
+
+
+@cotizaciones_bp.route('/fsc')
+@login_required
+def fsc_dashboard():
+    """Tabla maestra editable de FSC por aerolinea/destino."""
+    reglas = AirlineFscRule.query.order_by(AirlineFscRule.aerolinea, AirlineFscRule.order, AirlineFscRule.id).all()
+    aerolineas = defaultdict(list)
+    for r in reglas:
+        aerolineas[r.aerolinea].append(r.to_dict())
+    return render_template('cotizaciones/fsc.html', aerolineas=dict(sorted(aerolineas.items())))
+
+
+@cotizaciones_bp.route('/api/fsc-rule', methods=['POST'])
+@login_required
+def crear_fsc_rule():
+    try:
+        data = request.get_json()
+        aerolinea = (data.get('aerolinea') or '').strip().upper()
+        if not aerolinea:
+            return jsonify({'success': False, 'error': 'Falta el nombre de la aerolinea'}), 400
+        max_order = db.session.query(db.func.max(AirlineFscRule.order)).filter_by(aerolinea=aerolinea).scalar() or 0
+        regla = AirlineFscRule(
+            aerolinea=aerolinea,
+            nombre=data.get('nombre') or 'Todos los destinos',
+            fsc=data.get('fsc', '0.00'),
+            order=max_order + 1,
+        )
+        regla.destinos = data.get('destinos') or []
+        db.session.add(regla)
+        db.session.commit()
+        return jsonify({'success': True, 'regla': regla.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/fsc-rule/<int:id>', methods=['PUT'])
+@login_required
+def actualizar_fsc_rule(id):
+    regla = AirlineFscRule.query.get_or_404(id)
+    try:
+        data = request.get_json()
+        if 'nombre' in data:
+            regla.nombre = data['nombre']
+        if 'destinos' in data:
+            regla.destinos = data['destinos']
+        if 'fsc' in data:
+            regla.fsc = data['fsc']
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/fsc-rule/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_fsc_rule(id):
+    regla = AirlineFscRule.query.get_or_404(id)
+    try:
+        db.session.delete(regla)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def _resolver_fsc(reglas_por_aerolinea, aerolinea, destino):
+    """Busca la regla de FSC que aplica: primero una con el destino especifico
+    en su lista de codigos IATA, si no hay, la regla 'catch-all' (destinos vacios)."""
+    reglas = reglas_por_aerolinea.get((aerolinea or '').strip().upper())
+    if not reglas:
+        return None
+    destino_u = (destino or '').strip().upper()
+    catch_all = None
+    for r in reglas:
+        codigos = [c.strip().upper() for c in r.destinos]
+        if codigos and destino_u in codigos:
+            return r.fsc
+        if not codigos:
+            catch_all = r
+    return catch_all.fsc if catch_all else None
+
+
+@cotizaciones_bp.route('/api/fsc-aplicar', methods=['POST'])
+@login_required
+def aplicar_fsc_a_cotizaciones():
+    """Aplica la tabla maestra de FSC a TODAS las cotizaciones guardadas que
+    calcen por aerolinea+destino, sobrescribiendo su campo fsc y recalculando
+    el precio final. Tambien resetea Costo Operativo a su base (0.09) ya que
+    en cotizaciones viejas el FSC venia mezclado dentro de ese campo."""
+    try:
+        reglas = AirlineFscRule.query.all()
+        reglas_por_aerolinea = defaultdict(list)
+        for r in reglas:
+            reglas_por_aerolinea[r.aerolinea.strip().upper()].append(r)
+
+        cotizaciones = Cotizacion.query.all()
+        cotizaciones_actualizadas = 0
+        entradas_actualizadas = 0
+
+        for cot in cotizaciones:
+            aerolineas = cot.aerolineas
+            cambio = False
+            for entry in aerolineas:
+                fsc_resuelto = _resolver_fsc(reglas_por_aerolinea, entry.get('aerolinea', ''), cot.destino)
+                if fsc_resuelto is None:
+                    continue
+                try:
+                    fsc_val = float(fsc_resuelto)
+                except (TypeError, ValueError):
+                    continue
+                for kr in entry.get('kg_rates') or []:
+                    try:
+                        tarifa = float(kr.get('tarifa', '0') or 0)
+                        margen = float(kr.get('margen', '0') or 0)
+                    except (TypeError, ValueError):
+                        tarifa = margen = 0.0
+                    kr['costo_operativo'] = f"{BASE_OPERATIVO:.2f}"
+                    kr['fsc'] = f"{fsc_val:.2f}"
+                    kr['tarifa_cliente'] = f"{(tarifa + margen + BASE_OPERATIVO + fsc_val):.2f}"
+                    entradas_actualizadas += 1
+                    cambio = True
+            if cambio:
+                cot.aerolineas = aerolineas
+                cotizaciones_actualizadas += 1
+
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'cotizaciones_actualizadas': cotizaciones_actualizadas,
+            'entradas_actualizadas': entradas_actualizadas,
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500

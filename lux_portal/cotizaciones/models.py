@@ -81,3 +81,36 @@ class Cotizacion(db.Model):
             'notas_freightwise': self.notas_freightwise,
             'estado': self.estado
         }
+
+
+class AirlineFscRule(db.Model):
+    """Regla de FSC por aerolinea. Una aerolinea puede tener varias reglas:
+    una por destino/region especifica (destinos_json no vacio) y opcionalmente
+    una regla 'catch-all' (destinos_json == []) que aplica a cualquier destino
+    que no calce con ninguna regla especifica."""
+    __tablename__ = 'cotizacion_fsc_rules'
+
+    id = db.Column(db.Integer, primary_key=True)
+    aerolinea = db.Column(db.String(100), nullable=False)
+    nombre = db.Column(db.String(100), nullable=False)
+    destinos_json = db.Column(db.Text, default='[]')
+    fsc = db.Column(db.String(20), default='0.00')
+    order = db.Column(db.Integer, default=0)
+
+    @property
+    def destinos(self):
+        return json.loads(self.destinos_json) if self.destinos_json else []
+
+    @destinos.setter
+    def destinos(self, value):
+        self.destinos_json = json.dumps(value, ensure_ascii=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'aerolinea': self.aerolinea,
+            'nombre': self.nombre,
+            'destinos': self.destinos,
+            'fsc': self.fsc,
+            'order': self.order,
+        }

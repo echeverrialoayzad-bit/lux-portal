@@ -43,6 +43,7 @@ def create_app(config_name='default'):
         _migrate_db(app)
         _seed_cotizaciones()
         _seed_excel_online()
+        _seed_fsc_rules()
 
     return app
 
@@ -586,6 +587,52 @@ def _seed_excel_online():
             sheet.headers = entry['headers']
             sheet.rows = entry['rows']
             db.session.add(sheet)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+# ---------------------------------------------------------------------------
+# FSC por aerolinea: valores conocidos al momento de crear la tabla maestra.
+# destinos=[] significa "todos los destinos" (regla catch-all para esa aerolinea).
+# Aerolineas sin regla fija (Avianca, Delta, Qatar, Air Caribe) se editan caso
+# por caso dentro de cada cotizacion, no llevan default aqui.
+# ---------------------------------------------------------------------------
+_FSC_RULES_SEED = [
+    {'aerolinea': 'AIR CANADA', 'nombre': 'Canada', 'destinos': [], 'fsc': '0.16', 'order': 1},
+    {'aerolinea': 'AIR CANADA', 'nombre': 'US Northeast', 'destinos': [], 'fsc': '0.16', 'order': 2},
+    {'aerolinea': 'AIR CANADA', 'nombre': 'US Midwest', 'destinos': [], 'fsc': '0.16', 'order': 3},
+    {'aerolinea': 'AIR CANADA', 'nombre': 'Miami', 'destinos': ['MIA'], 'fsc': '0.12', 'order': 4},
+    {'aerolinea': 'AIR CANADA', 'nombre': 'Otros destinos en el mundo', 'destinos': [], 'fsc': '0.30', 'order': 5},
+    {'aerolinea': 'LATAM', 'nombre': 'AMS', 'destinos': ['AMS'], 'fsc': '0.08', 'order': 1},
+    {'aerolinea': 'EMIRATES', 'nombre': 'Todos los destinos', 'destinos': [], 'fsc': '0.51', 'order': 1},
+    {'aerolinea': 'ATLAS', 'nombre': 'Todos los destinos', 'destinos': [], 'fsc': '1.05', 'order': 1},
+    {'aerolinea': 'AERO MEXICO', 'nombre': 'Todos los destinos', 'destinos': [], 'fsc': '0.63', 'order': 1},
+    {'aerolinea': 'TURKISH', 'nombre': 'AMS', 'destinos': ['AMS'], 'fsc': '0.12', 'order': 1},
+    {'aerolinea': 'IBERIA', 'nombre': 'Todos los destinos', 'destinos': [], 'fsc': '0.14', 'order': 1},
+    {'aerolinea': 'LUFTHANSA', 'nombre': 'Todos los destinos', 'destinos': [], 'fsc': '1.25', 'order': 1},
+    {'aerolinea': 'CATHAY', 'nombre': 'Todos los destinos', 'destinos': [], 'fsc': '0.60', 'order': 1},
+]
+
+
+def _seed_fsc_rules():
+    """Inserta las reglas de FSC iniciales si la tabla esta vacia."""
+    from lux_portal.cotizaciones.models import AirlineFscRule
+    import json as _json
+
+    if AirlineFscRule.query.first() is not None:
+        return
+
+    try:
+        for seed in _FSC_RULES_SEED:
+            regla = AirlineFscRule(
+                aerolinea=seed['aerolinea'],
+                nombre=seed['nombre'],
+                fsc=seed['fsc'],
+                order=seed['order'],
+            )
+            regla.destinos_json = _json.dumps(seed['destinos'])
+            db.session.add(regla)
         db.session.commit()
     except Exception:
         db.session.rollback()
