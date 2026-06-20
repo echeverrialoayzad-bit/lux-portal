@@ -719,6 +719,12 @@
                             <i class="bi bi-fuel-pump"></i> FSC
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'cotizaciones.cargos_dashboard' %}active{% endif %}"
+                           href="{{ url_for('cotizaciones.cargos_dashboard') }}">
+                            <i class="bi bi-receipt"></i> Cargos
+                        </a>
+                    </li>
                 </ul>
                 <ul class="navbar-nav align-items-center">
                     <li class="nav-item me-3">

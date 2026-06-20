@@ -8,7 +8,7 @@ from flask import render_template, request, jsonify, send_file, redirect, url_fo
 from datetime import datetime
 from collections import defaultdict
 from lux_portal.cotizaciones import cotizaciones_bp
-from lux_portal.cotizaciones.models import Cotizacion, AirlineFscRule
+from lux_portal.cotizaciones.models import Cotizacion, AirlineFscRule, AirlineCargoRule
 from lux_portal.cotizaciones.data import AEROLINEAS_LISTA, CARGOS_COMUNES, CARGOS_FREIGHTWISE
 from lux_portal.cotizaciones.utils.excel_generator import guardar_cotizacion_bytes
 from lux_portal.cotizaciones.utils.pdf_generator import guardar_cotizacion_pdf_bytes
@@ -299,6 +299,115 @@ def aplicar_fsc_a_cotizaciones():
                     kr['tarifa_cliente'] = f"{(tarifa + margen + BASE_OPERATIVO + fsc_val):.2f}"
                     entradas_actualizadas += 1
                     cambio = True
+            if cambio:
+                cot.aerolineas = aerolineas
+                cotizaciones_actualizadas += 1
+
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'cotizaciones_actualizadas': cotizaciones_actualizadas,
+            'entradas_actualizadas': entradas_actualizadas,
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ===================== CARGOS ADICIONALES POR AEROLINEA =====================
+
+@cotizaciones_bp.route('/cargos')
+@login_required
+def cargos_dashboard():
+    """Tabla maestra editable de cargos adicionales fijos por aerolinea."""
+    reglas = AirlineCargoRule.query.order_by(AirlineCargoRule.aerolinea, AirlineCargoRule.order, AirlineCargoRule.id).all()
+    aerolineas = defaultdict(list)
+    for r in reglas:
+        aerolineas[r.aerolinea].append(r.to_dict())
+    return render_template('cotizaciones/cargos.html', aerolineas=dict(sorted(aerolineas.items())))
+
+
+@cotizaciones_bp.route('/api/cargo-rule', methods=['POST'])
+@login_required
+def crear_cargo_rule():
+    try:
+        data = request.get_json()
+        aerolinea = (data.get('aerolinea') or '').strip().upper()
+        if not aerolinea:
+            return jsonify({'success': False, 'error': 'Falta el nombre de la aerolinea'}), 400
+        max_order = db.session.query(db.func.max(AirlineCargoRule.order)).filter_by(aerolinea=aerolinea).scalar() or 0
+        regla = AirlineCargoRule(
+            aerolinea=aerolinea,
+            concepto=data.get('concepto') or 'Nuevo cargo',
+            monto=data.get('monto', '0.00'),
+            order=max_order + 1,
+        )
+        db.session.add(regla)
+        db.session.commit()
+        return jsonify({'success': True, 'regla': regla.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/cargo-rule/<int:id>', methods=['PUT'])
+@login_required
+def actualizar_cargo_rule(id):
+    regla = AirlineCargoRule.query.get_or_404(id)
+    try:
+        data = request.get_json()
+        if 'concepto' in data:
+            regla.concepto = data['concepto']
+        if 'monto' in data:
+            regla.monto = data['monto']
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/cargo-rule/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_cargo_rule(id):
+    regla = AirlineCargoRule.query.get_or_404(id)
+    try:
+        db.session.delete(regla)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/cargo-aplicar', methods=['POST'])
+@login_required
+def aplicar_cargos_a_cotizaciones():
+    """Aplica la tabla maestra de cargos adicionales a TODAS las cotizaciones
+    guardadas cuya aerolinea tenga reglas, reemplazando su lista de cargos
+    adicionales. Aerolineas sin reglas en la tabla maestra quedan intactas."""
+    try:
+        reglas = AirlineCargoRule.query.order_by(AirlineCargoRule.order, AirlineCargoRule.id).all()
+        reglas_por_aerolinea = defaultdict(list)
+        for r in reglas:
+            reglas_por_aerolinea[r.aerolinea.strip().upper()].append(r)
+
+        cotizaciones = Cotizacion.query.all()
+        cotizaciones_actualizadas = 0
+        entradas_actualizadas = 0
+
+        for cot in cotizaciones:
+            aerolineas = cot.aerolineas
+            cambio = False
+            for entry in aerolineas:
+                key = (entry.get('aerolinea') or '').strip().upper()
+                if key not in reglas_por_aerolinea:
+                    continue
+                entry['cargos_adicionales'] = [
+                    {'concepto': r.concepto, 'monto': r.monto} for r in reglas_por_aerolinea[key]
+                ]
+                entradas_actualizadas += 1
+                cambio = True
             if cambio:
                 cot.aerolineas = aerolineas
                 cotizaciones_actualizadas += 1

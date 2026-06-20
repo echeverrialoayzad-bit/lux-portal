@@ -114,3 +114,24 @@ class AirlineFscRule(db.Model):
             'fsc': self.fsc,
             'order': self.order,
         }
+
+
+class AirlineCargoRule(db.Model):
+    """Cargo adicional fijo por aerolinea (Due Carrier, CC, CG HAWB C/U, etc).
+    No depende del destino, a diferencia de AirlineFscRule."""
+    __tablename__ = 'cotizacion_cargo_rules'
+
+    id = db.Column(db.Integer, primary_key=True)
+    aerolinea = db.Column(db.String(100), nullable=False)
+    concepto = db.Column(db.String(150), nullable=False)
+    monto = db.Column(db.String(20), default='0.00')
+    order = db.Column(db.Integer, default=0)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'aerolinea': self.aerolinea,
+            'concepto': self.concepto,
+            'monto': self.monto,
+            'order': self.order,
+        }

@@ -1,32 +1,30 @@
 {% extends 'cotizaciones/base_freightwise.html' %}
 
-{% block title %}FSC por Aerolinea - FreightWise{% endblock %}
+{% block title %}Cargos Adicionales - FreightWise{% endblock %}
 
 {% block extra_css %}
 <style>
-    .fsc-airline-card { margin-bottom: 20px; }
-    .fsc-rule-row {
+    .cargo-airline-card { margin-bottom: 20px; }
+    .cargo-rule-row {
         display: flex;
         align-items: center;
         gap: 12px;
         padding: 12px 16px;
         border-bottom: 1px solid var(--border);
     }
-    .fsc-rule-row:last-child { border-bottom: none; }
-    .fsc-rule-row .form-control { padding: 8px 12px; font-size: 0.85rem; }
-    .fsc-field-nombre { flex: 0 0 220px; }
-    .fsc-field-destinos { flex: 1; }
-    .fsc-field-fsc { flex: 0 0 110px; }
-    .fsc-rule-hint { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
-    .fsc-add-rule-btn { margin: 12px 16px; }
+    .cargo-rule-row:last-child { border-bottom: none; }
+    .cargo-rule-row .form-control { padding: 8px 12px; font-size: 0.85rem; }
+    .cargo-field-concepto { flex: 1; }
+    .cargo-field-monto { flex: 0 0 130px; }
+    .cargo-add-rule-btn { margin: 12px 16px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
-        <h2><i class="bi bi-fuel-pump text-primary"></i> FSC por Aerolinea</h2>
-        <p class="text-secondary mb-0">Tabla maestra de fuel surcharge. Se aplica por destino especifico o region (lista de codigos IATA), o como default para todos los destinos si dejas la lista vacia.</p>
+        <h2><i class="bi bi-receipt text-primary"></i> Cargos Adicionales por Aerolinea</h2>
+        <p class="text-secondary mb-0">Cargos fijos como Due Carrier, CC, CG HAWB C/U, etc. No dependen del destino. Aerolineas que no aparecen aqui no tienen cargos adicionales conocidos.</p>
     </div>
     <div class="d-flex gap-2">
         <button class="btn btn-outline-primary" id="btnAgregarAerolinea">
@@ -48,25 +46,22 @@
 
 <div id="aerolineasContainer">
     {% for aerolinea, reglas in aerolineas.items() %}
-    <div class="card fsc-airline-card" data-aerolinea="{{ aerolinea }}">
+    <div class="card cargo-airline-card" data-aerolinea="{{ aerolinea }}">
         <div class="card-header">
             <h5><i class="bi bi-airplane me-2"></i>{{ aerolinea }}</h5>
-            <button class="btn btn-outline-light btn-sm" onclick="eliminarAerolinea(this)" title="Eliminar todas las reglas de esta aerolinea">
+            <button class="btn btn-outline-light btn-sm" onclick="eliminarAerolinea(this)" title="Eliminar todos los cargos de esta aerolinea">
                 <i class="bi bi-trash"></i>
             </button>
         </div>
         <div class="card-body p-0">
-            <div class="fsc-rules-container">
+            <div class="cargo-rules-container">
                 {% for r in reglas %}
-                <div class="fsc-rule-row" data-id="{{ r.id }}">
-                    <div class="fsc-field-nombre">
-                        <input type="text" class="form-control nombre-input" value="{{ r.nombre }}" placeholder="Ej. US Northeast">
+                <div class="cargo-rule-row" data-id="{{ r.id }}">
+                    <div class="cargo-field-concepto">
+                        <input type="text" class="form-control concepto-input" value="{{ r.concepto }}" placeholder="Ej. Due Carrier">
                     </div>
-                    <div class="fsc-field-destinos">
-                        <input type="text" class="form-control destinos-input" value="{{ r.destinos|join(', ') }}" placeholder="Vacio = todos los destinos / catch-all">
-                    </div>
-                    <div class="fsc-field-fsc">
-                        <input type="text" class="form-control fsc-input" value="{{ r.fsc }}" placeholder="0.00">
+                    <div class="cargo-field-monto">
+                        <input type="text" class="form-control monto-input" value="{{ r.monto }}" placeholder="0.00">
                     </div>
                     <button class="btn btn-outline-danger btn-sm" onclick="eliminarRegla(this)">
                         <i class="bi bi-x-lg"></i>
@@ -74,8 +69,8 @@
                 </div>
                 {% endfor %}
             </div>
-            <button class="btn btn-outline-secondary btn-sm fsc-add-rule-btn" onclick="agregarRegla(this)">
-                <i class="bi bi-plus"></i> Agregar Destino
+            <button class="btn btn-outline-secondary btn-sm cargo-add-rule-btn" onclick="agregarRegla(this)">
+                <i class="bi bi-plus"></i> Agregar Cargo
             </button>
         </div>
     </div>
@@ -84,8 +79,8 @@
 
 {% if not aerolineas %}
 <div class="empty-state">
-    <i class="bi bi-fuel-pump"></i>
-    <h5>No hay reglas de FSC todavia</h5>
+    <i class="bi bi-receipt"></i>
+    <h5>No hay cargos adicionales todavia</h5>
     <p>Agrega una aerolinea para empezar</p>
 </div>
 {% endif %}
@@ -95,18 +90,13 @@
 <script>
 const BASE = "{{ url_for('cotizaciones.dashboard') }}".replace(/\/$/, '');
 
-function destinosFromInput(value) {
-    return value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-}
-
 function guardarRegla(row) {
     const id = row.dataset.id;
     const payload = {
-        nombre: row.querySelector('.nombre-input').value.trim() || 'Todos los destinos',
-        destinos: destinosFromInput(row.querySelector('.destinos-input').value),
-        fsc: row.querySelector('.fsc-input').value.trim() || '0.00',
+        concepto: row.querySelector('.concepto-input').value.trim() || 'Nuevo cargo',
+        monto: row.querySelector('.monto-input').value.trim() || '0.00',
     };
-    fetch(`${BASE}/api/fsc-rule/${id}`, {
+    fetch(`${BASE}/api/cargo-rule/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
@@ -115,56 +105,54 @@ function guardarRegla(row) {
     });
 }
 
-document.querySelectorAll('.fsc-rule-row').forEach(row => {
+function wireRow(row) {
     row.querySelectorAll('input').forEach(input => {
         input.addEventListener('blur', () => guardarRegla(row));
         input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
     });
-});
+}
+
+document.querySelectorAll('.cargo-rule-row').forEach(wireRow);
 
 function agregarRegla(btn) {
-    const card = btn.closest('.fsc-airline-card');
+    const card = btn.closest('.cargo-airline-card');
     const aerolinea = card.dataset.aerolinea;
-    fetch(`${BASE}/api/fsc-rule`, {
+    fetch(`${BASE}/api/cargo-rule`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({aerolinea: aerolinea, nombre: 'Nuevo destino', destinos: [], fsc: '0.00'})
+        body: JSON.stringify({aerolinea: aerolinea, concepto: 'Nuevo cargo', monto: '0.00'})
     }).then(r => r.json()).then(data => {
         if (!data.success) { alert('Error: ' + (data.error || '')); return; }
-        const container = card.querySelector('.fsc-rules-container');
+        const container = card.querySelector('.cargo-rules-container');
         const div = document.createElement('div');
-        div.className = 'fsc-rule-row';
+        div.className = 'cargo-rule-row';
         div.dataset.id = data.regla.id;
         div.innerHTML = `
-            <div class="fsc-field-nombre"><input type="text" class="form-control nombre-input" value="${data.regla.nombre}" placeholder="Ej. US Northeast"></div>
-            <div class="fsc-field-destinos"><input type="text" class="form-control destinos-input" value="" placeholder="Vacio = todos los destinos / catch-all"></div>
-            <div class="fsc-field-fsc"><input type="text" class="form-control fsc-input" value="0.00" placeholder="0.00"></div>
+            <div class="cargo-field-concepto"><input type="text" class="form-control concepto-input" value="${data.regla.concepto}" placeholder="Ej. Due Carrier"></div>
+            <div class="cargo-field-monto"><input type="text" class="form-control monto-input" value="${data.regla.monto}" placeholder="0.00"></div>
             <button class="btn btn-outline-danger btn-sm" onclick="eliminarRegla(this)"><i class="bi bi-x-lg"></i></button>
         `;
-        div.querySelectorAll('input').forEach(input => {
-            input.addEventListener('blur', () => guardarRegla(div));
-            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
-        });
+        wireRow(div);
         container.appendChild(div);
-        div.querySelector('.nombre-input').focus();
+        div.querySelector('.concepto-input').focus();
     });
 }
 
 function eliminarRegla(btn) {
-    const row = btn.closest('.fsc-rule-row');
-    if (!confirm('¿Eliminar esta regla de FSC?')) return;
-    fetch(`${BASE}/api/fsc-rule/${row.dataset.id}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+    const row = btn.closest('.cargo-rule-row');
+    if (!confirm('¿Eliminar este cargo?')) return;
+    fetch(`${BASE}/api/cargo-rule/${row.dataset.id}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
         if (data.success) row.remove();
         else alert('Error: ' + (data.error || ''));
     });
 }
 
 function eliminarAerolinea(btn) {
-    const card = btn.closest('.fsc-airline-card');
+    const card = btn.closest('.cargo-airline-card');
     const nombre = card.dataset.aerolinea;
-    if (!confirm(`¿Eliminar TODAS las reglas de FSC de "${nombre}"?`)) return;
-    const ids = Array.from(card.querySelectorAll('.fsc-rule-row')).map(r => r.dataset.id);
-    Promise.all(ids.map(id => fetch(`${BASE}/api/fsc-rule/${id}`, {method: 'DELETE'})))
+    if (!confirm(`¿Eliminar TODOS los cargos de "${nombre}"?`)) return;
+    const ids = Array.from(card.querySelectorAll('.cargo-rule-row')).map(r => r.dataset.id);
+    Promise.all(ids.map(id => fetch(`${BASE}/api/cargo-rule/${id}`, {method: 'DELETE'})))
         .then(() => card.remove());
 }
 
@@ -184,10 +172,10 @@ document.getElementById('btnCancelAddAirline').onclick = () => {
 function confirmarAgregarAerolinea() {
     const nombre = newAirlineInput.value.trim();
     if (!nombre) return;
-    fetch(`${BASE}/api/fsc-rule`, {
+    fetch(`${BASE}/api/cargo-rule`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({aerolinea: nombre, nombre: 'Todos los destinos', destinos: [], fsc: '0.00'})
+        body: JSON.stringify({aerolinea: nombre, concepto: 'Nuevo cargo', monto: '0.00'})
     }).then(r => r.json()).then(data => {
         if (data.success) location.reload();
         else alert('Error: ' + (data.error || ''));
@@ -198,16 +186,16 @@ document.getElementById('btnConfirmAddAirline').onclick = confirmarAgregarAeroli
 newAirlineInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmarAgregarAerolinea(); });
 
 document.getElementById('btnActualizar').onclick = () => {
-    if (!confirm('Esto va a sobrescribir el FSC (y resetear Costo Operativo a 0.09) en TODAS las cotizaciones guardadas que calcen con estas reglas. ¿Continuar?')) return;
+    if (!confirm('Esto va a reemplazar los cargos adicionales en TODAS las cotizaciones de aerolineas que esten en esta tabla. ¿Continuar?')) return;
     const btn = document.getElementById('btnActualizar');
     btn.disabled = true;
     btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Actualizando...';
-    fetch(`${BASE}/api/fsc-aplicar`, {method: 'POST'})
+    fetch(`${BASE}/api/cargo-aplicar`, {method: 'POST'})
         .then(r => r.json())
         .then(data => {
             const div = document.getElementById('resultadoActualizar');
             if (data.success) {
-                div.innerHTML = `<div class="alert alert-success">Listo: ${data.cotizaciones_actualizadas} cotizaciones actualizadas (${data.entradas_actualizadas} tramos de kg recalculados).</div>`;
+                div.innerHTML = `<div class="alert alert-success">Listo: ${data.cotizaciones_actualizadas} cotizaciones actualizadas (${data.entradas_actualizadas} entradas de aerolinea recalculadas).</div>`;
             } else {
                 div.innerHTML = `<div class="alert alert-danger">Error: ${data.error || ''}</div>`;
             }

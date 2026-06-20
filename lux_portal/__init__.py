@@ -44,6 +44,7 @@ def create_app(config_name='default'):
         _seed_cotizaciones()
         _seed_excel_online()
         _seed_fsc_rules()
+        _seed_cargo_rules()
 
     return app
 
@@ -633,6 +634,57 @@ def _seed_fsc_rules():
             )
             regla.destinos_json = _json.dumps(seed['destinos'])
             db.session.add(regla)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+# ---------------------------------------------------------------------------
+# Cargos adicionales fijos por aerolinea, extraidos analizando los cargos
+# realmente usados en las 49 cotizaciones de produccion (conceptos y montos
+# dominantes). Aerolineas sin cargos detectados (Air Canada, Avianca) no
+# llevan fila aqui a proposito.
+# ---------------------------------------------------------------------------
+_CARGO_RULES_SEED = [
+    {'aerolinea': 'AERO MEXICO', 'items': [('CC (Carrier Charges)', '10'), ('Due Carrier', '25')]},
+    {'aerolinea': 'AIR CARIBE', 'items': [('Due Carrier', '45')]},
+    {'aerolinea': 'AIR EUROPA', 'items': [('CC (Carrier Charges)', '25'), ('CG HAWB C/U', '10'), ('Due Carrier', '25')]},
+    {'aerolinea': 'ATLAS', 'items': [('Due Carrier', '25')]},
+    {'aerolinea': 'AV/MSC', 'items': [('Due Carrier', '60'), ('Import Fee', '100')]},
+    {'aerolinea': 'CATHAY', 'items': [('Due Carrier', '25'), ('Fee', '2.00')]},
+    {'aerolinea': 'COPA AIRLINES', 'items': [('Due Carrier', '25'), ('CC (Carrier Charges)', '10'), ('CG HAWB C/U', '5'), ('CG', '5.00'), ('DD', '10.00')]},
+    {'aerolinea': 'DELTA', 'items': [('Due Carrier', '25')]},
+    {'aerolinea': 'DHL', 'items': [('Due Carrier', '43')]},
+    {'aerolinea': 'EMIRATES', 'items': [('Due Carrier', '25'), ('Booking', '25'), ('CC (Carrier Charges)', '10'), ('CG HAWB C/U', '0.25')]},
+    {'aerolinea': 'GAL', 'items': [('Due Carrier', '50'), ('Handling', '125')]},
+    {'aerolinea': 'IBERIA', 'items': [('Due Carrier', '25'), ('CC (Carrier Charges)', '12'), ('CG HAWB C/U', '2.45')]},
+    {'aerolinea': 'LAN', 'items': [('Due Carrier', '43')]},
+    {'aerolinea': 'LATAM', 'items': [('Due Carrier', '43')]},
+    {'aerolinea': 'LUFTHANSA', 'items': [('Due Carrier', '50'), ('CC (Carrier Charges)', '40')]},
+    {'aerolinea': 'MAS AIR', 'items': [('Due Carrier', '43')]},
+    {'aerolinea': 'QATAR', 'items': [('Due Carrier', '45'), ('CC (Carrier Charges)', '12'), ('CG HAWB C/U', '3')]},
+    {'aerolinea': 'SINGAPORE', 'items': [('Due Carrier', '25')]},
+    {'aerolinea': 'SOLENT', 'items': [('Due Carrier', '95'), ('CC (Carrier Charges)', '40'), ('Inspection', '40')]},
+    {'aerolinea': 'TURKISH', 'items': [('Due Carrier', '35')]},
+]
+
+
+def _seed_cargo_rules():
+    """Inserta los cargos adicionales iniciales si la tabla esta vacia."""
+    from lux_portal.cotizaciones.models import AirlineCargoRule
+
+    if AirlineCargoRule.query.first() is not None:
+        return
+
+    try:
+        for seed in _CARGO_RULES_SEED:
+            for order, (concepto, monto) in enumerate(seed['items'], start=1):
+                db.session.add(AirlineCargoRule(
+                    aerolinea=seed['aerolinea'],
+                    concepto=concepto,
+                    monto=monto,
+                    order=order,
+                ))
         db.session.commit()
     except Exception:
         db.session.rollback()
