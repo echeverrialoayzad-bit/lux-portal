@@ -348,7 +348,7 @@
             <input type="text" class="form-control form-control-sm kg-input" value="+100">
         </div>
         <div class="flex-grow-1">
-            <label class="form-label small mb-1">Tarifa Base</label>
+            <label class="form-label small mb-1">Tarifa Neta</label>
             <input type="text" class="form-control form-control-sm rate-input formula-input" value="0.00">
         </div>
         <div class="flex-grow-1">
@@ -357,7 +357,11 @@
         </div>
         <div class="flex-grow-1">
             <label class="form-label small mb-1">Costo Op.</label>
-            <input type="text" class="form-control form-control-sm costo-op-input formula-input" value="0.00">
+            <input type="text" class="form-control form-control-sm costo-op-input formula-input" value="0.09">
+        </div>
+        <div class="flex-grow-1">
+            <label class="form-label small mb-1">FSC</label>
+            <input type="text" class="form-control form-control-sm fsc-input formula-input" value="0.00">
         </div>
         <div class="flex-grow-1">
             <label class="form-label small mb-1">Precio Final</label>
@@ -908,13 +912,14 @@ function agregarKgRate(btn, datos = null) {
         // Si el margen guardado es 0 o no existe, usar el default por destino
         const margenGuardado = parseFloat(datos.margen) || 0;
         row.querySelector('.margin-input').value = margenGuardado > 0 ? datos.margen : gananciaDefault.toFixed(2);
-        row.querySelector('.costo-op-input').value = datos.costo_operativo || '0.00';
+        row.querySelector('.costo-op-input').value = datos.costo_operativo || '0.09';
+        row.querySelector('.fsc-input').value = datos.fsc || '0.00';
     } else {
         // Si no hay datos, usar ganancia por defecto segun destino
         row.querySelector('.margin-input').value = gananciaDefault.toFixed(2);
     }
 
-    const inputs = clone.querySelectorAll('.rate-input, .margin-input, .costo-op-input');
+    const inputs = clone.querySelectorAll('.rate-input, .margin-input, .costo-op-input, .fsc-input');
     inputs.forEach(input => {
         input.addEventListener('input', () => calcularPrecioFinal(row));
         attachFormulaHandlers(input);
@@ -954,6 +959,7 @@ function calcularPrecioFinal(row) {
     const rateEl = row.querySelector('.rate-input');
     const marginEl = row.querySelector('.margin-input');
     const costoOpEl = row.querySelector('.costo-op-input');
+    const fscEl = row.querySelector('.fsc-input');
 
     // Obtener valor numerico (evaluando formula si existe)
     function getNumericValue(el) {
@@ -966,7 +972,8 @@ function calcularPrecioFinal(row) {
     const rate = getNumericValue(rateEl);
     const margin = getNumericValue(marginEl);
     const costoOp = getNumericValue(costoOpEl);
-    const total = rate + margin + costoOp;
+    const fsc = getNumericValue(fscEl);
+    const total = rate + margin + costoOp + fsc;
     row.querySelector('.precio-final').textContent = `$ ${total.toFixed(2)}`;
 }
 
@@ -1063,15 +1070,18 @@ function recopilarDatos() {
                 const rateEl = row.querySelector('.rate-input');
                 const marginEl = row.querySelector('.margin-input');
                 const costoOpEl = row.querySelector('.costo-op-input');
+                const fscEl = row.querySelector('.fsc-input');
                 const rate = getVal(rateEl);
                 const margin = getVal(marginEl);
                 const costoOp = getVal(costoOpEl);
+                const fsc = getVal(fscEl);
                 kgRates.push({
                     kg: row.querySelector('.kg-input').value,
                     tarifa: rate.toFixed(2),
                     margen: margin.toFixed(2),
                     costo_operativo: costoOp.toFixed(2),
-                    tarifa_cliente: (rate + margin + costoOp).toFixed(2)
+                    fsc: fsc.toFixed(2),
+                    tarifa_cliente: (rate + margin + costoOp + fsc).toFixed(2)
                 });
             });
 
