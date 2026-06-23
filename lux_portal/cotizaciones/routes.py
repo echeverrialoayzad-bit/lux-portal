@@ -788,10 +788,15 @@ def _parse_transit_dias(tiempo_transito):
 
 
 def _last_line(text):
+    """Devuelve la hora guardada (ultima linea), o '' si esa ultima linea
+    en realidad es un dia (LUN/MAR/...) y no una hora real."""
     if not text:
         return ''
     partes = text.split('\n')
-    return partes[-1] if partes else ''
+    ultima = partes[-1] if partes else ''
+    if ultima.strip().upper() in _DIAS_MAPPING:
+        return ''
+    return ultima
 
 
 def _aplicar_dias_a_entry(entry, nuevos_dias):

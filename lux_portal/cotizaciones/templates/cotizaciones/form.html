@@ -692,7 +692,11 @@ function cargarAerolineasExistentes() {
             agrupadas[nombre] = {
                 aerolinea: nombre,
                 vuelo: aero.vuelo,
-                granjas_horario: aero.granjas_entrega ? aero.granjas_entrega.split('\n').pop() : '16:00-22:30',
+                granjas_horario: (() => {
+                    const DIAS_VALIDOS = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM'];
+                    const ultima = aero.granjas_entrega ? aero.granjas_entrega.split('\n').pop() : '';
+                    return ultima && !DIAS_VALIDOS.includes(ultima.trim().toUpperCase()) ? ultima : '16:00-22:30';
+                })(),
                 itinerarios: []
             };
         }
@@ -778,10 +782,15 @@ function cargarDatosItinerario(itinCard, datos) {
         itinCard.querySelector('.transit-select-intervalo').value = tt;
     }
 
+    const DIAS_VALIDOS = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM'];
+
     if (datos.salida) {
         const lineas = datos.salida.split('\n');
-        // Todas las lineas menos la ultima son dias, la ultima es el horario
-        const diasLineas = lineas.slice(0, -1);
+        // La ultima linea solo es horario si NO es un dia; si lo es, no hay
+        // horario guardado y todas las lineas son dias.
+        const ultima = (lineas[lineas.length - 1] || '').trim().toUpperCase();
+        const ultimaEsDia = DIAS_VALIDOS.includes(ultima);
+        const diasLineas = ultimaEsDia ? lineas : lineas.slice(0, -1);
         diasLineas.forEach(dia => {
             dia = dia.trim();
             if (dia) {
@@ -789,14 +798,16 @@ function cargarDatosItinerario(itinCard, datos) {
                 if (checkbox) checkbox.checked = true;
             }
         });
-        if (lineas.length > 1) {
+        if (!ultimaEsDia && lineas.length > 1) {
             itinCard.querySelector('.departure-time').value = lineas[lineas.length - 1];
         }
     }
 
     if (datos.llegada) {
         const lineas = datos.llegada.split('\n');
-        if (lineas.length > 1) {
+        const ultima = (lineas[lineas.length - 1] || '').trim().toUpperCase();
+        const ultimaEsDia = DIAS_VALIDOS.includes(ultima);
+        if (!ultimaEsDia && lineas.length > 1) {
             itinCard.querySelector('.arrival-time').value = lineas[lineas.length - 1];
         }
     }
@@ -1148,9 +1159,9 @@ function recopilarDatos() {
                 vuelo: vuelo,
                 itinerario: itinCard.querySelector('.itinerario-ruta').value.toUpperCase(),
                 tiempo_transito: transitTime,
-                granjas_entrega: diasFarms.join('\n') + '\n' + farmsHorario,
-                salida: diasSalida.join('\n') + '\n' + itinCard.querySelector('.departure-time').value,
-                llegada: diasLlegada.join('\n') + '\n' + itinCard.querySelector('.arrival-time').value,
+                granjas_entrega: diasFarms.join('\n') + (farmsHorario ? '\n' + farmsHorario : ''),
+                salida: diasSalida.join('\n') + (itinCard.querySelector('.departure-time').value ? '\n' + itinCard.querySelector('.departure-time').value : ''),
+                llegada: diasLlegada.join('\n') + (itinCard.querySelector('.arrival-time').value ? '\n' + itinCard.querySelector('.arrival-time').value : ''),
                 kg_rates: kgRates,
                 rate_increases: rateIncreases,
                 cargos_adicionales: cargos,
