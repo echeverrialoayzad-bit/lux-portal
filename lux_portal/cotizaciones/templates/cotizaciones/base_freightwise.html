@@ -11,13 +11,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         /* ================================================
-           FREIGHTWISE BRAND — DARK PURPLE THEME
+           FREIGHTWISE BRAND — LIGHT THEME
            Paleta oficial Manual de Identidad Visual 2025
            ================================================ */
         :root {
-            --fw-purple:       #5F4DCE;
-            --fw-purple-light: #7B6ED6;
-            --fw-purple-deep:  #3D2BAA;
+            --fw-purple:       #4535A8;
+            --fw-purple-light: #6B5BC8;
+            --fw-purple-deep:  #2E2678;
             --fw-coral:        #ff5649;
             --fw-coral-light:  #ff7c75;
             --fw-verde:        #35ab53;
@@ -25,31 +25,31 @@
             --fw-aire:         #ede9e5;
             --fw-mar:          #bce6e8;
 
-            /* Dark surfaces */
-            --bg-base:     #0D0825;
-            --bg-surface:  #160E38;
-            --bg-elevated: #1E1450;
-            --bg-card:     rgba(255,255,255,0.05);
-            --bg-card-hover: rgba(255,255,255,0.08);
+            /* Light surfaces */
+            --bg-base:     #F4F3FA;
+            --bg-surface:  #FFFFFF;
+            --bg-elevated: #FFFFFF;
+            --bg-card:     #FFFFFF;
+            --bg-card-hover: #FAFAFE;
 
-            /* Text on dark */
-            --text-primary:   #FFFFFF;
-            --text-secondary: rgba(255,255,255,0.65);
-            --text-muted:     rgba(255,255,255,0.35);
+            /* Text on light */
+            --text-primary:   #1B1638;
+            --text-secondary: rgba(27,22,56,0.62);
+            --text-muted:     rgba(27,22,56,0.40);
 
             /* Borders */
-            --border:       rgba(255,255,255,0.10);
-            --border-accent: rgba(95,77,206,0.55);
+            --border:       rgba(69,53,168,0.14);
+            --border-accent: rgba(69,53,168,0.45);
 
             /* Gradients */
-            --grad-purple:  linear-gradient(135deg, #5F4DCE 0%, #3D2BAA 100%);
-            --grad-brand:   linear-gradient(135deg, #5F4DCE 0%, #35ab53 100%);
+            --grad-purple:  linear-gradient(135deg, #4535A8 0%, #2E2678 100%);
+            --grad-brand:   linear-gradient(135deg, #4535A8 0%, #35ab53 100%);
             --grad-coral:   linear-gradient(135deg, #ff5649 0%, #ff7c75 100%);
 
             /* Shadows / Glow */
-            --shadow-card:  0 8px 32px rgba(0,0,0,0.45);
-            --glow-purple:  0 0 28px rgba(95,77,206,0.45);
-            --glow-coral:   0 0 20px rgba(255,86,73,0.4);
+            --shadow-card:  0 4px 22px rgba(69,53,168,0.10);
+            --glow-purple:  0 0 0 4px rgba(69,53,168,0.14);
+            --glow-coral:   0 0 20px rgba(255,86,73,0.25);
 
             --t: 250ms cubic-bezier(0.4,0,0.2,1);
         }
@@ -67,22 +67,22 @@
             overflow-x: hidden;
         }
 
-        /* Rich purple noise background */
+        /* Soft purple wash background */
         body::before {
             content: '';
             position: fixed;
             inset: 0;
             background:
-                radial-gradient(ellipse 80% 60% at 20% 10%, rgba(95,77,206,0.30) 0%, transparent 60%),
-                radial-gradient(ellipse 60% 50% at 85% 80%, rgba(53,171,83,0.15) 0%, transparent 55%),
-                radial-gradient(ellipse 50% 40% at 50% 50%, rgba(61,43,170,0.20) 0%, transparent 60%);
+                radial-gradient(ellipse 80% 60% at 20% 10%, rgba(69,53,168,0.07) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 50% at 85% 80%, rgba(53,171,83,0.06) 0%, transparent 55%),
+                radial-gradient(ellipse 50% 40% at 50% 50%, rgba(69,53,168,0.05) 0%, transparent 60%);
             z-index: -1;
             pointer-events: none;
         }
 
         /* ================================================ NAVBAR ================================================ */
         .navbar {
-            background: rgba(13,8,37,0.85);
+            background: rgba(255,255,255,0.88);
             backdrop-filter: blur(24px);
             -webkit-backdrop-filter: blur(24px);
             border-bottom: 1px solid var(--border);
@@ -93,7 +93,7 @@
         .navbar-brand {
             font-weight: 800;
             font-size: 1.3rem;
-            color: #fff !important;
+            color: var(--fw-purple) !important;
             display: flex;
             align-items: center;
             gap: 10px;
@@ -120,13 +120,13 @@
         }
 
         .nav-link:hover {
-            color: #fff !important;
-            background: rgba(255,255,255,0.08);
+            color: var(--fw-purple) !important;
+            background: rgba(69,53,168,0.08);
         }
 
         .nav-link.active {
             color: #fff !important;
-            background: rgba(95,77,206,0.25);
+            background: var(--fw-purple);
         }
 
         .navbar-toggler {
@@ -135,14 +135,14 @@
         }
 
         .navbar-toggler-icon {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%231B1638' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
         }
 
         /* Back to Portal Button */
         .btn-back-portal {
-            background: rgba(255,255,255,0.08);
+            background: rgba(69,53,168,0.06);
             border: 1px solid var(--border);
-            color: #fff;
+            color: var(--text-primary);
             padding: 8px 18px;
             border-radius: 10px;
             font-size: 0.875rem;
@@ -155,8 +155,8 @@
         }
 
         .btn-back-portal:hover {
-            background: rgba(255,255,255,0.14);
-            color: #fff;
+            background: rgba(69,53,168,0.12);
+            color: var(--text-primary);
         }
 
         /* ================================================ LAYOUT ================================================ */
@@ -169,7 +169,7 @@
         h2 {
             font-size: 1.7rem;
             font-weight: 800;
-            color: #fff;
+            color: var(--text-primary);
         }
 
         h2 .text-primary,
@@ -206,15 +206,15 @@
         }
 
         .btn-outline-primary {
-            border: 1px solid var(--fw-purple-light);
-            color: var(--fw-purple-light);
+            border: 1px solid var(--fw-purple);
+            color: var(--fw-purple);
             background: transparent;
         }
 
         .btn-outline-primary:hover {
-            background: rgba(95,77,206,0.18);
+            background: var(--fw-purple);
             color: #fff;
-            border-color: var(--fw-purple-light);
+            border-color: var(--fw-purple);
         }
 
         .btn-success {
@@ -265,25 +265,25 @@
         }
 
         .btn-secondary {
-            background: rgba(255,255,255,0.08);
+            background: rgba(69,53,168,0.06);
             border: 1px solid var(--border);
             color: var(--text-secondary);
         }
 
         .btn-secondary:hover {
-            background: rgba(255,255,255,0.14);
-            color: #fff;
+            background: rgba(69,53,168,0.12);
+            color: var(--text-primary);
         }
 
         .btn-light {
-            background: rgba(255,255,255,0.10);
+            background: rgba(69,53,168,0.06);
             border: 1px solid var(--border);
-            color: #fff;
+            color: var(--text-primary);
         }
 
         .btn-light:hover {
-            background: rgba(255,255,255,0.18);
-            color: #fff;
+            background: rgba(69,53,168,0.12);
+            color: var(--text-primary);
         }
 
         .btn-outline-secondary {
@@ -293,8 +293,8 @@
         }
 
         .btn-outline-secondary:hover {
-            background: rgba(255,255,255,0.08);
-            color: #fff;
+            background: rgba(69,53,168,0.08);
+            color: var(--text-primary);
         }
 
         .btn-outline-light {
@@ -350,8 +350,8 @@
         }
 
         .table thead th {
-            background: rgba(95,77,206,0.25);
-            color: rgba(255,255,255,0.80);
+            background: rgba(69,53,168,0.08);
+            color: var(--fw-purple-deep);
             font-weight: 600;
             font-size: 0.78rem;
             text-transform: uppercase;
@@ -366,7 +366,7 @@
         }
 
         .table tbody tr:hover {
-            background: rgba(95,77,206,0.10);
+            background: rgba(69,53,168,0.05);
         }
 
         .table tbody td {
@@ -388,11 +388,11 @@
 
         /* ================================================ FORMS ================================================ */
         .form-control, .form-select {
-            background: rgba(255,255,255,0.07);
+            background: #fff;
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 12px 16px;
-            color: #fff;
+            color: var(--text-primary);
             font-size: 0.9rem;
             transition: all var(--t);
         }
@@ -400,19 +400,19 @@
         .form-control::placeholder { color: var(--text-muted); }
 
         .form-control:focus, .form-select:focus {
-            background: rgba(255,255,255,0.10);
-            border-color: var(--fw-purple-light);
-            box-shadow: 0 0 0 3px rgba(95,77,206,0.25);
-            color: #fff;
+            background: #fff;
+            border-color: var(--fw-purple);
+            box-shadow: 0 0 0 3px rgba(69,53,168,0.18);
+            color: var(--text-primary);
         }
 
         .form-select option {
-            background: var(--bg-elevated);
-            color: #fff;
+            background: #fff;
+            color: var(--text-primary);
         }
 
         .form-label {
-            color: rgba(255,255,255,0.75);
+            color: rgba(27,22,56,0.70);
             font-weight: 600;
             font-size: 0.82rem;
             margin-bottom: 8px;
@@ -421,8 +421,8 @@
         }
 
         .form-check-input {
-            background-color: rgba(255,255,255,0.10);
-            border: 1px solid var(--border);
+            background-color: #fff;
+            border: 1px solid rgba(69,53,168,0.35);
         }
 
         .form-check-input:checked {
@@ -431,7 +431,7 @@
         }
 
         .form-check-input:focus {
-            box-shadow: 0 0 0 3px rgba(95,77,206,0.25);
+            box-shadow: 0 0 0 3px rgba(69,53,168,0.18);
         }
 
         .form-check-label {
@@ -441,7 +441,7 @@
 
         /* ================================================ AEROLINEA CARD ================================================ */
         .aerolinea-card {
-            background: rgba(255,255,255,0.04);
+            background: #fff;
             border: 1px solid var(--border);
             border-radius: 18px;
             margin-bottom: 20px;
@@ -461,11 +461,11 @@
         }
 
         .aerolinea-card .card-header:hover {
-            background: linear-gradient(135deg, #6b59d6 0%, #4535A8 100%);
+            background: linear-gradient(135deg, #5747bd 0%, #4535A8 100%);
         }
 
         .aerolinea-card .card-body {
-            background: rgba(255,255,255,0.025);
+            background: #fff;
         }
 
         .aerolinea-nombre { font-weight: 700; font-size: 1rem; }
@@ -474,7 +474,7 @@
 
         /* ================================================ ITINERARIO CARD ================================================ */
         .itinerario-card {
-            background: rgba(255,255,255,0.03);
+            background: rgba(69,53,168,0.02);
             border: 1px solid var(--border);
             border-radius: 14px;
             margin-bottom: 14px;
@@ -482,19 +482,20 @@
         }
 
         .itinerario-card .card-header {
-            background: rgba(95,77,206,0.30);
+            background: rgba(69,53,168,0.10);
+            color: var(--text-primary);
             padding: 12px 18px;
             font-size: 0.9rem;
         }
 
         .itinerario-card .card-body {
             padding: 20px;
-            background: rgba(188,230,232,0.05);
+            background: rgba(188,230,232,0.10);
         }
 
         /* ================================================ KG RATE ROW ================================================ */
         .kg-rate-row {
-            background: rgba(255,255,255,0.04);
+            background: rgba(69,53,168,0.03);
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 14px;
@@ -528,7 +529,7 @@
 
         /* ================================================ CARGO ROW ================================================ */
         .cargo-row {
-            background: rgba(255,255,255,0.04);
+            background: rgba(69,53,168,0.03);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 12px 16px;
@@ -556,20 +557,20 @@
         }
 
         .badge.bg-secondary {
-            background: rgba(95,77,206,0.25) !important;
-            color: rgba(255,255,255,0.80);
+            background: rgba(69,53,168,0.10) !important;
+            color: var(--fw-purple-deep);
             border: 1px solid var(--border-accent);
         }
 
         .badge.bg-light {
-            background: rgba(255,255,255,0.12) !important;
-            color: #fff;
+            background: rgba(69,53,168,0.06) !important;
+            color: var(--text-primary);
             border: 1px solid var(--border);
         }
 
         .rutas-badge {
-            background: rgba(255,255,255,0.15) !important;
-            color: #fff;
+            background: rgba(69,53,168,0.08) !important;
+            color: var(--text-primary);
         }
 
         /* ================================================ ALERTS ================================================ */
@@ -582,14 +583,14 @@
         }
 
         .alert-success {
-            background: rgba(53,171,83,0.15);
-            color: #5dd87a;
+            background: rgba(53,171,83,0.12);
+            color: #1f7a3a;
             border: 1px solid rgba(53,171,83,0.30);
         }
 
         .alert-danger {
-            background: rgba(255,86,73,0.12);
-            color: var(--fw-coral-light);
+            background: rgba(255,86,73,0.10);
+            color: #c23a2e;
             border: 1px solid rgba(255,86,73,0.25);
         }
 
@@ -602,14 +603,14 @@
         .empty-state i {
             font-size: 4rem;
             margin-bottom: 20px;
-            color: rgba(95,77,206,0.45);
+            color: rgba(69,53,168,0.35);
             display: block;
         }
 
         .empty-state h5 {
             font-size: 1.4rem;
             font-weight: 700;
-            color: #fff;
+            color: var(--text-primary);
             margin-bottom: 10px;
         }
 
@@ -639,7 +640,7 @@
         }
 
         .departure-days .form-check {
-            background: rgba(255,255,255,0.05);
+            background: rgba(69,53,168,0.03);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 8px 14px 8px 36px;
@@ -662,10 +663,10 @@
         /* ================================================ SCROLLBAR ================================================ */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-base); }
-        ::-webkit-scrollbar-thumb { background: rgba(95,77,206,0.45); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(95,77,206,0.70); }
+        ::-webkit-scrollbar-thumb { background: rgba(69,53,168,0.35); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(69,53,168,0.55); }
 
-        ::selection { background: rgba(95,77,206,0.35); color: #fff; }
+        ::selection { background: rgba(69,53,168,0.22); color: var(--text-primary); }
 
         /* Formula input */
         .formula-input[data-formula] {
