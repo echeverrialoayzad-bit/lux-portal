@@ -723,14 +723,14 @@ def _grupos_por_aerolinea(filas):
     return grupos
 
 
-def _escribir_hoja_desglose(ws, subtitulo, filas, idioma='es'):
+def _escribir_hoja_desglose(ws, subtitulo, filas, idioma='es', con_fechas=False):
     """Escribe la tabla de desglose de tarifa (header FREIGHTWISE + subtitulo +
     columnas + filas, con la columna AEROLINEA combinada por grupos) dentro de
     una hoja `ws` ya creada. Reusado tanto para un Excel de una sola hoja
     (descargar_desglose) como para un reporte de varias hojas, una por
     destino (exportar_netas)."""
     textos = _DESGLOSE_TEXTOS.get(idioma, _DESGLOSE_TEXTOS['es'])
-    columnas = textos['columnas']
+    columnas = textos['columnas'] if con_fechas else textos['columnas'][:-1]
 
     PURPLE = '4535A8'
     PURPLE_LIGHT = 'E4DFF7'
@@ -777,7 +777,9 @@ def _escribir_hoja_desglose(ws, subtitulo, filas, idioma='es'):
     for idx, f in enumerate(filas):
         fila = fila_inicial + idx
         fill = light_fill if idx % 2 == 0 else no_fill
-        valores = [None, f['kg'], f['tarifa_neta'], f['fsc'], f['operativo'], f['profit'], f['tarifa_venta'], f.get('fecha_actualizacion', '')]
+        valores = [None, f['kg'], f['tarifa_neta'], f['fsc'], f['operativo'], f['profit'], f['tarifa_venta']]
+        if con_fechas:
+            valores.append(f.get('fecha_actualizacion', ''))
         for col_i, valor in enumerate(valores, start=1):
             if col_i == 1:
                 continue
@@ -817,7 +819,7 @@ def _escribir_hoja_desglose(ws, subtitulo, filas, idioma='es'):
                 left=thin, right=thin,
             )
 
-    anchos = [22, 10, 14, 12, 14, 12, 16, 14]
+    anchos = [22, 10, 14, 12, 14, 12, 16] + ([14] if con_fechas else [])
     for i, ancho in enumerate(anchos, start=1):
         ws.column_dimensions[get_column_letter(i)].width = ancho
 
@@ -840,7 +842,7 @@ def generar_desglose_tarifa_bytes(ruta, filas, idioma='es'):
     return output
 
 
-def generar_reporte_netas_bytes(destinos_filas, idioma='es', errores=None):
+def generar_reporte_netas_bytes(destinos_filas, idioma='es', errores=None, con_fechas=False):
     """Genera un Excel con UNA HOJA POR DESTINO (como el archivo de
     referencia de tarifas netas), sacando los datos de las cotizaciones
     guardadas en vez de un Excel mantenido aparte. `destinos_filas` es una
@@ -861,7 +863,7 @@ def generar_reporte_netas_bytes(destinos_filas, idioma='es', errores=None):
         nombres_usados.add(nombre_hoja)
 
         ws = wb.create_sheet(nombre_hoja)
-        _escribir_hoja_desglose(ws, f"UIO-{destino}", filas, idioma)
+        _escribir_hoja_desglose(ws, f"UIO-{destino}", filas, idioma, con_fechas=con_fechas)
 
     if errores:
         ws = wb.create_sheet('Avisos')

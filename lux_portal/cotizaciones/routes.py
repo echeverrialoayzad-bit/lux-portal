@@ -408,7 +408,8 @@ def exportar_netas():
             destinos_filas.append((destino, _filas_desglose_de(cot)))
 
         idioma = request.args.get('idioma', 'es')
-        excel_bytes = generar_reporte_netas_bytes(destinos_filas, idioma=idioma, errores=errores_generales)
+        con_fechas = request.args.get('con_fechas', '0') == '1'
+        excel_bytes = generar_reporte_netas_bytes(destinos_filas, idioma=idioma, errores=errores_generales, con_fechas=con_fechas)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         sufijo_idioma = '_EN' if idioma == 'en' else ''
