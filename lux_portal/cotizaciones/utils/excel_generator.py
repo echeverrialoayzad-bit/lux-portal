@@ -700,11 +700,11 @@ def guardar_cotizacion_bytes(datos, idioma='ambos'):
 _DESGLOSE_TEXTOS = {
     'es': {
         'titulo': 'DESGLOSE DE TARIFA',
-        'columnas': ['AEROLINEA', 'KG', 'TARIFA NETA', 'FSC', 'OPERATIVO', 'PROFIT', 'TARIFA VENTA'],
+        'columnas': ['AEROLINEA', 'KG', 'TARIFA NETA', 'FSC', 'OPERATIVO', 'PROFIT', 'TARIFA VENTA', 'FECHA ACT.'],
     },
     'en': {
         'titulo': 'RATE BREAKDOWN',
-        'columnas': ['AIRLINE', 'KG', 'NET RATE', 'FSC', 'OPERATING COST', 'PROFIT', 'SALE RATE'],
+        'columnas': ['AIRLINE', 'KG', 'NET RATE', 'FSC', 'OPERATING COST', 'PROFIT', 'SALE RATE', 'UPDATED'],
     },
 }
 
@@ -777,7 +777,7 @@ def _escribir_hoja_desglose(ws, subtitulo, filas, idioma='es'):
     for idx, f in enumerate(filas):
         fila = fila_inicial + idx
         fill = light_fill if idx % 2 == 0 else no_fill
-        valores = [None, f['kg'], f['tarifa_neta'], f['fsc'], f['operativo'], f['profit'], f['tarifa_venta']]
+        valores = [None, f['kg'], f['tarifa_neta'], f['fsc'], f['operativo'], f['profit'], f['tarifa_venta'], f.get('fecha_actualizacion', '')]
         for col_i, valor in enumerate(valores, start=1):
             if col_i == 1:
                 continue
@@ -817,7 +817,7 @@ def _escribir_hoja_desglose(ws, subtitulo, filas, idioma='es'):
                 left=thin, right=thin,
             )
 
-    anchos = [22, 10, 14, 12, 14, 12, 16]
+    anchos = [22, 10, 14, 12, 14, 12, 16, 14]
     for i, ancho in enumerate(anchos, start=1):
         ws.column_dimensions[get_column_letter(i)].width = ancho
 
@@ -897,7 +897,7 @@ def generar_desglose_tarifa_png_bytes(ruta, filas, idioma='es'):
     BORDER = (183, 174, 222)
     THICK = (0, 0, 0)
 
-    col_widths = [240, 90, 140, 120, 140, 120, 160]
+    col_widths = [240, 90, 140, 120, 140, 120, 160, 130]
     total_width = sum(col_widths)
 
     title_h = 54
@@ -961,6 +961,7 @@ def generar_desglose_tarifa_png_bytes(ruta, filas, idioma='es'):
             (f"${f['tarifa_neta']:,.2f}", 'right'), (f"${f['fsc']:,.2f}", 'right'),
             (f"${f['operativo']:,.2f}", 'right'), (f"${f['profit']:,.2f}", 'right'),
             (f"${f['tarifa_venta']:,.2f}", 'right'),
+            (f.get('fecha_actualizacion', ''), 'center'),
         ]
         x = col_widths[0]
         for w, (texto, align) in zip(col_widths[1:], valores):

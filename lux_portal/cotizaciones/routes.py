@@ -8,6 +8,7 @@ from flask import render_template, request, jsonify, send_file, redirect, url_fo
 from datetime import datetime
 from collections import defaultdict
 import re
+import json
 from lux_portal.cotizaciones import cotizaciones_bp
 from lux_portal.cotizaciones.models import (
     Cotizacion, AirlineFscRule, AirlineFscGroup, AirlineCargoRule, AirlineCargoGroup,
@@ -87,6 +88,25 @@ def editar_cotizacion(id):
     return render_template('cotizaciones/form.html', cotizacion=cotizacion, aerolineas=cotizacion.aerolineas, now=datetime.now())
 
 
+def _snapshot_tarifas(aerolineas):
+    """Devuelve un dict {nombre_aerolinea: (hash_kg_rates, fecha_actualizacion)}
+    para detectar qué aerolíneas cambiaron sus tarifas al guardar."""
+    snap = {}
+    for entry in (aerolineas or []):
+        nombre = entry.get('aerolinea', '')
+        if not nombre:
+            continue
+        campos_tarifa = [
+            {k: kr.get(k) for k in ('kg', 'tarifa', 'fsc', 'margen', 'costo_operativo', 'tarifa_cliente')}
+            for kr in (entry.get('kg_rates') or [])
+        ]
+        snap[nombre] = (
+            json.dumps(campos_tarifa, sort_keys=True),
+            entry.get('fecha_actualizacion', ''),
+        )
+    return snap
+
+
 @cotizaciones_bp.route('/api/cotizacion', methods=['POST'])
 @login_required
 def guardar_cotizacion():
@@ -102,6 +122,25 @@ def guardar_cotizacion():
             cotizacion = Cotizacion()
             db.session.add(cotizacion)
 
+        # Capturar snapshot de tarifas anteriores ANTES de sobreescribir
+        snap_anterior = _snapshot_tarifas(cotizacion.aerolineas if cotizacion_id else [])
+
+        # Marcar fecha_actualizacion solo en aerolíneas cuyas tarifas cambiaron
+        hoy = datetime.now().strftime('%Y-%m-%d')
+        aerolineas_nuevas = data.get('aerolineas', [])
+        for entry in aerolineas_nuevas:
+            nombre = entry.get('aerolinea', '')
+            campos_tarifa = [
+                {k: kr.get(k) for k in ('kg', 'tarifa', 'fsc', 'margen', 'costo_operativo', 'tarifa_cliente')}
+                for kr in (entry.get('kg_rates') or [])
+            ]
+            hash_nuevo = json.dumps(campos_tarifa, sort_keys=True)
+            hash_anterior, fecha_anterior = snap_anterior.get(nombre, ('', ''))
+            if hash_nuevo != hash_anterior:
+                entry['fecha_actualizacion'] = hoy
+            else:
+                entry['fecha_actualizacion'] = fecha_anterior
+
         # Actualizar campos
         cotizacion.contacto_nombre = data.get('contacto_nombre', 'Daniela Echeverria')
         cotizacion.contacto_email = data.get('contacto_email', 'daniela.echeverria@freight-wise.com')
@@ -111,7 +150,7 @@ def guardar_cotizacion():
         cotizacion.attn = data.get('attn', '')
         cotizacion.origen = data.get('origen', '').upper()
         cotizacion.destino = data.get('destino', '').upper()
-        cotizacion.aerolineas = data.get('aerolineas', [])
+        cotizacion.aerolineas = aerolineas_nuevas
         cotizacion.cargos_freightwise = data.get('cargos_freightwise')
         cotizacion.notas_freightwise = data.get('notas_freightwise', '')
 
@@ -281,6 +320,7 @@ def _filas_desglose_de(cotizacion):
                 'operativo': operativo_val,
                 'profit': _num(kr.get('margen')),
                 'tarifa_venta': _num(kr.get('tarifa_cliente')),
+                'fecha_actualizacion': entry.get('fecha_actualizacion', ''),
             })
     return filas
 
