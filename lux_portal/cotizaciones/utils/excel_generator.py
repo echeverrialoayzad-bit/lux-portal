@@ -777,7 +777,8 @@ def _escribir_hoja_desglose(ws, subtitulo, filas, idioma='es', con_fechas=False)
     for idx, f in enumerate(filas):
         fila = fila_inicial + idx
         fill = light_fill if idx % 2 == 0 else no_fill
-        valores = [None, f['kg'], f['tarifa_neta'], f['fsc'], f['operativo'], f['profit'], f['tarifa_venta']]
+        formula_venta = f'=C{fila}+D{fila}+E{fila}+F{fila}'
+        valores = [None, f['kg'], f['tarifa_neta'], f['fsc'], f['operativo'], f['profit'], formula_venta]
         if con_fechas:
             valores.append(f.get('fecha_actualizacion', ''))
         for col_i, valor in enumerate(valores, start=1):
