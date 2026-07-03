@@ -225,6 +225,15 @@ def _validar_cotizacion(cotizacion):
     return errores
 
 
+@cotizaciones_bp.route('/api/validar/<int:id>')
+@login_required
+def validar_cotizacion_api(id):
+    """Devuelve los errores de validacion de una cotizacion en JSON."""
+    cotizacion = Cotizacion.query.get_or_404(id)
+    errores = _validar_cotizacion(cotizacion)
+    return jsonify({'valido': len(errores) == 0, 'errores': errores})
+
+
 @cotizaciones_bp.route('/descargar/<int:id>')
 @login_required
 def descargar_cotizacion(id):
@@ -233,9 +242,10 @@ def descargar_cotizacion(id):
         cotizacion = Cotizacion.query.get_or_404(id)
         formato = request.args.get('formato', 'excel')
         idioma = request.args.get('idioma', 'ambos')
+        forzar = request.args.get('forzar', '0') == '1'
 
         errores = _validar_cotizacion(cotizacion)
-        if errores:
+        if errores and not forzar:
             flash('No se puede imprimir: ' + ' | '.join(errores) + '. Corrige la cotizacion e intenta de nuevo.', 'error')
             return redirect(url_for('cotizaciones.editar_cotizacion', id=id))
 
@@ -333,9 +343,10 @@ def descargar_desglose(id):
     FreightWise (header morado, filas alternadas)."""
     try:
         cotizacion = Cotizacion.query.get_or_404(id)
+        forzar = request.args.get('forzar', '0') == '1'
 
         errores = _validar_cotizacion(cotizacion)
-        if errores:
+        if errores and not forzar:
             flash('No se puede imprimir: ' + ' | '.join(errores) + '. Corrige la cotizacion e intenta de nuevo.', 'error')
             return redirect(url_for('cotizaciones.editar_cotizacion', id=id))
 
