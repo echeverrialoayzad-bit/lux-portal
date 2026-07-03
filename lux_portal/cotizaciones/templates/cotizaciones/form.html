@@ -406,6 +406,33 @@
     </div>
 </template>
 
+<!-- Modal advertencia validacion (form) -->
+<div class="modal fade" id="modalValidacionForm" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-warning" style="background:#fffbeb;">
+                <h5 class="modal-title text-warning">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Advertencia de validacion
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Esta cotizacion tiene los siguientes problemas:</p>
+                <ul id="listaErroresFormValidacion" class="mb-0 text-danger" style="font-size:0.9em;"></ul>
+                <p class="mt-3 mb-0 text-muted" style="font-size:0.85em;">
+                    Puedes imprimir igual o cancelar para corregir primero.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="btnForzarDescargaForm">
+                    <i class="bi bi-printer me-1"></i>Imprimir de todas formas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de seleccion de idioma para exportar -->
 <div class="modal fade" id="idiomaModal" tabindex="-1" aria-labelledby="idiomaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -520,6 +547,25 @@ function attachFormulaHandlers(input) {
 // ============ MODAL DE IDIOMA ============
 let formatoPendiente = null;
 let idPendiente = null;
+let _idiomaExportPendiente = null;
+
+function _urlsExport(forzar) {
+    const f = forzar ? '&forzar=1' : '';
+    const base = `/cotizaciones/descargar/${idPendiente}`;
+    if (formatoPendiente === 'excel') return [`${base}?formato=excel&idioma=${_idiomaExportPendiente}${f}`];
+    if (formatoPendiente === 'pdf')   return [`${base}?formato=pdf&idioma=${_idiomaExportPendiente}${f}`];
+    if (formatoPendiente === 'ambos') return [
+        `${base}?formato=excel&idioma=${_idiomaExportPendiente}${f}`,
+        `${base}?formato=pdf&idioma=${_idiomaExportPendiente}${f}`,
+    ];
+    return [];
+}
+
+function _dispararDescarga(forzar) {
+    const urls = _urlsExport(forzar);
+    if (urls[0]) window.location.href = urls[0];
+    if (urls[1]) setTimeout(() => { window.location.href = urls[1]; }, 1000);
+}
 
 function mostrarModalIdioma(formato, id) {
     formatoPendiente = formato;
@@ -534,24 +580,34 @@ function mostrarModalIdioma(formato, id) {
     modal.show();
 }
 
-function ejecutarExportacion(idioma) {
-    // Cerrar modal
+async function ejecutarExportacion(idioma) {
     const modal = bootstrap.Modal.getInstance(document.getElementById('idiomaModal'));
     if (modal) modal.hide();
-
     if (!idPendiente) return;
 
-    if (formatoPendiente === 'excel') {
-        window.location.href = `/cotizaciones/descargar/${idPendiente}?formato=excel&idioma=${idioma}`;
-    } else if (formatoPendiente === 'pdf') {
-        window.location.href = `/cotizaciones/descargar/${idPendiente}?formato=pdf&idioma=${idioma}`;
-    } else if (formatoPendiente === 'ambos') {
-        window.location.href = `/cotizaciones/descargar/${idPendiente}?formato=excel&idioma=${idioma}`;
-        setTimeout(() => {
-            window.location.href = `/cotizaciones/descargar/${idPendiente}?formato=pdf&idioma=${idioma}`;
-        }, 1000);
+    _idiomaExportPendiente = idioma;
+
+    try {
+        const resp = await fetch(`/cotizaciones/api/validar/${idPendiente}`);
+        const data = await resp.json();
+        if (data.valido) {
+            _dispararDescarga(false);
+        } else {
+            document.getElementById('listaErroresFormValidacion').innerHTML =
+                data.errores.map(e => `<li>${e}</li>`).join('');
+            new bootstrap.Modal(document.getElementById('modalValidacionForm')).show();
+        }
+    } catch(e) {
+        _dispararDescarga(false);
     }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btnForzarDescargaForm')?.addEventListener('click', () => {
+        bootstrap.Modal.getInstance(document.getElementById('modalValidacionForm'))?.hide();
+        _dispararDescarga(true);
+    });
+});
 
 // ============ DATOS GLOBALES ============
 let aerolineasLista = [];
