@@ -265,16 +265,14 @@ def descargar_cotizacion(id):
             'notas_freightwise': cotizacion.notas_freightwise or ''
         }
 
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
-        # Sufijo de idioma para el nombre del archivo
-        idioma_sufijo = {'es': '_ES', 'en': '_EN', 'ambos': ''}
-        sufijo = idioma_sufijo.get(idioma, '')
+        # Nombre de archivo: {Cliente}_{ruta}_FW  o  {ruta}_FW si no hay cliente
+        cliente_raw = (cotizacion.customer or '').strip()
+        cliente_slug = re.sub(r'[^\w\-]', '_', cliente_raw).strip('_') if cliente_raw else ''
+        prefijo = f"{cliente_slug}_{cotizacion.ruta}" if cliente_slug else cotizacion.ruta
 
         if formato == 'pdf':
-            # Generar PDF
             pdf_bytes = guardar_cotizacion_pdf_bytes(datos, idioma=idioma)
-            nombre_archivo = f"FreightWise_Cotizacion_{cotizacion.ruta}{sufijo}_{timestamp}.pdf"
+            nombre_archivo = f"{prefijo}_FW.pdf"
 
             return send_file(
                 pdf_bytes,
@@ -283,9 +281,8 @@ def descargar_cotizacion(id):
                 mimetype='application/pdf'
             )
         else:
-            # Generar Excel (por defecto)
             excel_bytes = guardar_cotizacion_bytes(datos, idioma=idioma)
-            nombre_archivo = f"FreightWise_Cotizacion_{cotizacion.ruta}{sufijo}_{timestamp}.xlsx"
+            nombre_archivo = f"{prefijo}_FW.xlsx"
 
             return send_file(
                 excel_bytes,
