@@ -57,7 +57,7 @@ def dashboard():
         cotizaciones = [c for c in query.all() if continente_de(c.destino) == continente]
     else:
         continente = ''
-        cotizaciones = query.limit(50).all()
+        cotizaciones = query.all()
 
     destinos_disponibles = sorted({
         (d or '').strip().upper()
