@@ -280,7 +280,8 @@ def descargar_cotizacion(id):
             nombre_archivo = f"{prefijo}_FW.xlsx"
             mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
-        # Limpiar nombre del cliente inmediatamente tras imprimir
+        # Actualizar fecha y limpiar cliente tras imprimir
+        cotizacion.valid_from = datetime.now().strftime('%m/%d/%Y')
         cotizacion.customer = ''
         cotizacion.attn = ''
         db.session.commit()
