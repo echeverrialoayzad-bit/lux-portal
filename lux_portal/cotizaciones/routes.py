@@ -270,26 +270,27 @@ def descargar_cotizacion(id):
         cliente_slug = re.sub(r'[^\w\-]', '_', cliente_raw).strip('_') if cliente_raw else ''
         prefijo = f"{cliente_slug}_{cotizacion.ruta}" if cliente_slug else cotizacion.ruta
 
+        # Generar archivo antes de limpiar el cliente
         if formato == 'pdf':
-            pdf_bytes = guardar_cotizacion_pdf_bytes(datos, idioma=idioma)
+            archivo_bytes = guardar_cotizacion_pdf_bytes(datos, idioma=idioma)
             nombre_archivo = f"{prefijo}_FW.pdf"
-
-            return send_file(
-                pdf_bytes,
-                as_attachment=True,
-                download_name=nombre_archivo,
-                mimetype='application/pdf'
-            )
+            mimetype = 'application/pdf'
         else:
-            excel_bytes = guardar_cotizacion_bytes(datos, idioma=idioma)
+            archivo_bytes = guardar_cotizacion_bytes(datos, idioma=idioma)
             nombre_archivo = f"{prefijo}_FW.xlsx"
+            mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
-            return send_file(
-                excel_bytes,
-                as_attachment=True,
-                download_name=nombre_archivo,
-                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
+        # Limpiar nombre del cliente inmediatamente tras imprimir
+        cotizacion.customer = ''
+        cotizacion.attn = ''
+        db.session.commit()
+
+        return send_file(
+            archivo_bytes,
+            as_attachment=True,
+            download_name=nombre_archivo,
+            mimetype=mimetype
+        )
 
     except Exception as e:
         flash(f'Error al generar archivo: {str(e)}', 'error')
