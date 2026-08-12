@@ -51,6 +51,23 @@
     .st-add-destino input { padding: 7px 10px; font-size: 0.82rem; }
     .st-add-destino button { padding: 7px 10px; font-size: 0.78rem; white-space: nowrap; }
 
+    /* Solo lectura por defecto: los controles de edicion se ocultan hasta
+       que se activa "Editar" en la tarjeta. */
+    .st-card:not(.editing) .del-destino,
+    .st-card:not(.editing) .st-add-destino,
+    .st-card:not(.editing) .st-edited-hint { display: none !important; }
+
+    .st-asunto-input[readonly], .st-body-textarea[readonly] {
+        background: transparent;
+        border-color: transparent;
+        cursor: default;
+    }
+    .st-card.editing .st-asunto-input, .st-card.editing .st-body-textarea {
+        background: #fff;
+        border-color: var(--border);
+    }
+    .btn-edit-toggle.active { background: var(--fw-purple); color: #fff; border-color: var(--fw-purple); }
+
     .st-mail-col { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
     .st-field-label {
         font-size: 0.72rem;
@@ -96,7 +113,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h2><i class="bi bi-envelope-paper text-primary"></i> Mails</h2>
-        <p class="text-secondary mb-0">Correos editables de solicitud de tarifas por aerolinea. Los destinos arrancan identificados solos desde las cotizaciones guardadas — cualquier destino nuevo se agrega solo. Puedes agregar/quitar destinos y editar el texto del correo cuando quieras.</p>
+        <p class="text-secondary mb-0">Correos de solicitud de tarifas por aerolinea, listos para copiar. Los destinos se identifican solos desde las cotizaciones guardadas — cualquier destino nuevo se agrega solo, sin borrar lo que hayas quitado a mano. Toca "Editar" en una tarjeta para agregar/quitar destinos o cambiar el texto.</p>
     </div>
     <button class="btn btn-outline-primary" id="btnAgregarAerolinea">
         <i class="bi bi-plus-lg"></i> Agregar Aerolinea
@@ -116,6 +133,9 @@
             <h5><i class="bi bi-airplane me-2"></i>{{ a.aerolinea }}</h5>
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-light destinos-count">{{ a.destinos|length }} destino{{ 's' if a.destinos|length != 1 else '' }}</span>
+                <button class="btn btn-outline-light btn-sm btn-edit-toggle" title="Editar destinos, asunto y cuerpo">
+                    <i class="bi bi-pencil"></i> Editar
+                </button>
                 <button class="btn btn-outline-light btn-sm" onclick="eliminarAerolinea(this)" title="Eliminar esta aerolinea de Mails">
                     <i class="bi bi-trash"></i>
                 </button>
@@ -138,11 +158,11 @@
                 <div class="st-mail-col">
                     <div>
                         <label class="st-field-label">Asunto</label>
-                        <input type="text" class="form-control st-asunto-input" value="{{ a.asunto }}">
+                        <input type="text" class="form-control st-asunto-input" value="{{ a.asunto }}" readonly>
                     </div>
                     <div>
                         <label class="st-field-label">Cuerpo del correo</label>
-                        <textarea class="st-body-textarea">{{ a.cuerpo }}</textarea>
+                        <textarea class="st-body-textarea" readonly>{{ a.cuerpo }}</textarea>
                     </div>
                     <div class="st-mail-actions">
                         <span class="st-edited-hint" style="{{ '' if a.cuerpo_editado else 'display:none;' }}">
@@ -217,6 +237,23 @@ function onDeleteDestino(li) {
 }
 
 document.querySelectorAll('.st-card').forEach(card => {
+    const asuntoInput = card.querySelector('.st-asunto-input');
+    const bodyTextarea = card.querySelector('.st-body-textarea');
+    const editBtn = card.querySelector('.btn-edit-toggle');
+
+    editBtn.addEventListener('click', () => {
+        const enteringEdit = !card.classList.contains('editing');
+        // Al salir de edicion, si algun campo tenia el foco su propio
+        // listener de "blur" ya lo guarda antes de que corra este handler.
+        card.classList.toggle('editing', enteringEdit);
+        asuntoInput.toggleAttribute('readonly', !enteringEdit);
+        bodyTextarea.toggleAttribute('readonly', !enteringEdit);
+        editBtn.classList.toggle('active', enteringEdit);
+        editBtn.innerHTML = enteringEdit
+            ? '<i class="bi bi-check-lg"></i> Listo'
+            : '<i class="bi bi-pencil"></i> Editar';
+    });
+
     card.querySelectorAll('.del-destino').forEach(btn => {
         btn.addEventListener('click', () => onDeleteDestino(btn.closest('li')));
     });
@@ -234,17 +271,15 @@ document.querySelectorAll('.st-card').forEach(card => {
         actualizarContador(card);
         const destinos = getDestinos(card);
         guardarMailRequest(card, {destinos}).then(data => {
-            if (data.success) card.querySelector('.st-body-textarea').value = data.cuerpo;
+            if (data.success) bodyTextarea.value = data.cuerpo;
         });
     }
     addBtn.addEventListener('click', addDestino);
     addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addDestino(); } });
 
-    const asuntoInput = card.querySelector('.st-asunto-input');
     asuntoInput.addEventListener('blur', () => guardarMailRequest(card, {asunto: asuntoInput.value}));
     asuntoInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') asuntoInput.blur(); });
 
-    const bodyTextarea = card.querySelector('.st-body-textarea');
     bodyTextarea.addEventListener('blur', () => {
         guardarMailRequest(card, {cuerpo: bodyTextarea.value}).then(data => {
             if (data.success) marcarEditado(card, true);
