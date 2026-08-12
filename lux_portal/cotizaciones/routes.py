@@ -992,7 +992,7 @@ def _generar_cuerpo_mail(aerolinea, destinos):
         bullets = "• (agrega un destino)"
     return (
         f"{saludo}\n\n"
-        "Solicito su ayuda con tarifas para:\n\n"
+        "Solicito su ayuda con tarifas actualizadas para flor:\n\n"
         f"{bullets}\n\n"
         "Quedo atenta.\n\n"
         "Saludos cordiales,"

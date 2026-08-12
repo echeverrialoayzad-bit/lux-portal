@@ -299,7 +299,7 @@ document.querySelectorAll('.st-card').forEach(card => {
 
     card.querySelector('.st-copy-btn').addEventListener('click', async (e) => {
         const btn = e.currentTarget;
-        const text = `Asunto: ${asuntoInput.value}\n\n${bodyTextarea.value}`;
+        const text = bodyTextarea.value;
         try {
             await navigator.clipboard.writeText(text);
         } catch (err) {
