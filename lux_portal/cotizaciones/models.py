@@ -181,3 +181,37 @@ class AirlineCargoRule(db.Model):
             'monto': self.monto,
             'order': self.order,
         }
+
+
+class AirlineMailRequest(db.Model):
+    """Correo de solicitud de tarifas por aerolinea (pestana Mails). Los
+    destinos arrancan sembrados con lo que se identifica en las cotizaciones
+    guardadas, pero de ahi en adelante son una lista editable a mano
+    (agregar/quitar). El cuerpo del correo se genera solo a partir de los
+    destinos, salvo que se guarde un override manual (cuerpo_editado=True)."""
+    __tablename__ = 'cotizacion_mail_requests'
+
+    id = db.Column(db.Integer, primary_key=True)
+    aerolinea = db.Column(db.String(100), nullable=False, unique=True)
+    destinos_json = db.Column(db.Text, default='[]')
+    asunto = db.Column(db.String(200))
+    cuerpo = db.Column(db.Text)
+    cuerpo_editado = db.Column(db.Boolean, default=False)
+
+    @property
+    def destinos(self):
+        return json.loads(self.destinos_json) if self.destinos_json else []
+
+    @destinos.setter
+    def destinos(self, value):
+        self.destinos_json = json.dumps(value, ensure_ascii=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'aerolinea': self.aerolinea,
+            'destinos': self.destinos,
+            'asunto': self.asunto,
+            'cuerpo': self.cuerpo,
+            'cuerpo_editado': self.cuerpo_editado,
+        }

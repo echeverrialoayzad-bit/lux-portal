@@ -5,19 +5,86 @@
 {% block extra_css %}
 <style>
     .st-card { margin-bottom: 20px; }
-    .st-destinos { display: flex; flex-wrap: wrap; gap: 6px; padding: 18px 22px 0; }
-    .st-body-wrap { padding: 16px 22px; }
-    .st-body {
+    .st-content { display: grid; grid-template-columns: 220px 1fr; gap: 0; }
+    @media (max-width: 768px) { .st-content { grid-template-columns: 1fr; } }
+
+    .st-destinos-col {
+        padding: 20px;
+        border-right: 1px solid var(--border);
+    }
+    @media (max-width: 768px) { .st-destinos-col { border-right: none; border-bottom: 1px solid var(--border); } }
+
+    .st-destinos-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+    }
+    .st-destinos-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .st-destinos-list li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        background: rgba(69,53,168,0.05);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 8px 6px 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .st-destinos-list li::before { content: '•'; color: var(--fw-coral); margin-right: 6px; font-weight: 900; }
+    .st-destinos-list .del-destino {
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        line-height: 1;
+        padding: 2px 4px;
+        border-radius: 4px;
+    }
+    .st-destinos-list .del-destino:hover { color: var(--fw-coral); background: rgba(255,86,73,0.1); }
+    .st-add-destino { display: flex; gap: 6px; }
+    .st-add-destino input { padding: 7px 10px; font-size: 0.82rem; }
+    .st-add-destino button { padding: 7px 10px; font-size: 0.78rem; white-space: nowrap; }
+
+    .st-mail-col { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .st-field-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+        display: block;
+    }
+    .st-asunto-input { font-weight: 600; }
+    .st-body-textarea {
         white-space: pre-wrap;
         background: rgba(69,53,168,0.03);
         border: 1px dashed var(--border);
         border-radius: 12px;
-        padding: 16px 18px;
+        padding: 14px 16px;
         font-size: 0.9rem;
         line-height: 1.6;
         color: var(--text-primary);
+        width: 100%;
+        min-height: 260px;
+        resize: vertical;
+        font-family: inherit;
     }
-    .st-actions { display: flex; justify-content: flex-end; padding: 0 22px 22px; }
+    .st-body-textarea:focus {
+        background: #fff;
+        border-style: solid;
+        border-color: var(--fw-purple);
+        box-shadow: 0 0 0 3px rgba(69,53,168,0.18);
+        outline: none;
+    }
+    .st-mail-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .st-edited-hint { font-size: 0.75rem; color: var(--text-muted); }
     .st-copy-btn.copied {
         background: linear-gradient(135deg, #35ab53 0%, #27863f 100%) !important;
         box-shadow: 0 4px 18px rgba(53,171,83,0.30) !important;
@@ -29,30 +96,64 @@
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
         <h2><i class="bi bi-envelope-paper text-primary"></i> Mails</h2>
-        <p class="text-secondary mb-0">Un correo listo por aerolinea, con los destinos que ya se cotizan con cada una — se identifican solos desde las cotizaciones guardadas. En cuanto guardas una cotizacion con un destino nuevo, aparece aqui de inmediato, listo para copiar y mandar.</p>
+        <p class="text-secondary mb-0">Correos editables de solicitud de tarifas por aerolinea. Los destinos arrancan identificados solos desde las cotizaciones guardadas — cualquier destino nuevo se agrega solo. Puedes agregar/quitar destinos y editar el texto del correo cuando quieras.</p>
     </div>
+    <button class="btn btn-outline-primary" id="btnAgregarAerolinea">
+        <i class="bi bi-plus-lg"></i> Agregar Aerolinea
+    </button>
+</div>
+
+<div class="d-flex gap-2 mb-4" id="addAirlineForm" style="display:none;">
+    <input type="text" id="newAirlineName" class="form-control" placeholder="Nombre de la aerolinea (ej. AIR FRANCE)" style="max-width: 320px;">
+    <button class="btn btn-primary" id="btnConfirmAddAirline"><i class="bi bi-check-lg"></i> Crear</button>
+    <button class="btn btn-outline-secondary" id="btnCancelAddAirline">Cancelar</button>
 </div>
 
 <div id="aerolineasContainer">
     {% for a in aerolineas %}
-    <div class="card st-card" data-aerolinea="{{ a.aerolinea }}">
+    <div class="card st-card" data-id="{{ a.id }}" data-aerolinea="{{ a.aerolinea }}">
         <div class="card-header">
             <h5><i class="bi bi-airplane me-2"></i>{{ a.aerolinea }}</h5>
-            <span class="badge bg-light">{{ a.destinos|length }} destino{{ 's' if a.destinos|length != 1 else '' }}</span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-light destinos-count">{{ a.destinos|length }} destino{{ 's' if a.destinos|length != 1 else '' }}</span>
+                <button class="btn btn-outline-light btn-sm" onclick="eliminarAerolinea(this)" title="Eliminar esta aerolinea de Mails">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
         </div>
         <div class="card-body p-0">
-            <div class="st-destinos">
-                {% for d in a.destinos %}
-                <span class="badge bg-secondary">{{ d }}</span>
-                {% endfor %}
-            </div>
-            <div class="st-body-wrap">
-                <div class="st-body" id="cuerpo-{{ loop.index }}">{{ a.cuerpo }}</div>
-            </div>
-            <div class="st-actions">
-                <button class="btn btn-primary st-copy-btn" data-target="cuerpo-{{ loop.index }}" data-asunto="{{ a.asunto }}">
-                    <i class="bi bi-clipboard"></i> Copiar correo
-                </button>
+            <div class="st-content">
+                <div class="st-destinos-col">
+                    <div class="st-destinos-label">Destinos</div>
+                    <ul class="st-destinos-list">
+                        {% for d in a.destinos %}
+                        <li data-destino="{{ d }}">{{ d }}<button class="del-destino" title="Quitar destino">×</button></li>
+                        {% endfor %}
+                    </ul>
+                    <div class="st-add-destino">
+                        <input type="text" class="form-control add-destino-input" placeholder="Ej. JED">
+                        <button class="btn btn-outline-primary btn-sm add-destino-btn"><i class="bi bi-plus"></i></button>
+                    </div>
+                </div>
+                <div class="st-mail-col">
+                    <div>
+                        <label class="st-field-label">Asunto</label>
+                        <input type="text" class="form-control st-asunto-input" value="{{ a.asunto }}">
+                    </div>
+                    <div>
+                        <label class="st-field-label">Cuerpo del correo</label>
+                        <textarea class="st-body-textarea">{{ a.cuerpo }}</textarea>
+                    </div>
+                    <div class="st-mail-actions">
+                        <span class="st-edited-hint" style="{{ '' if a.cuerpo_editado else 'display:none;' }}">
+                            <i class="bi bi-pencil-fill"></i> Editado a mano —
+                            <a href="#" class="btn-reset-cuerpo">restablecer texto generado</a>
+                        </span>
+                        <button class="btn btn-primary st-copy-btn ms-auto">
+                            <i class="bi bi-clipboard"></i> Copiar correo
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -62,18 +163,113 @@
 {% if not aerolineas %}
 <div class="empty-state">
     <i class="bi bi-envelope-paper"></i>
-    <h5>Todavia no hay cotizaciones guardadas</h5>
-    <p>En cuanto guardes una cotizacion con una aerolinea y destino, aparece aqui</p>
+    <h5>Todavia no hay nada aqui</h5>
+    <p>En cuanto guardes una cotizacion con una aerolinea y destino, aparece aqui — o agrega una aerolinea a mano arriba</p>
 </div>
 {% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.querySelectorAll('.st-copy-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const bodyEl = document.getElementById(btn.dataset.target);
-        const text = `Asunto: ${btn.dataset.asunto}\n\n${bodyEl.textContent}`;
+const BASE = "{{ url_for('cotizaciones.dashboard') }}".replace(/\/$/, '');
+
+function generarCuerpo(destinos) {
+    const bullets = destinos.length ? destinos.map(d => `• ${d}`).join('\n') : '• (agrega un destino)';
+    return `Estimados,\n\nEspero se encuentren bien.\n\nSolicito su ayuda con tarifas para:\n\n${bullets}\n\nQuedo atenta.\n\nSaludos cordiales,`;
+}
+
+function getDestinos(card) {
+    return Array.from(card.querySelectorAll('.st-destinos-list li')).map(li => li.dataset.destino);
+}
+
+function actualizarContador(card) {
+    const n = getDestinos(card).length;
+    card.querySelector('.destinos-count').textContent = `${n} destino${n === 1 ? '' : 's'}`;
+}
+
+function guardarMailRequest(card, payload) {
+    const id = card.dataset.id;
+    return fetch(`${BASE}/api/mail-request/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    }).then(r => r.json());
+}
+
+function marcarEditado(card, editado) {
+    const hint = card.querySelector('.st-edited-hint');
+    hint.style.display = editado ? '' : 'none';
+}
+
+function crearDestinoLi(destino) {
+    const li = document.createElement('li');
+    li.dataset.destino = destino;
+    li.innerHTML = `${destino}<button class="del-destino" title="Quitar destino">×</button>`;
+    li.querySelector('.del-destino').addEventListener('click', () => onDeleteDestino(li));
+    return li;
+}
+
+function onDeleteDestino(li) {
+    const card = li.closest('.st-card');
+    li.remove();
+    actualizarContador(card);
+    const destinos = getDestinos(card);
+    guardarMailRequest(card, {destinos}).then(data => {
+        if (data.success) {
+            card.querySelector('.st-body-textarea').value = data.cuerpo;
+        }
+    });
+}
+
+document.querySelectorAll('.st-card').forEach(card => {
+    card.querySelectorAll('.del-destino').forEach(btn => {
+        btn.addEventListener('click', () => onDeleteDestino(btn.closest('li')));
+    });
+
+    const addInput = card.querySelector('.add-destino-input');
+    const addBtn = card.querySelector('.add-destino-btn');
+
+    function addDestino() {
+        const val = addInput.value.trim().toUpperCase();
+        if (!val) return;
+        const list = card.querySelector('.st-destinos-list');
+        if (getDestinos(card).includes(val)) { addInput.value = ''; return; }
+        list.appendChild(crearDestinoLi(val));
+        addInput.value = '';
+        actualizarContador(card);
+        const destinos = getDestinos(card);
+        guardarMailRequest(card, {destinos}).then(data => {
+            if (data.success) card.querySelector('.st-body-textarea').value = data.cuerpo;
+        });
+    }
+    addBtn.addEventListener('click', addDestino);
+    addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addDestino(); } });
+
+    const asuntoInput = card.querySelector('.st-asunto-input');
+    asuntoInput.addEventListener('blur', () => guardarMailRequest(card, {asunto: asuntoInput.value}));
+    asuntoInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') asuntoInput.blur(); });
+
+    const bodyTextarea = card.querySelector('.st-body-textarea');
+    bodyTextarea.addEventListener('blur', () => {
+        guardarMailRequest(card, {cuerpo: bodyTextarea.value}).then(data => {
+            if (data.success) marcarEditado(card, true);
+        });
+    });
+
+    const resetLink = card.querySelector('.btn-reset-cuerpo');
+    resetLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        guardarMailRequest(card, {restablecer_cuerpo: true}).then(data => {
+            if (data.success) {
+                bodyTextarea.value = data.cuerpo;
+                marcarEditado(card, false);
+            }
+        });
+    });
+
+    card.querySelector('.st-copy-btn').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const text = `Asunto: ${asuntoInput.value}\n\n${bodyTextarea.value}`;
         try {
             await navigator.clipboard.writeText(text);
         } catch (err) {
@@ -93,5 +289,42 @@ document.querySelectorAll('.st-copy-btn').forEach(btn => {
         setTimeout(() => { btn.innerHTML = original; btn.classList.remove('copied'); }, 1600);
     });
 });
+
+function eliminarAerolinea(btn) {
+    const card = btn.closest('.st-card');
+    const nombre = card.dataset.aerolinea;
+    if (!confirm(`¿Eliminar "${nombre}" de Mails? (vuelve a aparecer solo si sigue teniendo cotizaciones guardadas)`)) return;
+    fetch(`${BASE}/api/mail-request/${card.dataset.id}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+        if (data.success) card.remove();
+        else alert('Error: ' + (data.error || ''));
+    });
+}
+
+const addAirlineForm = document.getElementById('addAirlineForm');
+const newAirlineInput = document.getElementById('newAirlineName');
+
+document.getElementById('btnAgregarAerolinea').onclick = () => {
+    addAirlineForm.style.display = 'flex';
+    newAirlineInput.focus();
+};
+
+document.getElementById('btnCancelAddAirline').onclick = () => {
+    addAirlineForm.style.display = 'none';
+    newAirlineInput.value = '';
+};
+
+document.getElementById('btnConfirmAddAirline').onclick = () => {
+    const nombre = newAirlineInput.value.trim();
+    if (!nombre) return;
+    fetch(`${BASE}/api/mail-request`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({aerolinea: nombre})
+    }).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+        else alert('Error: ' + (data.error || ''));
+    });
+};
+newAirlineInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('btnConfirmAddAirline').click(); });
 </script>
 {% endblock %}

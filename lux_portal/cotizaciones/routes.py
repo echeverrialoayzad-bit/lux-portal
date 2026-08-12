@@ -12,7 +12,7 @@ import json
 from lux_portal.cotizaciones import cotizaciones_bp
 from lux_portal.cotizaciones.models import (
     Cotizacion, AirlineFscRule, AirlineFscGroup, AirlineCargoRule, AirlineCargoGroup,
-    AirlineDepartureDays,
+    AirlineDepartureDays, AirlineMailRequest,
 )
 from lux_portal.cotizaciones.data import AEROLINEAS_LISTA, CARGOS_COMUNES, CARGOS_FREIGHTWISE
 from lux_portal.cotizaciones.continentes import CONTINENTES, continente_de
@@ -963,41 +963,147 @@ def aplicar_dias_a_cotizaciones():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-# ===================== SOLICITUD DE TARIFAS =====================
+# ===================== SOLICITUD DE TARIFAS (MAILS) =====================
 
-@cotizaciones_bp.route('/solicitud-tarifas')
-@login_required
-def solicitud_tarifas_dashboard():
-    """Un correo listo para copiar por aerolinea, solicitando tarifas
-    actualizadas. Los destinos se calculan en vivo a partir de todas las
-    cotizaciones guardadas (no se mantienen a mano): en cuanto se guarda una
-    cotizacion con una aerolinea/destino nuevo, aparece aqui solo."""
-    cotizaciones = Cotizacion.query.all()
+def _generar_cuerpo_mail(destinos):
+    """Cuerpo generico del correo, con los destinos en bullets (columna)."""
+    if destinos:
+        bullets = '\n'.join(f"• {d}" for d in destinos)
+    else:
+        bullets = "• (agrega un destino)"
+    return (
+        "Estimados,\n\n"
+        "Espero se encuentren bien.\n\n"
+        "Solicito su ayuda con tarifas para:\n\n"
+        f"{bullets}\n\n"
+        "Quedo atenta.\n\n"
+        "Saludos cordiales,"
+    )
+
+
+def _destinos_vivos_por_aerolinea():
+    """Destinos detectados en las cotizaciones guardadas, por aerolinea."""
     destinos_por_aerolinea = defaultdict(set)
-    for cot in cotizaciones:
+    for cot in Cotizacion.query.all():
         if not cot.destino:
             continue
         for entry in cot.aerolineas:
             aerolinea = (entry.get('aerolinea') or '').strip().upper()
             if aerolinea:
                 destinos_por_aerolinea[aerolinea].add(cot.destino.strip().upper())
+    return destinos_por_aerolinea
+
+
+@cotizaciones_bp.route('/solicitud-tarifas')
+@login_required
+def solicitud_tarifas_dashboard():
+    """Correos editables de solicitud de tarifas por aerolinea. Los destinos
+    arrancan sembrados con lo que se identifica en las cotizaciones guardadas
+    y de ahi en adelante son editables a mano (agregar/quitar); cualquier
+    destino nuevo detectado en una cotizacion se agrega solo a la lista (sin
+    borrar lo que se haya quitado a mano)."""
+    destinos_vivos = _destinos_vivos_por_aerolinea()
+
+    registros = {r.aerolinea: r for r in AirlineMailRequest.query.all()}
+    cambio = False
+    for aerolinea, destinos in destinos_vivos.items():
+        registro = registros.get(aerolinea)
+        if not registro:
+            registro = AirlineMailRequest(aerolinea=aerolinea)
+            registro.destinos = sorted(destinos)
+            db.session.add(registro)
+            registros[aerolinea] = registro
+            cambio = True
+        else:
+            actuales = set(registro.destinos)
+            nuevos = destinos - actuales
+            if nuevos:
+                registro.destinos = sorted(actuales | nuevos)
+                cambio = True
+    if cambio:
+        db.session.commit()
 
     aerolineas = []
-    for aerolinea in sorted(destinos_por_aerolinea):
-        destinos = sorted(destinos_por_aerolinea[aerolinea])
-        asunto = f"Tarifas actualizadas – {aerolinea}"
-        cuerpo = (
-            "Estimados,\n\n"
-            "Espero se encuentren bien!\n\n"
-            f"Solicito su ayuda con tarifas actualizadas para los siguientes destinos: {', '.join(destinos)}\n\n"
-            "Quedo atenta.\n\n"
-            "Saludos cordiales,"
-        )
+    for aerolinea in sorted(registros):
+        r = registros[aerolinea]
+        asunto = r.asunto or f"Tarifas actualizadas – {aerolinea}"
+        cuerpo = r.cuerpo if r.cuerpo_editado and r.cuerpo else _generar_cuerpo_mail(r.destinos)
         aerolineas.append({
+            'id': r.id,
             'aerolinea': aerolinea,
-            'destinos': destinos,
+            'destinos': r.destinos,
             'asunto': asunto,
             'cuerpo': cuerpo,
+            'cuerpo_editado': r.cuerpo_editado,
         })
 
     return render_template('cotizaciones/solicitud_tarifas.html', aerolineas=aerolineas)
+
+
+@cotizaciones_bp.route('/api/mail-request', methods=['POST'])
+@login_required
+def crear_mail_request():
+    try:
+        data = request.get_json()
+        aerolinea = (data.get('aerolinea') or '').strip().upper()
+        if not aerolinea:
+            return jsonify({'success': False, 'error': 'Falta el nombre de la aerolinea'}), 400
+        if AirlineMailRequest.query.filter_by(aerolinea=aerolinea).first():
+            return jsonify({'success': False, 'error': 'Esa aerolinea ya esta en Mails'}), 400
+        registro = AirlineMailRequest(aerolinea=aerolinea)
+        registro.destinos = []
+        db.session.add(registro)
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'registro': {
+                'id': registro.id,
+                'aerolinea': aerolinea,
+                'destinos': [],
+                'asunto': f"Tarifas actualizadas – {aerolinea}",
+                'cuerpo': _generar_cuerpo_mail([]),
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/mail-request/<int:id>', methods=['PUT'])
+@login_required
+def actualizar_mail_request(id):
+    registro = AirlineMailRequest.query.get_or_404(id)
+    try:
+        data = request.get_json()
+        if 'destinos' in data:
+            destinos = sorted({(d or '').strip().upper() for d in (data.get('destinos') or []) if (d or '').strip()})
+            registro.destinos = destinos
+            if not registro.cuerpo_editado:
+                registro.cuerpo = None
+        if 'asunto' in data:
+            registro.asunto = (data.get('asunto') or '').strip() or None
+        if 'cuerpo' in data:
+            registro.cuerpo = data.get('cuerpo')
+            registro.cuerpo_editado = True
+        if data.get('restablecer_cuerpo'):
+            registro.cuerpo = None
+            registro.cuerpo_editado = False
+        db.session.commit()
+        cuerpo_actual = registro.cuerpo if registro.cuerpo_editado and registro.cuerpo else _generar_cuerpo_mail(registro.destinos)
+        return jsonify({'success': True, 'cuerpo': cuerpo_actual, 'destinos': registro.destinos})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@cotizaciones_bp.route('/api/mail-request/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_mail_request(id):
+    registro = AirlineMailRequest.query.get_or_404(id)
+    try:
+        db.session.delete(registro)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
