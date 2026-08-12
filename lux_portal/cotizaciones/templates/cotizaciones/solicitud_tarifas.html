@@ -173,11 +173,6 @@
 <script>
 const BASE = "{{ url_for('cotizaciones.dashboard') }}".replace(/\/$/, '');
 
-function generarCuerpo(destinos) {
-    const bullets = destinos.length ? destinos.map(d => `• ${d}`).join('\n') : '• (agrega un destino)';
-    return `Estimados,\n\nEspero se encuentren bien.\n\nSolicito su ayuda con tarifas para:\n\n${bullets}\n\nQuedo atenta.\n\nSaludos cordiales,`;
-}
-
 function getDestinos(card) {
     return Array.from(card.querySelectorAll('.st-destinos-list li')).map(li => li.dataset.destino);
 }

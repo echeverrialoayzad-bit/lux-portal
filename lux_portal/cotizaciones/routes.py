@@ -965,15 +965,33 @@ def aplicar_dias_a_cotizaciones():
 
 # ===================== SOLICITUD DE TARIFAS (MAILS) =====================
 
-def _generar_cuerpo_mail(destinos):
-    """Cuerpo generico del correo, con los destinos en bullets (columna)."""
+# Nombres que en realidad son la misma aerolinea/agente que otro ya
+# existente: se consolidan bajo la clave canonica al agregar destinos.
+_AEROLINEA_ALIASES = {
+    'AVIANCA PAX': 'AVIANCA',
+    'DHL FREIGHTER': 'DHL',
+    'SINGAPORE': 'SUNRISE',
+}
+
+# Saludo especifico por aerolinea (contacto conocido). Si la aerolinea no
+# esta aqui, se usa el saludo generico.
+_MAIL_SALUDOS = {
+    'COPA AIRLINES': 'Estimada Eve,\n\nEspero te encuentres bien.',
+    'SOLENT': 'Estimada Ceci,\n\nEspero te encuentres bien.',
+}
+
+
+def _generar_cuerpo_mail(aerolinea, destinos):
+    """Cuerpo del correo, con los destinos en bullets (columna). Usa un
+    saludo personalizado si la aerolinea tiene contacto conocido en
+    _MAIL_SALUDOS, si no el saludo generico."""
+    saludo = _MAIL_SALUDOS.get(aerolinea, 'Estimados,\n\nEspero se encuentren bien.')
     if destinos:
         bullets = '\n'.join(f"• {d}" for d in destinos)
     else:
         bullets = "• (agrega un destino)"
     return (
-        "Estimados,\n\n"
-        "Espero se encuentren bien.\n\n"
+        f"{saludo}\n\n"
         "Solicito su ayuda con tarifas para:\n\n"
         f"{bullets}\n\n"
         "Quedo atenta.\n\n"
@@ -982,7 +1000,8 @@ def _generar_cuerpo_mail(destinos):
 
 
 def _destinos_vivos_por_aerolinea():
-    """Destinos detectados en las cotizaciones guardadas, por aerolinea."""
+    """Destinos detectados en las cotizaciones guardadas, por aerolinea
+    (consolidando alias de _AEROLINEA_ALIASES bajo el nombre canonico)."""
     destinos_por_aerolinea = defaultdict(set)
     for cot in Cotizacion.query.all():
         if not cot.destino:
@@ -990,6 +1009,7 @@ def _destinos_vivos_por_aerolinea():
         for entry in cot.aerolineas:
             aerolinea = (entry.get('aerolinea') or '').strip().upper()
             if aerolinea:
+                aerolinea = _AEROLINEA_ALIASES.get(aerolinea, aerolinea)
                 destinos_por_aerolinea[aerolinea].add(cot.destino.strip().upper())
     return destinos_por_aerolinea
 
@@ -1027,7 +1047,7 @@ def solicitud_tarifas_dashboard():
     for aerolinea in sorted(registros):
         r = registros[aerolinea]
         asunto = r.asunto or f"Tarifas actualizadas – {aerolinea}"
-        cuerpo = r.cuerpo if r.cuerpo_editado and r.cuerpo else _generar_cuerpo_mail(r.destinos)
+        cuerpo = r.cuerpo if r.cuerpo_editado and r.cuerpo else _generar_cuerpo_mail(aerolinea, r.destinos)
         aerolineas.append({
             'id': r.id,
             'aerolinea': aerolinea,
@@ -1061,7 +1081,7 @@ def crear_mail_request():
                 'aerolinea': aerolinea,
                 'destinos': [],
                 'asunto': f"Tarifas actualizadas – {aerolinea}",
-                'cuerpo': _generar_cuerpo_mail([]),
+                'cuerpo': _generar_cuerpo_mail(aerolinea, []),
             }
         })
     except Exception as e:
@@ -1089,7 +1109,7 @@ def actualizar_mail_request(id):
             registro.cuerpo = None
             registro.cuerpo_editado = False
         db.session.commit()
-        cuerpo_actual = registro.cuerpo if registro.cuerpo_editado and registro.cuerpo else _generar_cuerpo_mail(registro.destinos)
+        cuerpo_actual = registro.cuerpo if registro.cuerpo_editado and registro.cuerpo else _generar_cuerpo_mail(registro.aerolinea, registro.destinos)
         return jsonify({'success': True, 'cuerpo': cuerpo_actual, 'destinos': registro.destinos})
     except Exception as e:
         db.session.rollback()
