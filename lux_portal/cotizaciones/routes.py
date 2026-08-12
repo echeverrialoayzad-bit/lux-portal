@@ -961,3 +961,43 @@ def aplicar_dias_a_cotizaciones():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ===================== SOLICITUD DE TARIFAS =====================
+
+@cotizaciones_bp.route('/solicitud-tarifas')
+@login_required
+def solicitud_tarifas_dashboard():
+    """Un correo listo para copiar por aerolinea, solicitando tarifas
+    actualizadas. Los destinos se calculan en vivo a partir de todas las
+    cotizaciones guardadas (no se mantienen a mano): en cuanto se guarda una
+    cotizacion con una aerolinea/destino nuevo, aparece aqui solo."""
+    cotizaciones = Cotizacion.query.all()
+    destinos_por_aerolinea = defaultdict(set)
+    for cot in cotizaciones:
+        if not cot.destino:
+            continue
+        for entry in cot.aerolineas:
+            aerolinea = (entry.get('aerolinea') or '').strip().upper()
+            if aerolinea:
+                destinos_por_aerolinea[aerolinea].add(cot.destino.strip().upper())
+
+    aerolineas = []
+    for aerolinea in sorted(destinos_por_aerolinea):
+        destinos = sorted(destinos_por_aerolinea[aerolinea])
+        asunto = f"Tarifas actualizadas – {aerolinea}"
+        cuerpo = (
+            "Estimados,\n\n"
+            "Espero se encuentren bien!\n\n"
+            f"Solicito su ayuda con tarifas actualizadas para los siguientes destinos: {', '.join(destinos)}\n\n"
+            "Quedo atenta.\n\n"
+            "Saludos cordiales,"
+        )
+        aerolineas.append({
+            'aerolinea': aerolinea,
+            'destinos': destinos,
+            'asunto': asunto,
+            'cuerpo': cuerpo,
+        })
+
+    return render_template('cotizaciones/solicitud_tarifas.html', aerolineas=aerolineas)

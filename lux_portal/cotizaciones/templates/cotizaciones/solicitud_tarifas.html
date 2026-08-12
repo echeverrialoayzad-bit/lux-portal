@@ -1,0 +1,97 @@
+{% extends 'cotizaciones/base_freightwise.html' %}
+
+{% block title %}Mails - FreightWise{% endblock %}
+
+{% block extra_css %}
+<style>
+    .st-card { margin-bottom: 20px; }
+    .st-destinos { display: flex; flex-wrap: wrap; gap: 6px; padding: 18px 22px 0; }
+    .st-body-wrap { padding: 16px 22px; }
+    .st-body {
+        white-space: pre-wrap;
+        background: rgba(69,53,168,0.03);
+        border: 1px dashed var(--border);
+        border-radius: 12px;
+        padding: 16px 18px;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--text-primary);
+    }
+    .st-actions { display: flex; justify-content: flex-end; padding: 0 22px 22px; }
+    .st-copy-btn.copied {
+        background: linear-gradient(135deg, #35ab53 0%, #27863f 100%) !important;
+        box-shadow: 0 4px 18px rgba(53,171,83,0.30) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2><i class="bi bi-envelope-paper text-primary"></i> Mails</h2>
+        <p class="text-secondary mb-0">Un correo listo por aerolinea, con los destinos que ya se cotizan con cada una — se identifican solos desde las cotizaciones guardadas. En cuanto guardas una cotizacion con un destino nuevo, aparece aqui de inmediato, listo para copiar y mandar.</p>
+    </div>
+</div>
+
+<div id="aerolineasContainer">
+    {% for a in aerolineas %}
+    <div class="card st-card" data-aerolinea="{{ a.aerolinea }}">
+        <div class="card-header">
+            <h5><i class="bi bi-airplane me-2"></i>{{ a.aerolinea }}</h5>
+            <span class="badge bg-light">{{ a.destinos|length }} destino{{ 's' if a.destinos|length != 1 else '' }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="st-destinos">
+                {% for d in a.destinos %}
+                <span class="badge bg-secondary">{{ d }}</span>
+                {% endfor %}
+            </div>
+            <div class="st-body-wrap">
+                <div class="st-body" id="cuerpo-{{ loop.index }}">{{ a.cuerpo }}</div>
+            </div>
+            <div class="st-actions">
+                <button class="btn btn-primary st-copy-btn" data-target="cuerpo-{{ loop.index }}" data-asunto="{{ a.asunto }}">
+                    <i class="bi bi-clipboard"></i> Copiar correo
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not aerolineas %}
+<div class="empty-state">
+    <i class="bi bi-envelope-paper"></i>
+    <h5>Todavia no hay cotizaciones guardadas</h5>
+    <p>En cuanto guardes una cotizacion con una aerolinea y destino, aparece aqui</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.st-copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const bodyEl = document.getElementById(btn.dataset.target);
+        const text = `Asunto: ${btn.dataset.asunto}\n\n${bodyEl.textContent}`;
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (err) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try { document.execCommand('copy'); } catch (e2) {}
+            document.body.removeChild(ta);
+        }
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> Copiado';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.innerHTML = original; btn.classList.remove('copied'); }, 1600);
+    });
+});
+</script>
+{% endblock %}

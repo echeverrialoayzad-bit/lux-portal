@@ -738,6 +738,12 @@
                             <i class="bi bi-calendar-week"></i> Dias Salida
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'cotizaciones.solicitud_tarifas_dashboard' %}active{% endif %}"
+                           href="{{ url_for('cotizaciones.solicitud_tarifas_dashboard') }}">
+                            <i class="bi bi-envelope-paper"></i> Mails
+                        </a>
+                    </li>
                 </ul>
                 <ul class="navbar-nav align-items-center">
                     <li class="nav-item me-3">
