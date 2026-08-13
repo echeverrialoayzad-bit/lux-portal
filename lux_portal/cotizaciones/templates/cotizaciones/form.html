@@ -367,6 +367,10 @@
             <label class="form-label small mb-1">Precio Final</label>
             <span class="precio-final badge bg-primary">$ 0.00</span>
         </div>
+        <div class="flex-grow-1 precio-con-aumento-col" style="display:none">
+            <label class="form-label small mb-1">Con Aumento</label>
+            <span class="precio-con-aumento badge bg-success">$ 0.00</span>
+        </div>
         <button type="button" class="btn btn-outline-danger btn-sm align-self-end"
                 onclick="eliminarKgRate(this)">
             <i class="bi bi-trash"></i>
@@ -1018,12 +1022,23 @@ function agregarRateIncrease(btn, datos = null) {
         row.querySelector('.increase-amount').value = datos.amount || '';
         row.querySelector('.increase-date').value = datos.date || '';
     }
-    attachFormulaHandlers(row.querySelector('.increase-amount'));
+    const increaseInput = row.querySelector('.increase-amount');
+    attachFormulaHandlers(increaseInput);
+    increaseInput.addEventListener('input', () => {
+        const card = increaseInput.closest('.aerolinea-card');
+        if (card) recalcularConAumento(card);
+    });
+    increaseInput.addEventListener('blur', () => {
+        const card = increaseInput.closest('.aerolinea-card');
+        if (card) recalcularConAumento(card);
+    });
     container.appendChild(clone);
 }
 
 function eliminarRateIncrease(btn) {
+    const card = btn.closest('.aerolinea-card');
     btn.closest('.rate-increase-row').remove();
+    if (card) recalcularConAumento(card);
 }
 
 function validarKgDuplicado(input) {
@@ -1062,6 +1077,36 @@ function calcularPrecioFinal(row) {
     const fsc = getNumericValue(fscEl);
     const total = rate + margin + costoOp + fsc;
     row.querySelector('.precio-final').textContent = `$ ${total.toFixed(2)}`;
+    // Actualizar precio con aumento usando los increases del mismo card
+    const card = row.closest('.aerolinea-card');
+    if (card) {
+        const aumento = _sumarAumentos(card);
+        const colAumento = row.querySelector('.precio-con-aumento-col');
+        if (colAumento) {
+            colAumento.style.display = aumento > 0 ? '' : 'none';
+            row.querySelector('.precio-con-aumento').textContent = `$ ${(total + aumento).toFixed(2)}`;
+        }
+    }
+}
+
+function _sumarAumentos(card) {
+    let suma = 0;
+    card.querySelectorAll('.increase-amount').forEach(el => {
+        const v = parseFloat(el.value.replace(/[$,]/g, '').trim()) || 0;
+        suma += v;
+    });
+    return suma;
+}
+
+function recalcularConAumento(card) {
+    const aumento = _sumarAumentos(card);
+    card.querySelectorAll('.kg-rate-row').forEach(row => {
+        const col = row.querySelector('.precio-con-aumento-col');
+        if (!col) return;
+        col.style.display = aumento > 0 ? '' : 'none';
+        const precioFinal = parseFloat(row.querySelector('.precio-final').textContent.replace('$','').trim()) || 0;
+        row.querySelector('.precio-con-aumento').textContent = `$ ${(precioFinal + aumento).toFixed(2)}`;
+    });
 }
 
 function actualizarNombreAerolinea(select) {
