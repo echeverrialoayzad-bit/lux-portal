@@ -60,6 +60,14 @@ AVAILABLE_MODULES = [
         'url': 'excel_online.index',
         'color': '#0EA5E9'  # Sky blue para Excel Online
     },
+    {
+        'id': 'proformas',
+        'name': 'Proformas',
+        'description': 'Emision de proformas de flete aereo con PDF',
+        'icon': 'bi-file-earmark-text-fill',
+        'url': 'proformas.dashboard',
+        'color': '#1a3a5c'  # Navy FreightWise para Proformas
+    },
 ]
 
 
