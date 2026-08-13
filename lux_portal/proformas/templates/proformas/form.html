@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if proforma else 'Nueva' }} Proforma – Lux{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item"><a class="nav-link" href="{{ url_for('cotizaciones.dashboard') }}">Cotizaciones</a></li>
+<li class="nav-item"><a class="nav-link active" href="{{ url_for('proformas.dashboard') }}">Proformas</a></li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+:root{--fw-navy:#1a3a5c;--fw-light:#e6f1fb;}
+*{box-sizing:border-box}
+.pf-wrap{max-width:860px;margin:0 auto}
+.pf-hdr{background:var(--fw-navy);border-radius:12px;padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem}
+.pf-hdr-logo{height:44px;width:auto;border-radius:6px;background:#fff;padding:3px}
+.pf-hdr-info{color:#fff}
+.pf-hdr-info .company{font-size:14px;font-weight:700}
+.pf-hdr-info .sub{font-size:10px;color:rgba(255,255,255,.7);margin-top:2px}
+.inv-badge{background:rgba(255,255,255,.18);color:#fff;border-radius:6px;padding:4px 12px;font-size:13px;font-weight:700;font-family:monospace;margin-left:auto}
+.card{background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;color:#888;font-weight:600}
+.field input,.field select{padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;background:#fff;width:100%}
+.field input:focus,.field select:focus{border-color:var(--fw-navy);outline:none;box-shadow:0 0 0 3px rgba(26,58,92,.1)}
+.flete-box{background:#f0f4f8;border-radius:8px;padding:10px 14px;display:flex;align-items:baseline;gap:10px;margin-top:12px}
+.flete-num{font-size:22px;font-weight:700;color:var(--fw-navy)}
+.tbl-head{background:var(--fw-navy);color:#fff;display:grid;grid-template-columns:28px 1fr 70px 80px 85px;padding:7px 8px;font-size:11px;font-weight:700;border-radius:8px 8px 0 0;gap:4px}
+.tbl-body{border:1px solid #e8e8e8;border-top:none;border-radius:0 0 8px 8px;overflow:hidden}
+.row-chk{display:grid;grid-template-columns:28px 1fr 70px 80px 85px;align-items:center;gap:4px;padding:5px 8px;border-bottom:.5px solid #f0f0f0}
+.row-chk:last-child{border-bottom:none}
+.row-chk input[type=text],.row-chk input[type=number]{border:none;background:transparent;padding:3px 4px;font-size:13px;width:100%}
+.row-chk input[type=checkbox]{width:16px;height:16px;cursor:pointer}
+.amt{text-align:right;font-weight:700;font-size:13px;padding-right:4px}
+.subtot{display:flex;flex-direction:column;align-items:flex-end;gap:3px;padding-top:12px}
+.srow{display:flex;justify-content:space-between;gap:32px;font-size:13px}
+.srow.grand{font-weight:700;font-size:15px;border-top:1.5px solid #ddd;padding-top:6px;margin-top:4px;color:var(--fw-navy)}
+.btn-fw{background:var(--fw-navy);color:#fff;border:none;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.btn-fw:hover{background:#0f2744}
+.btn-fw-out{background:#fff;color:var(--fw-navy);border:1.5px solid var(--fw-navy);padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.btn-fw-out:hover{background:#f0f4f8}
+.status-ok{display:none;background:#eaf3de;color:#0f6e56;border-radius:8px;padding:8px 14px;font-size:13px;margin-top:8px}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pf-wrap">
+
+<!-- Header -->
+<div class="pf-hdr">
+  <img class="pf-hdr-logo" src="{{ url_for('static', filename='img/logo.png') }}" onerror="this.style.display='none'" alt="FW">
+  <div class="pf-hdr-info">
+    <div class="company">FreightWise Forwarding S.A.</div>
+    <div class="sub">RUC: 1793230131001 &nbsp;|&nbsp; Tababela Cargo Center, Quito - Ecuador</div>
+  </div>
+  <div class="inv-badge" id="invDisplay">{{ numero }}</div>
+</div>
+
+<!-- Datos del cliente -->
+<div class="card">
+  <div class="card-title">Datos del cliente</div>
+  <div class="grid2" style="margin-bottom:12px">
+    <div class="field"><label>Nombre del cliente</label>
+      <input type="text" id="customer" value="{{ proforma.customer if proforma else '' }}" placeholder="CLIENTE S.A.">
+    </div>
+    <div class="field"><label>Customer ID</label>
+      <input type="text" id="customerId" value="{{ proforma.customer_id if proforma else '' }}" placeholder="(opcional)">
+    </div>
+  </div>
+  <div class="grid3">
+    <div class="field"><label>Fecha</label>
+      <input type="date" id="invoiceDate" value="{{ proforma.fecha if proforma else hoy }}">
+    </div>
+    <div class="field"><label>Desde</label>
+      <input type="date" id="dateFrom" value="{{ proforma.fecha_desde if proforma else hoy }}">
+    </div>
+    <div class="field"><label>Hasta</label>
+      <input type="date" id="dateTo" value="{{ proforma.fecha_hasta if proforma else hoy }}">
+    </div>
+  </div>
+</div>
+
+<!-- Datos del envío -->
+<div class="card">
+  <div class="card-title">Datos del envío</div>
+  <div class="grid4">
+    <div class="field"><label>Peso (kg)</label>
+      <input type="number" id="peso" value="{{ proforma.peso if proforma else '' }}" min="0" step="0.01" oninput="calcAll()">
+    </div>
+    <div class="field"><label>Tarifa (USD/kg)</label>
+      <input type="number" id="tarifa" value="{{ proforma.tarifa if proforma else '' }}" min="0" step="0.0001" oninput="calcAll()">
+    </div>
+    <div class="field"><label>Aerolínea</label>
+      <input type="text" id="aerolinea" value="{{ proforma.aerolinea if proforma else '' }}">
+    </div>
+    <div class="field"><label>Moneda</label>
+      <select id="moneda">
+        <option value="USD" {{ 'selected' if not proforma or proforma.moneda == 'USD' }}>USD</option>
+        <option value="EUR" {{ 'selected' if proforma and proforma.moneda == 'EUR' }}>EUR</option>
+      </select>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:12px">
+    <div class="field"><label>Origen (IATA)</label>
+      <input type="text" id="origen" value="{{ proforma.origen if proforma else 'UIO' }}" maxlength="4" style="text-transform:uppercase">
+    </div>
+    <div class="field"><label>Destino (IATA)</label>
+      <input type="text" id="destino" value="{{ proforma.destino if proforma else '' }}" maxlength="4" style="text-transform:uppercase">
+    </div>
+  </div>
+  <div class="flete-box">
+    <span style="font-size:13px;color:#666">Flete calculado:</span>
+    <span class="flete-num" id="fleteDisplay">$ 0.00</span>
+    <span style="font-size:12px;color:#999" id="monedaDisplay">USD</span>
+  </div>
+</div>
+
+<!-- Cargos adicionales -->
+<div class="card">
+  <div class="card-title" style="display:flex;justify-content:space-between">
+    <span>Cargos adicionales</span>
+    <span style="font-size:11px;color:#aaa;font-weight:400">Activar los que aplican</span>
+  </div>
+  <div class="tbl-head">
+    <span></span><span>Descripción</span><span style="text-align:right">Unid.</span>
+    <span style="text-align:right">Tarifa</span><span style="text-align:right">Total</span>
+  </div>
+  <div class="tbl-body" id="cargosBody">
+    <!-- rows generados por JS -->
+  </div>
+  <div class="subtot">
+    <div class="srow"><span>Flete:</span><span id="subFlete">$ 0.00</span></div>
+    <div class="srow"><span>Cargos adicionales:</span><span id="subCharges">$ 0.00</span></div>
+    <div class="srow grand"><span>TOTAL:</span><span id="subTotal">$ 0.00</span></div>
+  </div>
+</div>
+
+<!-- Descripción -->
+<div class="card">
+  <div class="card-title">Descripción y observaciones</div>
+  <div class="grid2">
+    <div class="field"><label>Razón de exportación</label>
+      <input type="text" id="description" value="{{ proforma.descripcion if proforma else 'Fresh Flowers' }}">
+    </div>
+    <div class="field"><label>Observaciones / Términos</label>
+      <input type="text" id="comments" value="{{ proforma.comentarios if proforma else '' }}" placeholder="Notas adicionales...">
+    </div>
+  </div>
+</div>
+
+<!-- Acciones -->
+<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+  <a href="{{ url_for('proformas.dashboard') }}" class="btn-fw-out">← Volver</a>
+  <button class="btn-fw-out" onclick="guardar()"><i class="bi bi-floppy"></i> Guardar</button>
+  <button class="btn-fw" onclick="generarPDF()"><i class="bi bi-file-pdf"></i> Generar PDF</button>
+</div>
+<div class="status-ok" id="statusMsg"></div>
+
+</div><!-- /.pf-wrap -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const jsPDF = window.jspdf && window.jspdf.jsPDF;
+const PROFORMA_ID  = {{ proforma.id if proforma else 'null' }};
+const NUMERO       = {{ proforma.numero|tojson if proforma else numero|tojson }};
+
+// Cargos por defecto
+const CARGOS_DEF = [
+  {desc:'DUE AGENTE',   units:1, rate:50,   activo:true},
+  {desc:'PHYTO',        units:1, rate:2.5,  activo:true},
+  {desc:'CERTIFICATE',  units:1, rate:15,   activo:true},
+  {desc:'TERMÓGRAFO',   units:1, rate:0,    activo:false},
+  {desc:'DUE CARRIER',  units:1, rate:0,    activo:false},
+  {desc:'AWA',          units:1, rate:0,    activo:false},
+];
+
+let cargos = {% if proforma and proforma.cargos %}{{ proforma.cargos|tojson }}{% else %}null{% endif %} || CARGOS_DEF;
+
+function fmt(n){return (Math.round(n*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtD(s){if(!s)return '';const[y,m,d]=s.split('-');return d+'/'+m+'/'+y;}
+
+function renderCargos(){
+  const body = document.getElementById('cargosBody');
+  body.innerHTML = '';
+  cargos.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'row-chk';
+    row.innerHTML = `
+      <input type="checkbox" ${c.activo?'checked':''} onchange="toggleCargo(${i},this.checked)">
+      <input type="text" value="${c.desc}" onchange="cargos[${i}].desc=this.value;calcAll()">
+      <input type="number" value="${c.units}" min="0" step="0.01" style="text-align:right"
+             onchange="cargos[${i}].units=parseFloat(this.value)||0;calcAll()">
+      <input type="number" value="${c.rate}" min="0" step="0.01" style="text-align:right"
+             onchange="cargos[${i}].rate=parseFloat(this.value)||0;calcAll()">
+      <span class="amt" id="tc${i}">$ 0.00</span>`;
+    body.appendChild(row);
+  });
+  calcAll();
+}
+
+function toggleCargo(i, v){ cargos[i].activo = v; calcAll(); }
+
+function calcAll(){
+  const kg   = parseFloat(document.getElementById('peso').value)   || 0;
+  const rate = parseFloat(document.getElementById('tarifa').value)  || 0;
+  const mon  = document.getElementById('moneda').value;
+  const flete = kg * rate;
+  document.getElementById('fleteDisplay').textContent = '$ ' + fmt(flete);
+  document.getElementById('monedaDisplay').textContent = mon;
+  let csum = 0;
+  cargos.forEach((c, i) => {
+    const t = c.activo ? (c.units * c.rate) : 0;
+    cargos[i].total = t;
+    const el = document.getElementById('tc'+i);
+    if(el) el.textContent = '$ ' + fmt(t);
+    if(c.activo) csum += t;
+  });
+  const grand = flete + csum;
+  document.getElementById('subFlete').textContent   = '$ ' + fmt(flete);
+  document.getElementById('subCharges').textContent = '$ ' + fmt(csum);
+  document.getElementById('subTotal').textContent   = '$ ' + fmt(grand);
+}
+
+async function guardar(){
+  const payload = {
+    id:          PROFORMA_ID,
+    numero:      NUMERO,
+    customer:    document.getElementById('customer').value,
+    customer_id: document.getElementById('customerId').value,
+    fecha:       document.getElementById('invoiceDate').value,
+    fecha_desde: document.getElementById('dateFrom').value,
+    fecha_hasta: document.getElementById('dateTo').value,
+    peso:        parseFloat(document.getElementById('peso').value)   || 0,
+    tarifa:      parseFloat(document.getElementById('tarifa').value)  || 0,
+    aerolinea:   document.getElementById('aerolinea').value,
+    moneda:      document.getElementById('moneda').value,
+    origen:      document.getElementById('origen').value.toUpperCase(),
+    destino:     document.getElementById('destino').value.toUpperCase(),
+    descripcion: document.getElementById('description').value,
+    comentarios: document.getElementById('comments').value,
+    cargos:      cargos,
+  };
+  const r = await fetch('/proformas/api/proforma', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+  });
+  const data = await r.json();
+  if(data.success){
+    const msg = document.getElementById('statusMsg');
+    msg.textContent = '✓ Proforma guardada correctamente';
+    msg.style.display = 'block';
+    setTimeout(()=>msg.style.display='none', 4000);
+    if(!PROFORMA_ID) window.location = `/proformas/${data.id}/editar`;
+  }
+}
+
+function generarPDF(){
+  if(!jsPDF){alert('PDF no disponible, recargue la página');return;}
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const W=210, mg=14;
+
+  const customer    = document.getElementById('customer').value    || '—';
+  const customerId  = document.getElementById('customerId').value  || '';
+  const invDate     = document.getElementById('invoiceDate').value;
+  const dateFrom    = document.getElementById('dateFrom').value;
+  const dateTo      = document.getElementById('dateTo').value;
+  const peso        = parseFloat(document.getElementById('peso').value)   || 0;
+  const tarifa      = parseFloat(document.getElementById('tarifa').value)  || 0;
+  const flete       = peso * tarifa;
+  const aerolinea   = document.getElementById('aerolinea').value;
+  const origen      = document.getElementById('origen').value.toUpperCase();
+  const destino     = document.getElementById('destino').value.toUpperCase();
+  const description = document.getElementById('description').value;
+  const comments    = document.getElementById('comments').value;
+  const moneda      = document.getElementById('moneda').value;
+
+  let csum = 0;
+  const items = [{desc:'FREIGHT', units:peso, rate:tarifa, total:flete}];
+  cargos.forEach(c => {
+    const t = c.activo ? c.units * c.rate : 0;
+    items.push({desc:c.desc, units:c.activo?c.units:0, rate:c.activo?c.rate:0, total:c.activo?t:null});
+    if(c.activo) csum += t;
+  });
+  const grand = flete + csum;
+
+  // Header azul
+  doc.setFillColor(26,58,92); doc.rect(0,0,W,20,'F');
+  doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+  doc.text('FreightWise Forwarding S.A.', mg+4, 10);
+  doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('RUC: 1793230131001  |  Tababela Cargo Center, Quito - Ecuador  |  www.freigh-twise.com', mg+4, 15.5);
+
+  // Número proforma
+  doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.text(NUMERO, W-mg, 11, {align:'right'});
+  doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(200,220,240);
+  doc.text('Nº de proforma', W-mg, 7, {align:'right'});
+
+  // Título
+  doc.setFontSize(18); doc.setFont('helvetica','bold'); doc.setTextColor(26,58,92);
+  doc.text('PROFORMA', W-mg, 30, {align:'right'});
+
+  // Caja info
+  const bx=W-mg-64, by=23, bw=64, lh=5.5;
+  doc.setFillColor(230,241,251); doc.setDrawColor(180,200,220); doc.setLineWidth(0.3);
+  doc.roundedRect(bx, by, bw, lh*4, 1, 1, 'FD');
+  [['Fecha',fmtD(invDate)],['Vence',fmtD(invDate)],['Factura #',NUMERO],['Customer ID',customerId]].forEach(([l,v],i)=>{
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
+    doc.text(l+':', bx+2, by+lh*i+4);
+    doc.setFont('helvetica','bold'); doc.setTextColor(26,58,92);
+    doc.text(v, bx+bw-2, by+lh*i+4, {align:'right'});
+  });
+
+  let y=48;
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
+  doc.text('From: '+fmtD(dateFrom)+'   to:  '+fmtD(dateTo), mg, y); y+=5;
+  doc.setFillColor(230,241,251); doc.roundedRect(mg, y, 90, 6, 1, 1, 'F');
+  doc.setFont('helvetica','bold'); doc.setTextColor(26,58,92); doc.text('CLIENTE:', mg+2, y+4);
+  doc.setTextColor(0,0,0); doc.text(customer, mg+20, y+4); y+=9;
+
+  [{l:'Peso:',v:String(peso),l2:'Moneda:',v2:moneda},
+   {l:'Tarifa:',v:fmt(tarifa),l2:'Aerolínea:',v2:aerolinea},
+   {l:'Origen:',v:origen,l2:'Destino:',v2:destino}].forEach(r=>{
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(26,58,92);
+    doc.text(r.l, mg, y); doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0); doc.text(r.v, mg+14, y);
+    doc.setFont('helvetica','bold'); doc.setTextColor(26,58,92); doc.text(r.l2, mg+38, y);
+    doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0); doc.text(r.v2, mg+54, y); y+=4.5;
+  }); y+=2;
+
+  // Tabla
+  doc.setFillColor(26,58,92); doc.rect(mg, y, W-mg*2, 6, 'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+  const cx=[mg,mg+17,mg+37,mg+104,mg+128,mg+156];
+  ['Fecha','Unidades','Descripción','Tarifa','Monto','Total'].forEach((h,i)=>doc.text(h, cx[i]+1, y+4));
+  y+=6;
+  doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0); doc.setFontSize(7.5);
+  items.forEach((item, idx)=>{
+    if(idx%2===1){doc.setFillColor(245,248,252);doc.rect(mg,y,W-mg*2,5,'F');}
+    doc.text(fmtD(invDate), cx[0]+1, y+3.5);
+    doc.text(item.units===0||item.units===null?'-':String(item.units), cx[1]+1, y+3.5);
+    doc.text(item.desc, cx[2]+1, y+3.5);
+    doc.text(!item.rate?'-':fmt(item.rate), cx[3]+1, y+3.5);
+    doc.text(item.total===null||item.total===0?'-':fmt(item.total), cx[4]+1, y+3.5);
+    doc.text(item.total===null||item.total===0?'-':fmt(item.total), W-mg-2, y+3.5, {align:'right'});
+    y+=5;
+  });
+  for(let i=items.length;i<13;i++){if(i%2===1){doc.setFillColor(245,248,252);doc.rect(mg,y,W-mg*2,5,'F');}y+=5;}
+  y+=2;
+
+  // Totales
+  const rx=W-mg-68;
+  [['Subtotal','$ '+fmt(grand)],['Taxable','$ -'],['Tax rate VAT','0.000%'],['Tax','$ -'],
+   ['Other charges','$ -'],['Insurance','$ -'],['Legal/Consular','$ -'],
+   ['Inspection/Cert.','$ -'],['Other (specify)','$ -']].forEach(([l,v])=>{
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+    doc.text(l, rx, y+3); doc.text(v, W-mg-1, y+3, {align:'right'});
+    doc.setDrawColor(220,220,220); doc.setLineWidth(0.1); doc.line(rx, y+4, W-mg, y+4); y+=5;
+  });
+  doc.setFillColor(26,58,92); doc.rect(rx-2, y, W-mg-rx+2, 6, 'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+  doc.text('TOTAL', rx, y+4); doc.text('$ '+fmt(grand), W-mg-1, y+4, {align:'right'}); y+=6;
+  doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
+  doc.text('Currency  '+moneda, W-mg-1, y+3, {align:'right'}); y+=8;
+
+  // Terms
+  doc.setFillColor(240,244,248); doc.rect(mg, y, W-mg*2-68, 22, 'F');
+  doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(26,58,92);
+  doc.text('TERMS OF SALE AND OTHER COMMENTS', mg+2, y+4);
+  doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+  if(comments) doc.text(comments, mg+2, y+9, {maxWidth:W-mg*2-72});
+  y+=26;
+
+  doc.setFillColor(240,244,248); doc.rect(mg, y, W-mg*2, 7, 'F');
+  doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(26,58,92);
+  doc.text('ADDITIONAL DETAILS', mg+2, y+4.5); y+=9;
+  doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+  doc.text('Reason for Export:', mg, y+4);
+  doc.setFillColor(255,255,255); doc.rect(mg+30, y, 60, 5.5, 'FD');
+  doc.text(description, mg+32, y+4); y+=10;
+  doc.setFontSize(7); doc.setTextColor(60,60,60);
+  doc.text('I certify the above to be true and correct to the best of my knowledge.', mg, y+3); y+=10;
+  doc.line(mg, y, mg+50, y); doc.line(W/2, y, W/2+50, y);
+  doc.setFontSize(7); doc.setTextColor(80,80,80);
+  doc.text('Firma autorizada', mg, y+3);
+  doc.text(fmtD(invDate), W/2+2, y-1); doc.text('Date', W/2+2, y+3);
+
+  // Pie
+  doc.setFontSize(7); doc.setTextColor(120,120,120);
+  doc.text('FreightWise Forwarding S.A.  |  www.freigh-twise.com', mg, 289);
+  doc.text('Page 1 of 1', W/2, 291, {align:'center'});
+
+  const fname = 'Proforma_' + NUMERO.replace(/-/g,'_') + '.pdf';
+  doc.save(fname);
+
+  // Auto-guardar al generar PDF
+  guardar();
+
+  const msg = document.getElementById('statusMsg');
+  msg.textContent = '✓ PDF generado: ' + fname;
+  msg.style.display = 'block';
+  setTimeout(()=>msg.style.display='none', 5000);
+}
+
+// Init
+renderCargos();
+// Si hay hash #pdf, generar PDF al cargar
+if(window.location.hash === '#pdf') { setTimeout(generarPDF, 500); }
+</script>
+{% endblock %}

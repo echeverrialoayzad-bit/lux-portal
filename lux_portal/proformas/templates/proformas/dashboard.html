@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Proformas – Lux{% endblock %}
+
+{% block nav_items %}
+<li class="nav-item"><a class="nav-link" href="{{ url_for('cotizaciones.dashboard') }}">Cotizaciones</a></li>
+<li class="nav-item"><a class="nav-link active" href="{{ url_for('proformas.dashboard') }}">Proformas</a></li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+:root{--fw-navy:#1a3a5c;}
+.pf-header{background:var(--fw-navy);color:#fff;border-radius:12px;padding:1.25rem 1.5rem;display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem}
+.pf-header h1{font-size:1.3rem;font-weight:700;margin:0}
+.badge-borrador{background:#e9ecef;color:#495057}
+.badge-emitida{background:#cfe2ff;color:#084298}
+.badge-aceptada{background:#d1e7dd;color:#0a3622}
+.badge-rechazada{background:#f8d7da;color:#842029}
+.estado-badge{font-size:.75rem;padding:.3em .7em;border-radius:20px;font-weight:600}
+.pf-card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;margin-bottom:.75rem;transition:box-shadow .15s}
+.pf-card:hover{box-shadow:0 4px 16px rgba(26,58,92,.12)}
+.pf-row{display:grid;grid-template-columns:140px 1fr 100px 90px 90px 120px;align-items:center;gap:1rem;padding:.85rem 1.25rem}
+.pf-num{font-family:monospace;font-size:.85rem;color:var(--fw-navy);font-weight:700}
+.pf-customer{font-weight:600;font-size:.95rem}
+.pf-sub{font-size:.78rem;color:#888}
+.pf-total{font-weight:700;color:var(--fw-navy);font-size:1rem}
+.pf-actions{display:flex;gap:.4rem;justify-content:flex-end}
+.empty-state{text-align:center;padding:4rem 1rem;color:#aaa}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pf-header">
+  <i class="bi bi-file-earmark-text-fill" style="font-size:1.6rem"></i>
+  <h1>Proformas</h1>
+  <a href="{{ url_for('proformas.nueva') }}" class="btn btn-light btn-sm ms-auto">
+    <i class="bi bi-plus-lg"></i> Nueva proforma
+  </a>
+</div>
+
+{% if proformas %}
+<div style="display:grid;grid-template-columns:140px 1fr 100px 90px 90px 120px;gap:1rem;padding:.4rem 1.25rem;font-size:.75rem;color:#888;font-weight:600;text-transform:uppercase">
+  <span>Número</span><span>Cliente</span><span>Destino</span><span>Total</span><span>Estado</span><span></span>
+</div>
+{% for p in proformas %}
+<div class="pf-card">
+  <div class="pf-row">
+    <span class="pf-num">{{ p.numero }}</span>
+    <div>
+      <div class="pf-customer">{{ p.customer or '—' }}</div>
+      <div class="pf-sub">{{ p.fecha or '' }}{% if p.aerolinea %} · {{ p.aerolinea }}{% endif %}</div>
+    </div>
+    <span style="font-size:.9rem">{{ p.origen }}-{{ p.destino }}</span>
+    <span class="pf-total">$ {{ '%.2f'|format(p.total) }}</span>
+    <span class="estado-badge badge-{{ p.estado }}">{{ p.estado }}</span>
+    <div class="pf-actions">
+      <a href="{{ url_for('proformas.editar', id=p.id) }}" class="btn btn-outline-primary btn-sm" title="Editar">
+        <i class="bi bi-pencil"></i>
+      </a>
+      <button class="btn btn-outline-success btn-sm" title="PDF"
+              onclick="window.location='{{ url_for('proformas.editar', id=p.id) }}#pdf'">
+        <i class="bi bi-file-pdf"></i>
+      </button>
+      <button class="btn btn-outline-danger btn-sm" title="Eliminar"
+              onclick="eliminar({{ p.id }}, '{{ p.numero }}')">
+        <i class="bi bi-trash"></i>
+      </button>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+  <i class="bi bi-file-earmark-text" style="font-size:3rem;display:block;margin-bottom:1rem"></i>
+  <p>No hay proformas todavía.</p>
+  <a href="{{ url_for('proformas.nueva') }}" class="btn btn-primary">Crear primera proforma</a>
+</div>
+{% endif %}
+
+<script>
+async function eliminar(id, numero) {
+  if (!confirm(`¿Eliminar proforma ${numero}?`)) return;
+  const r = await fetch(`/proformas/api/proforma/${id}`, {method:'DELETE'});
+  if ((await r.json()).success) location.reload();
+}
+</script>
+{% endblock %}
