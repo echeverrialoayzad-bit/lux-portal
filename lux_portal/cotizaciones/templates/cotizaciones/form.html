@@ -889,6 +889,7 @@ function cargarDatosItinerario(itinCard, datos) {
         datos.rate_increases.forEach(ri => {
             agregarRateIncrease(riContainer.closest('.col-12').querySelector('button'), ri);
         });
+        recalcularConAumento(itinCard);
     }
 
     const cargosContainer = itinCard.querySelector('.cargos-container');
