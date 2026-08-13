@@ -144,7 +144,7 @@ def guardar_cotizacion():
         # Actualizar campos
         cotizacion.contacto_nombre = data.get('contacto_nombre', 'Daniela Echeverria')
         cotizacion.contacto_email = data.get('contacto_email', 'daniela.echeverria@freight-wise.com')
-        cotizacion.valid_from = data.get('valid_from', datetime.now().strftime('%m/%d/%Y'))
+        cotizacion.valid_from = datetime.now().strftime('%m/%d/%Y')
         cotizacion.mercancia = data.get('mercancia', 'FRESH CUT FLOWERS')
         cotizacion.customer = data.get('customer', '')
         cotizacion.attn = data.get('attn', '')
