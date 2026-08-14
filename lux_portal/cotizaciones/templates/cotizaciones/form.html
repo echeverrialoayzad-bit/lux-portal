@@ -742,6 +742,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     const destinoInput = document.getElementById('destino');
     destinoInput.addEventListener('input', actualizarGananciaPorDestino);
     destinoInput.addEventListener('change', actualizarGananciaPorDestino);
+
+    // Delegacion de eventos para campos de aumento (funciona aunque el elemento se agregue despues)
+    document.addEventListener('input', function(e) {
+        if (e.target.matches('.increase-amount')) {
+            const card = e.target.closest('.aerolinea-card');
+            if (card) recalcularConAumento(card);
+        }
+    });
+    document.addEventListener('change', function(e) {
+        if (e.target.matches('.increase-amount')) {
+            const card = e.target.closest('.aerolinea-card');
+            if (card) recalcularConAumento(card);
+        }
+    });
 });
 
 function cargarAerolineasExistentes() {
@@ -889,7 +903,6 @@ function cargarDatosItinerario(itinCard, datos) {
         datos.rate_increases.forEach(ri => {
             agregarRateIncrease(riContainer.closest('.col-12').querySelector('button'), ri);
         });
-        recalcularConAumento(itinCard);
     }
 
     const cargosContainer = itinCard.querySelector('.cargos-container');
@@ -897,6 +910,10 @@ function cargarDatosItinerario(itinCard, datos) {
     cargarCargosEnItinerario(itinCard, datos.cargos_adicionales || []);
 
     itinCard.querySelector('.notas-text').value = datos.notas || '';
+
+    // Recalcular con aumento al final (defer para asegurar que todo el DOM este listo)
+    const _aeroCard = itinCard.closest('.aerolinea-card');
+    if (_aeroCard) setTimeout(() => recalcularConAumento(_aeroCard), 0);
 }
 
 function agregarItinerario(btn) {
@@ -1025,14 +1042,6 @@ function agregarRateIncrease(btn, datos = null) {
     }
     const increaseInput = row.querySelector('.increase-amount');
     attachFormulaHandlers(increaseInput);
-    increaseInput.addEventListener('input', () => {
-        const card = increaseInput.closest('.aerolinea-card');
-        if (card) recalcularConAumento(card);
-    });
-    increaseInput.addEventListener('blur', () => {
-        const card = increaseInput.closest('.aerolinea-card');
-        if (card) recalcularConAumento(card);
-    });
     container.appendChild(clone);
 }
 
@@ -1084,7 +1093,7 @@ function calcularPrecioFinal(row) {
         const aumento = _sumarAumentos(card);
         const colAumento = row.querySelector('.precio-con-aumento-col');
         if (colAumento) {
-            colAumento.style.display = aumento > 0 ? '' : 'none';
+            colAumento.style.display = aumento > 0 ? 'block' : 'none';
             row.querySelector('.precio-con-aumento').textContent = `$ ${(total + aumento).toFixed(2)}`;
         }
     }
@@ -1104,7 +1113,7 @@ function recalcularConAumento(card) {
     card.querySelectorAll('.kg-rate-row').forEach(row => {
         const col = row.querySelector('.precio-con-aumento-col');
         if (!col) return;
-        col.style.display = aumento > 0 ? '' : 'none';
+        col.style.display = aumento > 0 ? 'block' : 'none';
         const precioFinal = parseFloat(row.querySelector('.precio-final').textContent.replace('$','').trim()) || 0;
         row.querySelector('.precio-con-aumento').textContent = `$ ${(precioFinal + aumento).toFixed(2)}`;
     });
