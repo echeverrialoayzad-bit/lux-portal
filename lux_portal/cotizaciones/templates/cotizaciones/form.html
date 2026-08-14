@@ -367,7 +367,7 @@
             <label class="form-label small mb-1">Precio Final</label>
             <span class="precio-final badge bg-primary">$ 0.00</span>
         </div>
-        <div class="flex-grow-1 precio-con-aumento-col" style="display:none">
+        <div class="flex-grow-1 precio-con-aumento-col d-none">
             <label class="form-label small mb-1">Con Aumento</label>
             <span class="precio-con-aumento badge bg-success">$ 0.00</span>
         </div>
@@ -1093,7 +1093,7 @@ function calcularPrecioFinal(row) {
         const aumento = _sumarAumentos(card);
         const colAumento = row.querySelector('.precio-con-aumento-col');
         if (colAumento) {
-            colAumento.style.display = aumento > 0 ? 'block' : 'none';
+            colAumento.classList.toggle('d-none', aumento <= 0);
             row.querySelector('.precio-con-aumento').textContent = `$ ${(total + aumento).toFixed(2)}`;
         }
     }
@@ -1113,7 +1113,7 @@ function recalcularConAumento(card) {
     card.querySelectorAll('.kg-rate-row').forEach(row => {
         const col = row.querySelector('.precio-con-aumento-col');
         if (!col) return;
-        col.style.display = aumento > 0 ? 'block' : 'none';
+        col.classList.toggle('d-none', aumento <= 0);
         const precioFinal = parseFloat(row.querySelector('.precio-final').textContent.replace('$','').trim()) || 0;
         row.querySelector('.precio-con-aumento').textContent = `$ ${(precioFinal + aumento).toFixed(2)}`;
     });
