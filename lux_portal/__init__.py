@@ -28,6 +28,7 @@ def create_app(config_name='default'):
     from lux_portal.fw_fruta import fw_fruta_bp
     from lux_portal.excel_online import excel_online_bp
     from lux_portal.proformas import proformas_bp
+    from lux_portal.tarifas import tarifas_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -38,6 +39,7 @@ def create_app(config_name='default'):
     app.register_blueprint(fw_fruta_bp, url_prefix='/fw-fruta')
     app.register_blueprint(excel_online_bp, url_prefix='/excel-online')
     app.register_blueprint(proformas_bp, url_prefix='/proformas')
+    app.register_blueprint(tarifas_bp, url_prefix='/tarifas')
 
     # Crear tablas de base de datos y migrar columnas faltantes
     with app.app_context():

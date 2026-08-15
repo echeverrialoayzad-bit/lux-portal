@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}Actualización Tarifas{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row mb-3">
+    <div class="col">
+      <h4 class="fw-bold">Actualización de Tarifas</h4>
+      <p class="text-muted small mb-0">Sube el screenshot o pega el texto de tarifas y el sistema actualiza las cotizaciones automáticamente.</p>
+    </div>
+  </div>
+
+  {% if not api_ok %}
+  <div class="alert alert-danger">
+    <strong>Configuración incompleta:</strong> La variable <code>ANTHROPIC_API_KEY</code> no está configurada en Railway.
+    Ve a Railway → tu proyecto → Variables → agrega <code>ANTHROPIC_API_KEY</code>.
+  </div>
+  {% endif %}
+
+  <!-- Formulario de entrada -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-3">
+        <!-- Imagen drag-drop -->
+        <div class="col-md-5">
+          <label class="form-label fw-semibold">Screenshot de tarifas</label>
+          <div id="drop-zone" class="border rounded d-flex flex-column align-items-center justify-content-center p-4 text-muted"
+               style="min-height:180px; cursor:pointer; border-style:dashed !important; background:#fafafa;">
+            <i class="bi bi-image fs-2 mb-2"></i>
+            <span id="drop-label">Arrastra o haz clic para subir imagen</span>
+            <input type="file" id="input-imagen" accept="image/*" class="d-none">
+            <img id="preview-img" src="" class="mt-2 d-none" style="max-height:120px; max-width:100%; object-fit:contain; border-radius:4px;">
+          </div>
+        </div>
+        <!-- Texto -->
+        <div class="col-md-7">
+          <label class="form-label fw-semibold">O pega el texto de las tarifas</label>
+          <textarea id="input-texto" class="form-control" rows="7"
+                    placeholder="Ej:&#10;MAD - Madrid&#10;+100kg: $3.50  +300kg: $3.20  +500kg: $2.95&#10;FSC: $0.15"></textarea>
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label small">Aerolínea (opcional, ayuda al match)</label>
+          <select id="select-aerolinea" class="form-select form-select-sm">
+            <option value="">— Autodetectar —</option>
+            {% for a in aerolineas %}
+            <option value="{{ a }}">{{ a }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <button id="btn-analizar" class="btn btn-primary px-4" {% if not api_ok %}disabled{% endif %}>
+            <span id="spin-analizar" class="spinner-border spinner-border-sm d-none me-1"></span>
+            Analizar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resultados -->
+  <div id="resultados" class="d-none">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div>
+        <h5 class="mb-0">Resultados: <span id="lbl-aerolinea" class="text-primary fw-bold"></span></h5>
+        <small class="text-muted">Destinos extraídos: <span id="lbl-destinos"></span></small>
+      </div>
+      <div>
+        <button id="btn-sel-todos" class="btn btn-sm btn-outline-secondary me-1">Seleccionar todo</button>
+        <button id="btn-aplicar" class="btn btn-success px-4">
+          <span id="spin-aplicar" class="spinner-border spinner-border-sm d-none me-1"></span>
+          Aplicar Cambios
+        </button>
+      </div>
+    </div>
+
+    <div id="tabla-resultados"></div>
+  </div>
+
+  <!-- Toast de éxito -->
+  <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100">
+    <div id="toast-ok" class="toast align-items-center text-bg-success border-0" role="alert">
+      <div class="d-flex">
+        <div class="toast-body fw-semibold" id="toast-msg">Tarifas actualizadas.</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let matchesData = [];
+
+// Drag & drop
+const dropZone = document.getElementById('drop-zone');
+const inputImg = document.getElementById('input-imagen');
+const previewImg = document.getElementById('preview-img');
+const dropLabel = document.getElementById('drop-label');
+
+dropZone.addEventListener('click', () => inputImg.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-primary'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-primary'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('border-primary');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadPreview(f);
+});
+inputImg.addEventListener('change', () => {
+  if (inputImg.files[0]) loadPreview(inputImg.files[0]);
+});
+
+function loadPreview(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    previewImg.src = e.target.result;
+    previewImg.classList.remove('d-none');
+    dropLabel.textContent = file.name;
+  };
+  reader.readAsDataURL(file);
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  inputImg.files = dt.files;
+}
+
+// Analizar
+document.getElementById('btn-analizar').addEventListener('click', async () => {
+  const texto = document.getElementById('input-texto').value.trim();
+  const imgFile = inputImg.files[0];
+  if (!texto && !imgFile) { alert('Sube una imagen o pega el texto de las tarifas.'); return; }
+
+  const fd = new FormData();
+  if (imgFile) fd.append('imagen', imgFile);
+  if (texto) fd.append('texto', texto);
+  const hint = document.getElementById('select-aerolinea').value;
+  if (hint) fd.append('aerolinea_hint', hint);
+
+  setLoading('btn-analizar', 'spin-analizar', true);
+  document.getElementById('resultados').classList.add('d-none');
+
+  try {
+    const resp = await fetch('/tarifas/api/analizar', { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (!resp.ok || data.error) { alert(data.error || 'Error'); return; }
+    renderResultados(data);
+  } catch(e) {
+    alert('Error de red: ' + e.message);
+  } finally {
+    setLoading('btn-analizar', 'spin-analizar', false);
+  }
+});
+
+function renderResultados(data) {
+  matchesData = data.matches || [];
+  document.getElementById('lbl-aerolinea').textContent = data.aerolinea || '(desconocida)';
+  document.getElementById('lbl-destinos').textContent = (data.destinos_extraidos || []).join(', ') || '—';
+
+  const cont = document.getElementById('tabla-resultados');
+  cont.innerHTML = '';
+
+  if (!matchesData.length) {
+    cont.innerHTML = '<div class="alert alert-warning">No se encontraron cotizaciones activas que coincidan con las tarifas extraídas.</div>';
+    document.getElementById('resultados').classList.remove('d-none');
+    return;
+  }
+
+  matchesData.forEach((m, idx) => {
+    const badge = m.hay_cambios
+      ? '<span class="badge bg-warning text-dark">Con cambios</span>'
+      : '<span class="badge bg-secondary">Sin cambios</span>';
+
+    let rowsHtml = m.diff_rows.map(r => {
+      const cls = r.cambio ? 'table-warning' : '';
+      const act = r.tarifa_actual !== null ? `$ ${r.tarifa_actual.toFixed(2)}` : '<span class="text-muted">—</span>';
+      const arr = r.cambio ? '<i class="bi bi-arrow-right text-primary mx-1"></i>' : '';
+      return `<tr class="${cls}">
+        <td class="text-center fw-semibold">${r.kg}</td>
+        <td class="text-end">${act}</td>
+        <td class="text-center">${arr}</td>
+        <td class="text-end fw-semibold ${r.cambio ? 'text-success' : ''}">$ ${r.tarifa_nueva.toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+
+    let fscRow = '';
+    if (m.fsc_cambia) {
+      fscRow = `<tr class="table-warning">
+        <td colspan="4" class="small text-center">FSC: $ ${m.fsc_actual.toFixed(2)} → $ ${m.fsc_nuevo.toFixed(2)}</td>
+      </tr>`;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'card mb-3';
+    card.innerHTML = `
+      <div class="card-header d-flex align-items-center gap-2 py-2">
+        <input type="checkbox" class="form-check-input match-check" data-idx="${idx}"
+               ${m.hay_cambios ? 'checked' : ''} style="width:18px;height:18px;">
+        <span class="fw-bold">${m.aerolinea}</span>
+        <span class="badge bg-info text-dark">${m.destino}</span>
+        ${m.itinerario ? `<span class="text-muted small">${m.itinerario}</span>` : ''}
+        ${badge}
+        <span class="ms-auto text-muted small">Cotización #${m.cot_id}</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-bordered mb-0 text-sm">
+          <thead class="table-light">
+            <tr>
+              <th class="text-center">KG</th>
+              <th class="text-end">Tarifa Actual</th>
+              <th class="text-center"></th>
+              <th class="text-end">Tarifa Nueva</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}${fscRow}</tbody>
+        </table>
+      </div>`;
+    cont.appendChild(card);
+  });
+
+  document.getElementById('resultados').classList.remove('d-none');
+}
+
+// Seleccionar todo
+document.getElementById('btn-sel-todos').addEventListener('click', () => {
+  const checks = document.querySelectorAll('.match-check');
+  const allChecked = [...checks].every(c => c.checked);
+  checks.forEach(c => c.checked = !allChecked);
+});
+
+// Aplicar
+document.getElementById('btn-aplicar').addEventListener('click', async () => {
+  const checks = document.querySelectorAll('.match-check:checked');
+  if (!checks.length) { alert('Selecciona al menos una aerolínea para actualizar.'); return; }
+
+  const aplicaciones = [...checks].map(c => {
+    const idx = parseInt(c.dataset.idx);
+    const m = matchesData[idx];
+    return {
+      cot_id: m.cot_id,
+      aerolinea: m.aerolinea,
+      nuevas_rates: m.nuevas_rates,
+      fsc_nuevo: m.fsc_nuevo
+    };
+  });
+
+  if (!confirm(`¿Aplicar tarifas en ${aplicaciones.length} cotización(es)?`)) return;
+
+  setLoading('btn-aplicar', 'spin-aplicar', true);
+  try {
+    const resp = await fetch('/tarifas/api/aplicar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ aplicaciones })
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) { alert(data.error || 'Error'); return; }
+
+    let msg = `${data.actualizadas} cotización(es) actualizada(s).`;
+    if (data.errores && data.errores.length) msg += ' Errores: ' + data.errores.join(', ');
+    showToast(msg);
+
+    // Deschequear todas las aplicadas
+    document.querySelectorAll('.match-check:checked').forEach(c => c.checked = false);
+  } catch(e) {
+    alert('Error de red: ' + e.message);
+  } finally {
+    setLoading('btn-aplicar', 'spin-aplicar', false);
+  }
+});
+
+function setLoading(btnId, spinId, on) {
+  document.getElementById(btnId).disabled = on;
+  document.getElementById(spinId).classList.toggle('d-none', !on);
+}
+
+function showToast(msg) {
+  document.getElementById('toast-msg').textContent = msg;
+  const el = document.getElementById('toast-ok');
+  const t = bootstrap.Toast.getOrCreateInstance(el, { delay: 4000 });
+  t.show();
+}
+</script>
+{% endblock %}
