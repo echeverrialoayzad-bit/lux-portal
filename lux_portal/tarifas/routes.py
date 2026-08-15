@@ -130,11 +130,13 @@ def analizar():
 
     aerolinea_ext = extracted.get('aerolinea', '').upper().strip()
     matches = []
+    sin_match = []
 
     for dest_data in extracted.get('destinos', []):
         iata = dest_data.get('iata', '').upper().strip()
         nuevas = dest_data.get('kg_rates', [])
         fsc_nuevo = float(dest_data.get('fsc', 0) or 0)
+        found_match = False
 
         for cot in cots:
             if not cot.destino or cot.destino.upper() != iata:
@@ -142,7 +144,6 @@ def analizar():
 
             for aero in (cot.aerolineas or []):
                 nombre = aero.get('aerolinea', '').upper()
-                # Match: primera palabra coincide
                 base_ext = aerolinea_ext.split()[0] if aerolinea_ext else ''
                 base_nom = nombre.split()[0] if nombre else ''
                 if base_ext and base_ext != base_nom:
@@ -178,11 +179,29 @@ def analizar():
                                       'tarifa': nr.get('tarifa')} for nr in nuevas],
                     'hay_cambios': any(r['cambio'] for r in diff_rows)
                 })
+                found_match = True
+
+        if not found_match:
+            cots_iata = [{'id': c.id, 'label': f"#{c.id} — {c.destino}{(' / ' + c.customer) if c.customer else ''}"}
+                         for c in cots if c.destino and c.destino.upper() == iata]
+            if not cots_iata:
+                cots_iata = [{'id': c.id, 'label': f"#{c.id} — {c.destino}{(' / ' + c.customer) if c.customer else ''}"}
+                             for c in cots]
+            sin_match.append({
+                'iata': iata,
+                'ciudad': dest_data.get('ciudad', ''),
+                'aerolinea': aerolinea_ext,
+                'nuevas_rates': [{'kg': _normalizar_kg(nr.get('kg', '')), 'tarifa': nr.get('tarifa')}
+                                 for nr in nuevas],
+                'fsc_nuevo': fsc_nuevo,
+                'cotizaciones_disponibles': cots_iata[:40]
+            })
 
     return jsonify({
         'aerolinea': extracted.get('aerolinea'),
         'destinos_extraidos': [d.get('iata') for d in extracted.get('destinos', [])],
-        'matches': matches
+        'matches': matches,
+        'sin_match': sin_match
     })
 
 
@@ -205,6 +224,7 @@ def aplicar():
         nombre_aero = ap.get('aerolinea', '').upper()
         nuevas_rates = ap.get('nuevas_rates', [])
         fsc_nuevo = float(ap.get('fsc_nuevo', 0) or 0)
+        es_nueva = ap.get('nueva_aerolinea', False)
 
         cot = Cotizacion.query.get(cot_id)
         if not cot:
@@ -212,8 +232,50 @@ def aplicar():
             continue
 
         aerolineas = list(cot.aerolineas or [])
-        cambiado = False
 
+        if es_nueva:
+            # Agregar o actualizar aerolínea que no existía en la cotización
+            def _build_kr(nr, fsc_usar):
+                t = float(nr.get('tarifa', 0) or 0)
+                return {'kg': _normalizar_kg(nr.get('kg', '')), 'tarifa': f"{t:.2f}",
+                        'margen': '0.00', 'costo_operativo': '0.09',
+                        'fsc': f"{fsc_usar:.2f}", 'tarifa_cliente': f"{t + 0.09 + fsc_usar:.2f}"}
+
+            fsc_usar = fsc_nuevo if fsc_nuevo > 0 else 0.0
+            existe = False
+            for aero in aerolineas:
+                if aero.get('aerolinea', '').upper() == nombre_aero:
+                    kg_rates = list(aero.get('kg_rates', []))
+                    kg_idx = {_normalizar_kg(kr.get('kg', '')): i for i, kr in enumerate(kg_rates)}
+                    for nr in nuevas_rates:
+                        kr = _build_kr(nr, fsc_usar)
+                        kg_key = kr['kg']
+                        if kg_key in kg_idx:
+                            kg_rates[kg_idx[kg_key]] = kr
+                        else:
+                            kg_rates.append(kr)
+                    aero['kg_rates'] = kg_rates
+                    aero['fecha_actualizacion'] = hoy
+                    existe = True
+                    break
+
+            if not existe:
+                aerolineas.append({
+                    'aerolinea': ap.get('aerolinea'),
+                    'vuelo': '', 'itinerario': '', 'tiempo_transito': '',
+                    'granjas_entrega': '', 'salida': '', 'llegada': '',
+                    'kg_rates': [_build_kr(nr, fsc_usar) for nr in nuevas_rates],
+                    'rate_increases': [], 'cargos_adicionales': [],
+                    'notas': '', 'es_continuacion': False,
+                    'fecha_actualizacion': hoy
+                })
+
+            cot.aerolineas = aerolineas
+            actualizadas += 1
+            continue
+
+        # Actualizar aerolínea existente
+        cambiado = False
         for aero in aerolineas:
             if aero.get('aerolinea', '').upper() != nombre_aero:
                 continue

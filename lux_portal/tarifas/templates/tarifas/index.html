@@ -26,7 +26,7 @@
           <div id="drop-zone" class="border rounded d-flex flex-column align-items-center justify-content-center p-4 text-muted"
                style="min-height:180px; cursor:pointer; border-style:dashed !important; background:#fafafa;">
             <i class="bi bi-image fs-2 mb-2"></i>
-            <span id="drop-label">Arrastra o haz clic para subir imagen</span>
+            <span id="drop-label">Arrastra, haz clic o pega (Ctrl+V)</span>
             <input type="file" id="input-imagen" accept="image/*" class="d-none">
             <img id="preview-img" src="" class="mt-2 d-none" style="max-height:120px; max-width:100%; object-fit:contain; border-radius:4px;">
           </div>
@@ -91,6 +91,7 @@
 
 <script>
 let matchesData = [];
+let sinMatchData = [];
 
 // Drag & drop
 const dropZone = document.getElementById('drop-zone');
@@ -111,12 +112,25 @@ inputImg.addEventListener('change', () => {
   if (inputImg.files[0]) loadPreview(inputImg.files[0]);
 });
 
+// Pegar imagen con Ctrl+V
+document.addEventListener('paste', e => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) { loadPreview(file); e.preventDefault(); }
+      break;
+    }
+  }
+});
+
 function loadPreview(file) {
   const reader = new FileReader();
   reader.onload = e => {
     previewImg.src = e.target.result;
     previewImg.classList.remove('d-none');
-    dropLabel.textContent = file.name;
+    dropLabel.textContent = file.name || 'imagen pegada';
   };
   reader.readAsDataURL(file);
   const dt = new DataTransfer();
@@ -153,18 +167,20 @@ document.getElementById('btn-analizar').addEventListener('click', async () => {
 
 function renderResultados(data) {
   matchesData = data.matches || [];
+  sinMatchData = data.sin_match || [];
   document.getElementById('lbl-aerolinea').textContent = data.aerolinea || '(desconocida)';
   document.getElementById('lbl-destinos').textContent = (data.destinos_extraidos || []).join(', ') || '—';
 
   const cont = document.getElementById('tabla-resultados');
   cont.innerHTML = '';
 
-  if (!matchesData.length) {
+  if (!matchesData.length && !sinMatchData.length) {
     cont.innerHTML = '<div class="alert alert-warning">No se encontraron cotizaciones activas que coincidan con las tarifas extraídas.</div>';
     document.getElementById('resultados').classList.remove('d-none');
     return;
   }
 
+  // --- Matches existentes ---
   matchesData.forEach((m, idx) => {
     const badge = m.hay_cambios
       ? '<span class="badge bg-warning text-dark">Con cambios</span>'
@@ -193,7 +209,7 @@ function renderResultados(data) {
     card.className = 'card mb-3';
     card.innerHTML = `
       <div class="card-header d-flex align-items-center gap-2 py-2">
-        <input type="checkbox" class="form-check-input match-check" data-idx="${idx}"
+        <input type="checkbox" class="form-check-input match-check" data-type="match" data-idx="${idx}"
                ${m.hay_cambios ? 'checked' : ''} style="width:18px;height:18px;">
         <span class="fw-bold">${m.aerolinea}</span>
         <span class="badge bg-info text-dark">${m.destino}</span>
@@ -205,10 +221,8 @@ function renderResultados(data) {
         <table class="table table-sm table-bordered mb-0 text-sm">
           <thead class="table-light">
             <tr>
-              <th class="text-center">KG</th>
-              <th class="text-end">Tarifa Actual</th>
-              <th class="text-center"></th>
-              <th class="text-end">Tarifa Nueva</th>
+              <th class="text-center">KG</th><th class="text-end">Tarifa Actual</th>
+              <th class="text-center"></th><th class="text-end">Tarifa Nueva</th>
             </tr>
           </thead>
           <tbody>${rowsHtml}${fscRow}</tbody>
@@ -216,6 +230,60 @@ function renderResultados(data) {
       </div>`;
     cont.appendChild(card);
   });
+
+  // --- Sin match: aerolíneas nuevas ---
+  if (sinMatchData.length) {
+    const sep = document.createElement('div');
+    sep.className = 'mt-4 mb-2';
+    sep.innerHTML = '<h6 class="text-danger fw-bold"><i class="bi bi-exclamation-circle me-1"></i>Aerolíneas sin cotización activa — agregar manualmente</h6>';
+    cont.appendChild(sep);
+
+    sinMatchData.forEach((m, idx) => {
+      const optsHtml = (m.cotizaciones_disponibles || []).map(c =>
+        `<option value="${c.id}">${c.label}</option>`
+      ).join('');
+
+      let rowsHtml = (m.nuevas_rates || []).map(r => {
+        const t = parseFloat(r.tarifa) || 0;
+        return `<tr>
+          <td class="text-center fw-semibold">${r.kg}</td>
+          <td class="text-end fw-semibold text-success">$ ${t.toFixed(2)}</td>
+        </tr>`;
+      }).join('');
+
+      const fscRow = m.fsc_nuevo > 0
+        ? `<tr><td colspan="2" class="small text-center text-muted">FSC: $ ${parseFloat(m.fsc_nuevo).toFixed(2)}</td></tr>`
+        : '';
+
+      const card = document.createElement('div');
+      card.className = 'card mb-3 border-danger';
+      card.innerHTML = `
+        <div class="card-header d-flex align-items-center gap-2 py-2 bg-danger bg-opacity-10">
+          <input type="checkbox" class="form-check-input match-check" data-type="sinmatch" data-idx="${idx}"
+                 style="width:18px;height:18px;">
+          <span class="fw-bold">${m.aerolinea || '(sin nombre)'}</span>
+          <span class="badge bg-secondary">${m.iata}</span>
+          ${m.ciudad ? `<span class="text-muted small">${m.ciudad}</span>` : ''}
+          <span class="badge bg-danger ms-1">Nueva aerolínea</span>
+          <div class="ms-auto d-flex align-items-center gap-2">
+            <label class="form-label mb-0 small text-nowrap">Agregar a:</label>
+            <select class="form-select form-select-sm sinmatch-cot" data-idx="${idx}" style="min-width:200px;">
+              <option value="">— Seleccionar cotización —</option>
+              ${optsHtml}
+            </select>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-bordered mb-0 text-sm">
+            <thead class="table-light">
+              <tr><th class="text-center">KG</th><th class="text-end">Tarifa Nueva</th></tr>
+            </thead>
+            <tbody>${rowsHtml}${fscRow}</tbody>
+          </table>
+        </div>`;
+      cont.appendChild(card);
+    });
+  }
 
   document.getElementById('resultados').classList.remove('d-none');
 }
@@ -232,18 +300,28 @@ document.getElementById('btn-aplicar').addEventListener('click', async () => {
   const checks = document.querySelectorAll('.match-check:checked');
   if (!checks.length) { alert('Selecciona al menos una aerolínea para actualizar.'); return; }
 
-  const aplicaciones = [...checks].map(c => {
-    const idx = parseInt(c.dataset.idx);
-    const m = matchesData[idx];
-    return {
-      cot_id: m.cot_id,
-      aerolinea: m.aerolinea,
-      nuevas_rates: m.nuevas_rates,
-      fsc_nuevo: m.fsc_nuevo
-    };
-  });
+  const aplicaciones = [];
+  let sinCotError = false;
 
-  if (!confirm(`¿Aplicar tarifas en ${aplicaciones.length} cotización(es)?`)) return;
+  for (const c of checks) {
+    if (c.dataset.type === 'match') {
+      const m = matchesData[parseInt(c.dataset.idx)];
+      aplicaciones.push({ cot_id: m.cot_id, aerolinea: m.aerolinea, nuevas_rates: m.nuevas_rates, fsc_nuevo: m.fsc_nuevo });
+    } else {
+      const idx = parseInt(c.dataset.idx);
+      const m = sinMatchData[idx];
+      const sel = document.querySelector(`.sinmatch-cot[data-idx="${idx}"]`);
+      const cotId = sel && parseInt(sel.value);
+      if (!cotId) { sinCotError = true; continue; }
+      aplicaciones.push({ cot_id: cotId, aerolinea: m.aerolinea, nuevas_rates: m.nuevas_rates,
+                          fsc_nuevo: m.fsc_nuevo, nueva_aerolinea: true });
+    }
+  }
+
+  if (sinCotError) { alert('Selecciona una cotización destino para cada aerolínea nueva marcada.'); return; }
+  if (!aplicaciones.length) return;
+
+  if (!confirm(`¿Aplicar tarifas en ${aplicaciones.length} operación(es)?`)) return;
 
   setLoading('btn-aplicar', 'spin-aplicar', true);
   try {
@@ -259,7 +337,6 @@ document.getElementById('btn-aplicar').addEventListener('click', async () => {
     if (data.errores && data.errores.length) msg += ' Errores: ' + data.errores.join(', ');
     showToast(msg);
 
-    // Deschequear todas las aplicadas
     document.querySelectorAll('.match-check:checked').forEach(c => c.checked = false);
   } catch(e) {
     alert('Error de red: ' + e.message);
