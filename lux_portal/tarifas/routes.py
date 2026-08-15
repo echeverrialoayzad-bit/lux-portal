@@ -184,9 +184,7 @@ def analizar():
         if not found_match:
             cots_iata = [{'id': c.id, 'label': f"#{c.id} — {c.destino}{(' / ' + c.customer) if c.customer else ''}"}
                          for c in cots if c.destino and c.destino.upper() == iata]
-            if not cots_iata:
-                cots_iata = [{'id': c.id, 'label': f"#{c.id} — {c.destino}{(' / ' + c.customer) if c.customer else ''}"}
-                             for c in cots]
+            tiene_cot_propia = len(cots_iata) > 0
             sin_match.append({
                 'iata': iata,
                 'ciudad': dest_data.get('ciudad', ''),
@@ -194,7 +192,8 @@ def analizar():
                 'nuevas_rates': [{'kg': _normalizar_kg(nr.get('kg', '')), 'tarifa': nr.get('tarifa')}
                                  for nr in nuevas],
                 'fsc_nuevo': fsc_nuevo,
-                'cotizaciones_disponibles': cots_iata[:40]
+                'tiene_cot_propia': tiene_cot_propia,
+                'cotizaciones_disponibles': cots_iata
             })
 
     return jsonify({
@@ -225,6 +224,46 @@ def aplicar():
         nuevas_rates = ap.get('nuevas_rates', [])
         fsc_nuevo = float(ap.get('fsc_nuevo', 0) or 0)
         es_nueva = ap.get('nueva_aerolinea', False)
+        crear_cot = ap.get('crear_cotizacion', False)
+
+        # Crear cotización nueva desde cero (destino no existía)
+        if crear_cot:
+            iata = ap.get('iata', '').upper()
+            fsc_usar = fsc_nuevo if fsc_nuevo > 0 else 0.0
+            kg_rates_nuevas = []
+            for nr in nuevas_rates:
+                t = float(nr.get('tarifa', 0) or 0)
+                kg_rates_nuevas.append({
+                    'kg': _normalizar_kg(nr.get('kg', '')), 'tarifa': f"{t:.2f}",
+                    'margen': '0.00', 'costo_operativo': '0.09',
+                    'fsc': f"{fsc_usar:.2f}", 'tarifa_cliente': f"{t + 0.09 + fsc_usar:.2f}"
+                })
+            nueva_cot = Cotizacion(
+                origen='UIO', destino=iata,
+                valid_from=datetime.now().strftime('%m/%d/%Y'),
+                contacto_nombre='Daniela Echeverria',
+                contacto_email='daniela.echeverria@freight-wise.com',
+                mercancia='FRESH CUT FLOWERS',
+                customer='', attn='', estado='borrador'
+            )
+            nueva_cot.aerolineas = [{
+                'aerolinea': ap.get('aerolinea'),
+                'vuelo': '', 'itinerario': '', 'tiempo_transito': '',
+                'granjas_entrega': '', 'salida': '', 'llegada': '',
+                'kg_rates': kg_rates_nuevas,
+                'rate_increases': [], 'cargos_adicionales': [],
+                'notas': '', 'es_continuacion': False,
+                'fecha_actualizacion': hoy
+            }]
+            nueva_cot.cargos_freightwise = [
+                {"concepto": "Due Agent", "monto": "0"},
+                {"concepto": "Certificado", "monto": "0"},
+                {"concepto": "Fitosanitario", "monto": "0"},
+            ]
+            nueva_cot.notas_freightwise = ''
+            db.session.add(nueva_cot)
+            actualizadas += 1
+            continue
 
         cot = Cotizacion.query.get(cot_id)
         if not cot:

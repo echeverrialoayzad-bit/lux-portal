@@ -239,10 +239,6 @@ function renderResultados(data) {
     cont.appendChild(sep);
 
     sinMatchData.forEach((m, idx) => {
-      const optsHtml = (m.cotizaciones_disponibles || []).map(c =>
-        `<option value="${c.id}">${c.label}</option>`
-      ).join('');
-
       let rowsHtml = (m.nuevas_rates || []).map(r => {
         const t = parseFloat(r.tarifa) || 0;
         return `<tr>
@@ -255,23 +251,35 @@ function renderResultados(data) {
         ? `<tr><td colspan="2" class="small text-center text-muted">FSC: $ ${parseFloat(m.fsc_nuevo).toFixed(2)}</td></tr>`
         : '';
 
-      const card = document.createElement('div');
-      card.className = 'card mb-3 border-danger';
-      card.innerHTML = `
-        <div class="card-header d-flex align-items-center gap-2 py-2 bg-danger bg-opacity-10">
-          <input type="checkbox" class="form-check-input match-check" data-type="sinmatch" data-idx="${idx}"
-                 style="width:18px;height:18px;">
-          <span class="fw-bold">${m.aerolinea || '(sin nombre)'}</span>
-          <span class="badge bg-secondary">${m.iata}</span>
-          ${m.ciudad ? `<span class="text-muted small">${m.ciudad}</span>` : ''}
-          <span class="badge bg-danger ms-1">Nueva aerolínea</span>
+      // Lado derecho: dropdown si ya existe cotización para ese destino, o badge "nueva cotización"
+      let accionHtml = '';
+      if (m.tiene_cot_propia) {
+        const optsHtml = (m.cotizaciones_disponibles || []).map(c =>
+          `<option value="${c.id}">${c.label}</option>`
+        ).join('');
+        accionHtml = `
           <div class="ms-auto d-flex align-items-center gap-2">
             <label class="form-label mb-0 small text-nowrap">Agregar a:</label>
             <select class="form-select form-select-sm sinmatch-cot" data-idx="${idx}" style="min-width:200px;">
               <option value="">— Seleccionar cotización —</option>
               ${optsHtml}
             </select>
-          </div>
+          </div>`;
+      } else {
+        accionHtml = `<span class="ms-auto badge bg-info text-dark">Se creará cotización nueva para ${m.iata}</span>`;
+      }
+
+      const card = document.createElement('div');
+      card.className = 'card mb-3 border-danger';
+      card.innerHTML = `
+        <div class="card-header d-flex align-items-center gap-2 py-2 bg-danger bg-opacity-10">
+          <input type="checkbox" class="form-check-input match-check" data-type="sinmatch" data-idx="${idx}"
+                 checked style="width:18px;height:18px;">
+          <span class="fw-bold">${m.aerolinea || '(sin nombre)'}</span>
+          <span class="badge bg-secondary">${m.iata}</span>
+          ${m.ciudad ? `<span class="text-muted small">${m.ciudad}</span>` : ''}
+          <span class="badge bg-danger ms-1">Nueva aerolínea</span>
+          ${accionHtml}
         </div>
         <div class="card-body p-0">
           <table class="table table-sm table-bordered mb-0 text-sm">
@@ -310,11 +318,19 @@ document.getElementById('btn-aplicar').addEventListener('click', async () => {
     } else {
       const idx = parseInt(c.dataset.idx);
       const m = sinMatchData[idx];
-      const sel = document.querySelector(`.sinmatch-cot[data-idx="${idx}"]`);
-      const cotId = sel && parseInt(sel.value);
-      if (!cotId) { sinCotError = true; continue; }
-      aplicaciones.push({ cot_id: cotId, aerolinea: m.aerolinea, nuevas_rates: m.nuevas_rates,
-                          fsc_nuevo: m.fsc_nuevo, nueva_aerolinea: true });
+      if (m.tiene_cot_propia) {
+        // Agregar a cotización existente del mismo destino
+        const sel = document.querySelector(`.sinmatch-cot[data-idx="${idx}"]`);
+        const cotId = sel && parseInt(sel.value);
+        if (!cotId) { sinCotError = true; continue; }
+        aplicaciones.push({ cot_id: cotId, aerolinea: m.aerolinea, nuevas_rates: m.nuevas_rates,
+                            fsc_nuevo: m.fsc_nuevo, nueva_aerolinea: true });
+      } else {
+        // Crear cotización nueva automáticamente
+        aplicaciones.push({ aerolinea: m.aerolinea, nuevas_rates: m.nuevas_rates,
+                            fsc_nuevo: m.fsc_nuevo, iata: m.iata, ciudad: m.ciudad,
+                            crear_cotizacion: true });
+      }
     }
   }
 
