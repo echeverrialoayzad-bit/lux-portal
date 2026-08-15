@@ -68,14 +68,6 @@ AVAILABLE_MODULES = [
         'url': 'proformas.dashboard',
         'color': '#1a3a5c'  # Navy FreightWise para Proformas
     },
-    {
-        'id': 'tarifas',
-        'name': 'Actualización Tarifas',
-        'description': 'Sube screenshots de tarifas y actualiza cotizaciones automáticamente',
-        'icon': 'bi-robot',
-        'url': 'tarifas.index',
-        'color': '#0f766e'  # Teal para modulo IA
-    },
 ]
 
 
