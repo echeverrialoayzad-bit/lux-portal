@@ -2,10 +2,11 @@
 {% block title %}Actualización Tarifas{% endblock %}
 {% block content %}
 <div class="container-fluid py-4">
-  <div class="row mb-4">
+
+  <div class="row mb-3">
     <div class="col">
       <h4 class="fw-bold mb-1">Actualización de Tarifas</h4>
-      <p class="text-muted small mb-0">Sube el screenshot o pega el texto — revisa la tabla y aplica.</p>
+      <p class="text-muted small mb-0">Sube el screenshot o pega texto — revisa la tabla, edita si es necesario y aplica.</p>
     </div>
   </div>
 
@@ -15,18 +16,24 @@
   </div>
   {% endif %}
 
-  <!-- Formulario -->
+  <!-- Formulario de carga -->
   <div class="card shadow-sm mb-4">
     <div class="card-body">
       <div class="row g-3">
         <div class="col-md-5">
           <label class="form-label fw-semibold">Screenshot de tarifas</label>
-          <div id="drop-zone" class="border rounded d-flex flex-column align-items-center justify-content-center p-4 text-muted"
-               style="min-height:170px;cursor:pointer;border-style:dashed!important;background:#fafafa;">
-            <i class="bi bi-image fs-2 mb-2"></i>
-            <span id="drop-label">Arrastra, haz clic o pega (Ctrl+V)</span>
+          <div id="drop-zone"
+               class="border rounded d-flex flex-column align-items-center justify-content-center p-3 text-muted position-relative"
+               style="min-height:160px;cursor:pointer;border-style:dashed!important;background:#fafafa;">
+            <i class="bi bi-image fs-2 mb-1"></i>
+            <span id="drop-label" class="small">Arrastra, haz clic o pega (Ctrl+V)</span>
             <input type="file" id="input-imagen" accept="image/*" class="d-none">
-            <img id="preview-img" src="" class="mt-2 d-none" style="max-height:110px;max-width:100%;object-fit:contain;border-radius:4px;">
+            <!-- Imagen preview clickable -->
+            <img id="preview-img" src="" alt="preview"
+                 class="mt-2 d-none rounded"
+                 style="max-height:100px;max-width:100%;object-fit:contain;cursor:zoom-in;"
+                 title="Clic para ver completa"
+                 data-bs-toggle="modal" data-bs-target="#modal-imagen">
           </div>
         </div>
         <div class="col-md-7">
@@ -37,7 +44,7 @@
       </div>
       <div class="row g-3 mt-1 align-items-end">
         <div class="col-md-4">
-          <label class="form-label small">Aerolínea</label>
+          <label class="form-label small">Aerolínea (opcional)</label>
           <select id="select-aerolinea" class="form-select form-select-sm">
             <option value="">— Autodetectar —</option>
             {% for a in aerolineas %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
@@ -46,20 +53,26 @@
         <div class="col-auto">
           <button id="btn-analizar" class="btn btn-primary px-4" {% if not api_ok %}disabled{% endif %}>
             <span id="spin-a" class="spinner-border spinner-border-sm d-none me-1"></span>
-            <i class="bi bi-search me-1"></i> Analizar
+            <i class="bi bi-robot me-1"></i> Analizar
           </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Tabla de revisión -->
+  <!-- Sección de revisión -->
   <div id="seccion-revision" class="d-none">
-    <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
       <div>
-        <h5 class="mb-0 fw-bold">Revisión — <span id="lbl-aerolinea" class="text-primary"></span></h5>
-        <small class="text-muted">Destinos: <span id="lbl-destinos"></span>
-          &nbsp;·&nbsp; <span class="text-warning"><i class="bi bi-info-circle"></i> FSC solo informativo — se actualiza en la pestaña FSC</span>
+        <h5 class="mb-0 fw-bold">
+          Revisión — <span id="lbl-aerolinea" class="text-primary"></span>
+        </h5>
+        <small class="text-muted">
+          Destinos leídos: <span id="lbl-destinos" class="fw-semibold"></span>
+          &nbsp;·&nbsp;
+          <span class="text-warning fw-semibold">
+            <i class="bi bi-info-circle"></i> FSC solo informativo — se actualiza en la pestaña FSC
+          </span>
         </small>
       </div>
       <button id="btn-aplicar" class="btn btn-success px-4">
@@ -68,22 +81,18 @@
       </button>
     </div>
 
-    <!-- Tabla principal: matches existentes -->
-    <div id="tabla-matches-wrap" class="d-none">
-      <div class="card mb-4">
+    <!-- Tabla principal: matches existentes (horizontal) -->
+    <div id="tabla-matches-wrap" class="d-none mb-4">
+      <div class="card">
+        <div class="card-header py-2 bg-dark text-white d-flex align-items-center gap-2">
+          <i class="bi bi-pencil-square"></i>
+          <span class="fw-semibold">Tarifas encontradas — edita si es necesario antes de aplicar</span>
+        </div>
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-sm table-bordered mb-0" style="font-size:.875rem;">
-              <thead class="table-dark">
-                <tr>
-                  <th>Aerolínea</th>
-                  <th class="text-center">Destino</th>
-                  <th class="text-center">KG</th>
-                  <th class="text-end">Neta Anterior</th>
-                  <th class="text-end">Neta Nueva</th>
-                  <th class="text-end text-muted">FSC actual</th>
-                </tr>
-              </thead>
+            <table class="table table-sm table-bordered mb-0 align-middle" id="tabla-matches"
+                   style="font-size:.83rem;">
+              <thead id="thead-matches" class="table-secondary"></thead>
               <tbody id="tbody-matches"></tbody>
             </table>
           </div>
@@ -91,22 +100,18 @@
       </div>
     </div>
 
-    <!-- Sin match: aerolíneas nuevas -->
-    <div id="seccion-sinmatch" class="d-none">
-      <h6 class="text-warning fw-bold mb-2"><i class="bi bi-plus-circle me-1"></i>Aerolíneas nuevas — no están en ninguna cotización activa</h6>
-      <div class="card mb-4">
+    <!-- Tabla sin_match: aerolíneas/destinos nuevos -->
+    <div id="seccion-sinmatch" class="d-none mb-4">
+      <div class="card border-warning">
+        <div class="card-header py-2 bg-warning text-dark d-flex align-items-center gap-2">
+          <i class="bi bi-plus-circle"></i>
+          <span class="fw-semibold">Destinos / aerolíneas no encontrados — asigna una cotización</span>
+        </div>
         <div class="card-body p-0">
           <div class="table-responsive">
-            <table class="table table-sm table-bordered mb-0" style="font-size:.875rem;">
-              <thead class="table-warning">
-                <tr>
-                  <th>Aerolínea</th>
-                  <th class="text-center">Destino</th>
-                  <th class="text-center">KG</th>
-                  <th class="text-end">Tarifa Nueva</th>
-                  <th>Agregar a cotización</th>
-                </tr>
-              </thead>
+            <table class="table table-sm table-bordered mb-0 align-middle" id="tabla-sinmatch"
+                   style="font-size:.83rem;">
+              <thead id="thead-sinmatch" class="table-warning"></thead>
               <tbody id="tbody-sinmatch"></tbody>
             </table>
           </div>
@@ -117,50 +122,71 @@
 
   <!-- Toast -->
   <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100">
-    <div id="toast-ok" class="toast align-items-center text-bg-success border-0" role="alert">
+    <div id="toast-ok" class="toast align-items-center border-0" role="alert">
       <div class="d-flex">
         <div class="toast-body fw-semibold" id="toast-msg"></div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal imagen completa -->
+<div class="modal fade" id="modal-imagen" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content bg-transparent border-0">
+      <div class="modal-body p-1 text-center">
+        <img id="modal-img-src" src="" class="img-fluid rounded shadow" style="max-height:90vh;">
       </div>
     </div>
   </div>
 </div>
 
 <script>
-let filasData = [];
+const TODAS_COTS = {{ todas_cots | tojson }};
+let gruposData = [];
 let sinMatchData = [];
+let allKgs = [];
 
-// --- Drag & drop + paste ---
-const dropZone = document.getElementById('drop-zone');
-const inputImg = document.getElementById('input-imagen');
-const previewImg = document.getElementById('preview-img');
+// ─── Imagen: drag / clic / paste ───────────────────────────────────────────
+const dropZone  = document.getElementById('drop-zone');
+const inputImg  = document.getElementById('input-imagen');
+const prevImg   = document.getElementById('preview-img');
 const dropLabel = document.getElementById('drop-label');
+const modalImgSrc = document.getElementById('modal-img-src');
 
-dropZone.addEventListener('click', () => inputImg.click());
+dropZone.addEventListener('click', e => {
+  // si el clic fue en la imagen preview, deja que el modal lo maneje
+  if (e.target === prevImg) return;
+  inputImg.click();
+});
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-primary'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-primary'));
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('border-primary'));
 dropZone.addEventListener('drop', e => {
   e.preventDefault(); dropZone.classList.remove('border-primary');
   const f = e.dataTransfer.files[0];
-  if (f && f.type.startsWith('image/')) loadPreview(f);
+  if (f && f.type.startsWith('image/')) setImagen(f);
 });
-inputImg.addEventListener('change', () => { if (inputImg.files[0]) loadPreview(inputImg.files[0]); });
+inputImg.addEventListener('change', () => { if (inputImg.files[0]) setImagen(inputImg.files[0]); });
 document.addEventListener('paste', e => {
   const items = e.clipboardData && e.clipboardData.items;
   if (!items) return;
   for (const item of items) {
     if (item.type.startsWith('image/')) {
       const f = item.getAsFile();
-      if (f) { loadPreview(f); e.preventDefault(); }
-      break;
+      if (f) { setImagen(f); e.preventDefault(); break; }
     }
   }
 });
-function loadPreview(file) {
+
+function setImagen(file) {
   const reader = new FileReader();
-  reader.onload = e => {
-    previewImg.src = e.target.result;
-    previewImg.classList.remove('d-none');
+  reader.onload = ev => {
+    const src = ev.target.result;
+    prevImg.src = src;
+    prevImg.classList.remove('d-none');
+    // sincronizar modal
+    modalImgSrc.src = src;
     dropLabel.textContent = file.name || 'imagen pegada';
   };
   reader.readAsDataURL(file);
@@ -168,15 +194,15 @@ function loadPreview(file) {
   inputImg.files = dt.files;
 }
 
-// --- Analizar ---
+// ─── Analizar ──────────────────────────────────────────────────────────────
 document.getElementById('btn-analizar').addEventListener('click', async () => {
-  const texto = document.getElementById('input-texto').value.trim();
+  const texto  = document.getElementById('input-texto').value.trim();
   const imgFile = inputImg.files[0];
   if (!texto && !imgFile) { alert('Sube una imagen o pega el texto de las tarifas.'); return; }
 
   const fd = new FormData();
   if (imgFile) fd.append('imagen', imgFile);
-  if (texto) fd.append('texto', texto);
+  if (texto)   fd.append('texto', texto);
   const hint = document.getElementById('select-aerolinea').value;
   if (hint) fd.append('aerolinea_hint', hint);
 
@@ -186,119 +212,257 @@ document.getElementById('btn-analizar').addEventListener('click', async () => {
   try {
     const resp = await fetch('/tarifas/api/analizar', { method: 'POST', body: fd });
     const data = await resp.json();
-    if (!resp.ok || data.error) { alert(data.error || 'Error'); return; }
+    if (!resp.ok || data.error) { alert(data.error || 'Error al analizar.'); return; }
     renderTabla(data);
   } catch(e) { alert('Error de red: ' + e.message); }
   finally { setLoad('btn-analizar', 'spin-a', false); }
 });
 
+// ─── Renderizar tabla horizontal ────────────────────────────────────────────
 function renderTabla(data) {
-  filasData = data.filas || [];
+  gruposData  = data.grupos    || [];
   sinMatchData = data.sin_match || [];
+  allKgs      = data.all_kgs  || [];
 
   document.getElementById('lbl-aerolinea').textContent = data.aerolinea || '';
-  document.getElementById('lbl-destinos').textContent = (data.destinos_extraidos || []).join(', ') || '—';
+  document.getElementById('lbl-destinos').textContent  =
+    (data.destinos_extraidos || []).join(', ') || '—';
 
-  // Tabla de matches
+  // ── Tabla de matches ──────────────────────────────────────────────────────
+  const thead = document.getElementById('thead-matches');
   const tbody = document.getElementById('tbody-matches');
-  tbody.innerHTML = '';
-  filasData.forEach(f => {
-    const cambio = f.cambio;
-    const cls = cambio ? 'table-warning fw-semibold' : 'text-muted';
-    const antStr = f.tarifa_actual !== null ? `$ ${parseFloat(f.tarifa_actual).toFixed(2)}` : '<em class="text-muted">nueva</em>';
-    const arrow = cambio ? '<i class="bi bi-arrow-right text-primary mx-1"></i>' : '=';
-    tbody.innerHTML += `<tr class="${cambio ? 'table-warning' : ''}">
-      <td>${f.aerolinea}</td>
-      <td class="text-center"><span class="badge bg-secondary">${f.destino}</span></td>
-      <td class="text-center fw-bold">${f.kg}</td>
-      <td class="text-end">${antStr}</td>
-      <td class="text-end fw-bold ${cambio ? 'text-success' : 'text-muted'}">$ ${parseFloat(f.tarifa_nueva).toFixed(2)} ${cambio ? '✓' : ''}</td>
-      <td class="text-end text-muted small">$ ${parseFloat(f.fsc_actual).toFixed(2)}</td>
-    </tr>`;
-  });
+  thead.innerHTML = ''; tbody.innerHTML = '';
 
-  document.getElementById('tabla-matches-wrap').classList.toggle('d-none', filasData.length === 0);
-
-  // Tabla sin_match
-  const tbody2 = document.getElementById('tbody-sinmatch');
-  tbody2.innerHTML = '';
-  sinMatchData.forEach((m, idx) => {
-    const rates = m.nuevas_rates || [];
-    rates.forEach((r, ri) => {
-      const t = parseFloat(r.tarifa) || 0;
-      let selHtml = '';
-      if (ri === 0) {
-        const rowspan = rates.length;
-        let optsHtml = '';
-        if (m.tiene_cot_propia) {
-          optsHtml = (m.cotizaciones_disponibles || []).map(c =>
-            `<option value="${c.id}">${c.label}</option>`
-          ).join('');
-        }
-        selHtml = `<td rowspan="${rowspan}" class="align-middle">
-          ${m.tiene_cot_propia
-            ? `<select class="form-select form-select-sm sinmatch-cot" data-idx="${idx}">
-                <option value="">— Seleccionar —</option>${optsHtml}</select>`
-            : `<span class="badge bg-info text-dark">Se creará cotización nueva</span>`
-          }
-        </td>`;
-      }
-      tbody2.innerHTML += `<tr>
-        <td>${ri === 0 ? `<strong>${m.aerolinea}</strong>` : ''}</td>
-        <td class="text-center">${ri === 0 ? `<span class="badge bg-secondary">${m.iata}</span>` : ''}</td>
-        <td class="text-center fw-bold">${r.kg}</td>
-        <td class="text-end fw-bold text-success">$ ${t.toFixed(2)}</td>
-        ${selHtml}
-      </tr>`;
+  if (gruposData.length > 0) {
+    // Cabecera: Aerolínea | Destino | [+100 anterior | nueva] x N kgs | FSC img | FSC DB | Estado FSC
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <th rowspan="2" class="align-middle">Aerolínea</th>
+      <th rowspan="2" class="align-middle text-center">Destino</th>`;
+    allKgs.forEach(kg => {
+      tr.innerHTML += `<th colspan="2" class="text-center border-start">${kg}</th>`;
     });
-  });
+    tr.innerHTML += `
+      <th rowspan="2" class="align-middle text-center border-start">FSC<br><small class="fw-normal">imagen</small></th>
+      <th rowspan="2" class="align-middle text-center">FSC<br><small class="fw-normal">actual</small></th>
+      <th rowspan="2" class="align-middle text-center">Estado FSC</th>`;
+    thead.appendChild(tr);
 
-  document.getElementById('seccion-sinmatch').classList.toggle('d-none', sinMatchData.length === 0);
+    const tr2 = document.createElement('tr');
+    allKgs.forEach(() => {
+      tr2.innerHTML += `<th class="text-center border-start small fw-normal text-muted">anterior</th>
+                        <th class="text-center small fw-normal">nueva</th>`;
+    });
+    thead.appendChild(tr2);
+
+    // Filas
+    gruposData.forEach((g, gi) => {
+      const kgMap = {};
+      (g.kgs || []).forEach(k => { kgMap[k.kg] = k; });
+
+      const hayCambio = g.hay_cambios;
+      const rowClass  = hayCambio ? 'table-warning' : '';
+
+      const tr = document.createElement('tr');
+      tr.className = rowClass;
+      tr.dataset.gi = gi;
+
+      tr.innerHTML = `
+        <td class="fw-semibold">${g.aerolinea}</td>
+        <td class="text-center">
+          <span class="badge bg-secondary" style="font-size:.8rem;letter-spacing:1px;">${g.destino}</span>
+          <br><small class="text-muted" style="font-size:.72rem;">cot #${g.cot_id}</small>
+        </td>`;
+
+      allKgs.forEach(kg => {
+        const k = kgMap[kg];
+        if (k) {
+          const anteriorStr = k.tarifa_actual !== null
+            ? `$${parseFloat(k.tarifa_actual).toFixed(2)}`
+            : '<em class="text-muted" style="font-size:.75rem;">nueva</em>';
+          const cambioClass = k.cambio ? 'text-success fw-bold' : 'text-muted';
+          tr.innerHTML += `
+            <td class="text-center border-start text-muted">${anteriorStr}</td>
+            <td class="text-center p-0" style="min-width:72px;">
+              <input type="number" step="0.01" min="0" class="form-control form-control-sm text-center border-0 rounded-0 ${cambioClass}"
+                     style="width:72px;margin:auto;"
+                     value="${parseFloat(k.tarifa_nueva).toFixed(2)}"
+                     data-gi="${gi}" data-kg="${kg}">
+            </td>`;
+        } else {
+          tr.innerHTML += `<td class="text-center border-start text-muted small">—</td>
+                           <td class="text-center p-0">
+                             <input type="number" step="0.01" min="0" class="form-control form-control-sm text-center border-0 rounded-0 text-muted"
+                                    style="width:72px;margin:auto;" placeholder="—"
+                                    data-gi="${gi}" data-kg="${kg}">
+                           </td>`;
+        }
+      });
+
+      // FSC
+      const fscImg  = parseFloat(g.fsc_extraido || 0);
+      const fscDb   = parseFloat(g.fsc_actual   || 0);
+      const cambia  = g.fsc_cambia;
+      const fscBadge = cambia
+        ? `<span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> difiere</span>`
+        : `<span class="badge bg-success bg-opacity-75"><i class="bi bi-check2"></i> igual</span>`;
+
+      tr.innerHTML += `
+        <td class="text-center border-start">
+          ${fscImg > 0 ? `$${fscImg.toFixed(2)}` : '<span class="text-muted small">—</span>'}
+        </td>
+        <td class="text-center">$${fscDb.toFixed(2)}</td>
+        <td class="text-center">${fscBadge}</td>`;
+
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('tabla-matches-wrap').classList.remove('d-none');
+  } else {
+    document.getElementById('tabla-matches-wrap').classList.add('d-none');
+  }
+
+  // ── Tabla sin_match ───────────────────────────────────────────────────────
+  const thead2 = document.getElementById('thead-sinmatch');
+  const tbody2 = document.getElementById('tbody-sinmatch');
+  thead2.innerHTML = ''; tbody2.innerHTML = '';
+
+  if (sinMatchData.length > 0) {
+    // Cabecera
+    const th = document.createElement('tr');
+    th.innerHTML = `<th>Aerolínea</th><th class="text-center">Destino leído</th>`;
+    allKgs.forEach(kg => { th.innerHTML += `<th class="text-center border-start">${kg}<br><small class="fw-normal">nueva</small></th>`; });
+    th.innerHTML += `<th class="text-center">FSC imagen</th><th>Agregar a cotización</th>`;
+    thead2.appendChild(th);
+
+    sinMatchData.forEach((m, mi) => {
+      const kgMap = {};
+      (m.kgs || []).forEach(k => { kgMap[k.kg] = k; });
+      const fscE = parseFloat(m.fsc_extraido || 0);
+
+      const optsHtml = TODAS_COTS.map(c =>
+        `<option value="${c.id}">${c.label}</option>`
+      ).join('');
+
+      const tr = document.createElement('tr');
+      tr.className = 'table-light';
+      tr.dataset.mi = mi;
+
+      tr.innerHTML = `
+        <td class="fw-semibold">${m.aerolinea}</td>
+        <td class="text-center">
+          <input type="text" class="form-control form-control-sm text-center sinmatch-iata"
+                 style="width:64px;margin:auto;font-weight:bold;letter-spacing:1px;"
+                 value="${m.iata}" data-mi="${mi}" title="Corrige el código IATA si está mal leído">
+          <small class="text-muted d-block" style="font-size:.7rem;">${m.ciudad || ''}</small>
+        </td>`;
+
+      allKgs.forEach(kg => {
+        const k = kgMap[kg];
+        if (k) {
+          tr.innerHTML += `
+            <td class="text-center border-start p-0">
+              <input type="number" step="0.01" min="0" class="form-control form-control-sm text-center border-0 rounded-0 fw-bold text-success"
+                     style="width:72px;margin:auto;"
+                     value="${parseFloat(k.tarifa_nueva).toFixed(2)}"
+                     data-mi="${mi}" data-kg="${kg}">
+            </td>`;
+        } else {
+          tr.innerHTML += `
+            <td class="text-center border-start p-0">
+              <input type="number" step="0.01" min="0" class="form-control form-control-sm text-center border-0 rounded-0 text-muted"
+                     style="width:72px;margin:auto;" placeholder="—"
+                     data-mi="${mi}" data-kg="${kg}">
+            </td>`;
+        }
+      });
+
+      tr.innerHTML += `
+        <td class="text-center">${fscE > 0 ? `$${fscE.toFixed(2)}` : '—'}</td>
+        <td style="min-width:220px;">
+          <select class="form-select form-select-sm sinmatch-cot" data-mi="${mi}">
+            <option value="NEW">➕ Crear cotización nueva para ${m.iata}</option>
+            ${optsHtml}
+          </select>
+        </td>`;
+
+      tbody2.appendChild(tr);
+    });
+
+    document.getElementById('seccion-sinmatch').classList.remove('d-none');
+  } else {
+    document.getElementById('seccion-sinmatch').classList.add('d-none');
+  }
+
   document.getElementById('seccion-revision').classList.remove('d-none');
 }
 
-// --- Aplicar ---
+// ─── Aplicar ────────────────────────────────────────────────────────────────
 document.getElementById('btn-aplicar').addEventListener('click', async () => {
-  // Validar sin_match con cotización propia
-  let err = false;
-  const nuevasPayload = sinMatchData.map((m, idx) => {
-    let cot_id = null;
-    if (m.tiene_cot_propia) {
-      const sel = document.querySelector(`.sinmatch-cot[data-idx="${idx}"]`);
-      cot_id = sel ? parseInt(sel.value) || null : null;
-      if (!cot_id) { err = true; }
-    }
-    return { iata: m.iata, aerolinea: m.aerolinea, nuevas_rates: m.nuevas_rates, fsc_nuevo: m.fsc_nuevo, cot_id };
+  // Leer valores editados de la tabla de matches
+  const gruposPayload = gruposData.map((g, gi) => {
+    const kgsEdited = allKgs.map(kg => {
+      const inp = document.querySelector(`input[data-gi="${gi}"][data-kg="${kg}"]`);
+      const val = inp && inp.value ? parseFloat(inp.value) : null;
+      return val !== null ? { kg, tarifa_nueva: val } : null;
+    }).filter(Boolean);
+    return { ...g, kgs: kgsEdited };
   });
 
-  if (err) { alert('Selecciona una cotización para cada aerolínea nueva.'); return; }
+  // Leer valores editados de sin_match
+  const nuevasPayload = sinMatchData.map((m, mi) => {
+    const iataInput = document.querySelector(`.sinmatch-iata[data-mi="${mi}"]`);
+    const cotSel    = document.querySelector(`.sinmatch-cot[data-mi="${mi}"]`);
+    const iata = iataInput ? iataInput.value.trim().toUpperCase() : m.iata;
+    const cot_id = cotSel ? cotSel.value : 'NEW';
+
+    const kgsEdited = allKgs.map(kg => {
+      const inp = document.querySelector(`input[data-mi="${mi}"][data-kg="${kg}"]`);
+      const val = inp && inp.value ? parseFloat(inp.value) : null;
+      return val !== null ? { kg, tarifa_nueva: val } : null;
+    }).filter(Boolean);
+
+    return {
+      iata,
+      aerolinea: m.aerolinea,
+      kgs: kgsEdited,
+      fsc_extraido: m.fsc_extraido,
+      cot_id: cot_id === 'NEW' ? null : parseInt(cot_id)
+    };
+  });
 
   setLoad('btn-aplicar', 'spin-ap', true);
   try {
     const resp = await fetch('/tarifas/api/aplicar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filas: filasData, nuevas: nuevasPayload })
+      body: JSON.stringify({ grupos: gruposPayload, nuevas: nuevasPayload })
     });
     const data = await resp.json();
-    if (!resp.ok || data.error) { alert(data.error || 'Error'); return; }
+    if (!resp.ok || data.error) { alert(data.error || 'Error al aplicar.'); return; }
 
-    let msg = `${data.actualizadas} cotización(es) actualizada(s).`;
-    if (data.errores && data.errores.length) msg += ' Errores: ' + data.errores.join(', ');
+    const ok = data.actualizadas > 0;
+    let msg = `✓ ${data.actualizadas} cotización(es) actualizada(s).`;
+    if (data.errores && data.errores.length) msg += '  Errores: ' + data.errores.join(', ');
+    const toast = document.getElementById('toast-ok');
+    toast.className = `toast align-items-center border-0 text-white ${ok ? 'bg-success' : 'bg-danger'}`;
     showToast(msg);
     document.getElementById('seccion-revision').classList.add('d-none');
-    filasData = []; sinMatchData = [];
+    gruposData = []; sinMatchData = [];
   } catch(e) { alert('Error de red: ' + e.message); }
   finally { setLoad('btn-aplicar', 'spin-ap', false); }
 });
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
 function setLoad(btnId, spinId, on) {
   document.getElementById(btnId).disabled = on;
   document.getElementById(spinId).classList.toggle('d-none', !on);
 }
 function showToast(msg) {
   document.getElementById('toast-msg').textContent = msg;
-  bootstrap.Toast.getOrCreateInstance(document.getElementById('toast-ok'), { delay: 5000 }).show();
+  bootstrap.Toast.getOrCreateInstance(
+    document.getElementById('toast-ok'), { delay: 6000 }
+  ).show();
 }
 </script>
 {% endblock %}

@@ -23,8 +23,8 @@ Devuelve SOLO JSON valido sin texto adicional ni markdown:
   "aerolinea": "nombre base de la aerolinea en MAYUSCULAS (sin FREIGHTER, PAX, CARGO, AIRLINES)",
   "destinos": [
     {
-      "iata": "codigo IATA destino 3 letras mayusculas",
-      "ciudad": "nombre ciudad",
+      "iata": "codigo IATA del AEROPUERTO DESTINO (3 letras)",
+      "ciudad": "nombre de la ciudad destino",
       "kg_rates": [
         {"kg": "+100", "tarifa": 3.50},
         {"kg": "+300", "tarifa": 3.20}
@@ -34,12 +34,15 @@ Devuelve SOLO JSON valido sin texto adicional ni markdown:
   ]
 }
 
-Reglas:
-- "aerolinea": solo nombre base — AVIANCA, DELTA, LUFTHANSA, COPA, TURKISH — sin FREIGHTER, PAX, CARGO
+Reglas IMPORTANTES:
+- "aerolinea": solo nombre base — AVIANCA, DELTA, LUFTHANSA, COPA, TURKISH, IBERIA — sin FREIGHTER ni PAX
+- "iata" es el CODIGO DE AEROPUERTO DESTINO (NO el codigo de aerolinea).
+  Ejemplos correctos: MAD=Madrid, LHR=Londres, AMS=Amsterdam, MIA=Miami, VLC=Valencia,
+  BER=Berlin, FRA=Frankfurt, CDG=Paris, BCN=Barcelona, FCO=Roma, NRT=Tokio, DXB=Dubai
 - "kg" siempre con "+" al inicio: +45, +100, +300, +500, +1000
-- "tarifa" es el valor numerico USD por kg (solo el numero, sin simbolos)
-- "fsc": si viene separado en el documento ponlo; si no, pon 0.00
-- Incluye TODOS los destinos que aparezcan
+- "tarifa" es el valor numerico USD por kg (sin simbolos)
+- "fsc": si aparece FSC/Fuel Surcharge ponlo en numerico; si no aparece pon 0.00
+- Incluye TODOS los destinos que aparezcan en la imagen/texto
 """
 
 
@@ -88,16 +91,22 @@ def index():
             if nombre:
                 aerolineas_set.add(nombre)
     aerolineas = sorted(aerolineas_set)
+    # Todas las cotizaciones para el dropdown de sin_match
+    todas_cots = [
+        {'id': c.id, 'label': f"#{c.id} — {c.destino}{(' / ' + c.customer) if c.customer else ''}"}
+        for c in cots
+    ]
     return render_template('tarifas/index.html',
                            destinos=destinos,
                            aerolineas=aerolineas,
+                           todas_cots=todas_cots,
                            api_ok=bool(ANTHROPIC_API_KEY))
 
 
 @tarifas_bp.route('/api/analizar', methods=['POST'])
 @login_required
 def analizar():
-    """Extrae tarifas con Claude y devuelve tabla de revisión. No toca la DB."""
+    """Extrae tarifas con Claude y devuelve tabla de revisión agrupada. No toca la DB."""
     if not ANTHROPIC_API_KEY:
         return jsonify({'error': 'ANTHROPIC_API_KEY no configurada en Railway.'}), 500
 
@@ -113,7 +122,8 @@ def analizar():
         img_bytes = imagen_file.read()
         img_b64 = base64.standard_b64encode(img_bytes).decode('utf-8')
         mime = imagen_file.content_type or 'image/png'
-        content.append({"type": "image", "source": {"type": "base64", "media_type": mime, "data": img_b64}})
+        content.append({"type": "image",
+                         "source": {"type": "base64", "media_type": mime, "data": img_b64}})
 
     prompt_final = PROMPT
     if hint_aerolinea:
@@ -134,9 +144,9 @@ def analizar():
 
     aerolinea_ext = hint_aerolinea or _normalizar_aerolinea(extracted.get('aerolinea', ''))
 
-    # Filas para la tabla de revisión
-    filas = []      # matches existentes
-    sin_match = []  # aerolíneas/destinos nuevos
+    # grupos: una entrada por (cot_id, aerolinea, destino)
+    grupos = []
+    sin_match = []
 
     for dest_data in extracted.get('destinos', []):
         iata = dest_data.get('iata', '').upper().strip()
@@ -155,95 +165,116 @@ def analizar():
 
                 actuales = aero.get('kg_rates', [])
                 map_actual = {_normalizar_kg(kr.get('kg', '')): kr for kr in actuales}
+                # FSC actual: tomar del primer KG rate
+                fsc_actual = float(actuales[0].get('fsc', 0) or 0) if actuales else 0.0
 
+                kgs = []
                 for nr in nuevas:
                     kg_key = _normalizar_kg(nr.get('kg', ''))
                     t_nueva = float(nr.get('tarifa', 0) or 0)
-                    kr_actual = map_actual.get(kg_key)
-                    t_actual = float(kr_actual.get('tarifa', 0) or 0) if kr_actual else None
-                    fsc_actual = float(kr_actual.get('fsc', 0) or 0) if kr_actual else 0.0
-
-                    filas.append({
-                        'cot_id': cot.id,
-                        'aerolinea': aerolinea_ext,
-                        'destino': iata,
+                    kr_act = map_actual.get(kg_key)
+                    t_actual = float(kr_act.get('tarifa', 0) or 0) if kr_act else None
+                    kgs.append({
                         'kg': kg_key,
                         'tarifa_actual': t_actual,
                         'tarifa_nueva': t_nueva,
-                        'fsc_actual': fsc_actual,
-                        'fsc_extraido': fsc_extraido,
                         'cambio': t_actual is None or abs(t_nueva - t_actual) > 0.001,
-                        'es_nueva_kg': t_actual is None,
                     })
+
+                fsc_cambia = fsc_extraido > 0 and abs(fsc_extraido - fsc_actual) > 0.001
+
+                grupos.append({
+                    'cot_id': cot.id,
+                    'aerolinea': aerolinea_ext,
+                    'aerolinea_original': aero.get('aerolinea'),
+                    'destino': iata,
+                    'kgs': kgs,
+                    'fsc_actual': fsc_actual,
+                    'fsc_extraido': fsc_extraido,
+                    'fsc_cambia': fsc_cambia,
+                    'hay_cambios': any(k['cambio'] for k in kgs),
+                })
                 found_match = True
 
         if not found_match:
-            cots_iata = [
-                {'id': c.id, 'label': f"#{c.id} — {c.destino}{(' / ' + c.customer) if c.customer else ''}"}
-                for c in cots if c.destino and c.destino.upper() == iata
-            ]
+            kgs_nuevas = [{'kg': _normalizar_kg(nr.get('kg', '')),
+                           'tarifa_nueva': float(nr.get('tarifa', 0) or 0)}
+                          for nr in nuevas]
             sin_match.append({
                 'iata': iata,
+                'iata_original': iata,
                 'ciudad': dest_data.get('ciudad', ''),
                 'aerolinea': aerolinea_ext,
-                'nuevas_rates': [{'kg': _normalizar_kg(nr.get('kg', '')), 'tarifa': nr.get('tarifa')}
-                                 for nr in nuevas],
-                'fsc_nuevo': fsc_extraido,
-                'tiene_cot_propia': len(cots_iata) > 0,
-                'cotizaciones_disponibles': cots_iata,
+                'kgs': kgs_nuevas,
+                'fsc_extraido': fsc_extraido,
             })
+
+    # Todos los KG tiers únicos (para columnas)
+    all_kgs = []
+    seen = set()
+    for g in grupos:
+        for k in g['kgs']:
+            if k['kg'] not in seen:
+                all_kgs.append(k['kg'])
+                seen.add(k['kg'])
+    for s in sin_match:
+        for k in s['kgs']:
+            if k['kg'] not in seen:
+                all_kgs.append(k['kg'])
+                seen.add(k['kg'])
+    all_kgs.sort(key=lambda x: int(x.replace('+', '') or 0))
 
     return jsonify({
         'aerolinea': aerolinea_ext,
-        'destinos_extraidos': list({f['destino'] for f in filas} | {s['iata'] for s in sin_match}),
-        'filas': filas,
+        'destinos_extraidos': list({g['destino'] for g in grupos} | {s['iata'] for s in sin_match}),
+        'grupos': grupos,
         'sin_match': sin_match,
+        'all_kgs': all_kgs,
     })
 
 
 @tarifas_bp.route('/api/aplicar', methods=['POST'])
 @login_required
 def aplicar():
-    """Aplica los cambios confirmados. Solo actualiza tarifa neta (FSC no se toca aquí)."""
+    """Aplica los cambios. Solo actualiza tarifa neta (FSC no se toca aquí)."""
     data = request.json or {}
-    filas = data.get('filas', [])       # matches a actualizar
-    nuevas = data.get('nuevas', [])     # sin_match a agregar/crear
+    grupos = data.get('grupos', [])
+    nuevas = data.get('nuevas', [])
     hoy = datetime.now().strftime('%Y-%m-%d')
 
     from lux_portal.cotizaciones.models import Cotizacion
     actualizadas = 0
     errores = []
 
-    # --- Agrupar filas por cot_id ---
-    por_cot = {}
-    for f in filas:
-        cid = f.get('cot_id')
-        por_cot.setdefault(cid, []).append(f)
+    # --- Matches existentes ---
+    for g in grupos:
+        cot_id = g.get('cot_id')
+        aerolinea_nombre = g.get('aerolinea', '')
+        kgs = g.get('kgs', [])
 
-    for cot_id, rows in por_cot.items():
         cot = Cotizacion.query.get(cot_id)
         if not cot:
             errores.append(f'Cotización {cot_id} no encontrada')
             continue
 
-        aerolinea_nombre = rows[0]['aerolinea']
         aerolineas = list(cot.aerolineas or [])
         changed = False
 
         for aero in aerolineas:
             if _normalizar_aerolinea(aero.get('aerolinea', '')) != aerolinea_nombre:
                 continue
+
             kg_rates = list(aero.get('kg_rates', []))
             kg_idx = {_normalizar_kg(kr.get('kg', '')): i for i, kr in enumerate(kg_rates)}
 
-            for row in rows:
-                kg_key = row['kg']
-                t_nueva = float(row['tarifa_nueva'])
+            for k in kgs:
+                kg_key = k['kg']
+                t_nueva = float(k.get('tarifa_nueva', 0))
                 if kg_key in kg_idx:
                     kr = dict(kg_rates[kg_idx[kg_key]])
                     margen = float(kr.get('margen', 0) or 0)
                     co = float(kr.get('costo_operativo', 0.09) or 0.09)
-                    fsc = float(kr.get('fsc', 0) or 0)  # FSC no cambia aquí
+                    fsc = float(kr.get('fsc', 0) or 0)
                     kr['tarifa'] = f"{t_nueva:.2f}"
                     kr['tarifa_cliente'] = f"{t_nueva + margen + co + fsc:.2f}"
                     kg_rates[kg_idx[kg_key]] = kr
@@ -260,26 +291,30 @@ def aplicar():
     for item in nuevas:
         iata = item.get('iata', '').upper()
         nombre_aero = item.get('aerolinea', '')
-        rates = item.get('nuevas_rates', [])
-        fsc_usar = float(item.get('fsc_nuevo', 0) or 0)
-        cot_id = item.get('cot_id')  # None = crear cotización nueva
+        kgs = item.get('kgs', [])
+        fsc_usar = float(item.get('fsc_extraido', 0) or 0)
+        cot_id = item.get('cot_id')
 
-        def _kr(nr):
-            t = float(nr.get('tarifa', 0) or 0)
-            return {'kg': _normalizar_kg(nr.get('kg', '')), 'tarifa': f"{t:.2f}",
-                    'margen': '0.00', 'costo_operativo': '0.09',
-                    'fsc': f"{fsc_usar:.2f}", 'tarifa_cliente': f"{t + 0.09 + fsc_usar:.2f}"}
+        kg_rates_nuevas = []
+        for k in kgs:
+            t = float(k.get('tarifa_nueva', 0) or 0)
+            kg_rates_nuevas.append({
+                'kg': k['kg'], 'tarifa': f"{t:.2f}",
+                'margen': '0.00', 'costo_operativo': '0.09',
+                'fsc': f"{fsc_usar:.2f}",
+                'tarifa_cliente': f"{t + 0.09 + fsc_usar:.2f}"
+            })
 
         aero_obj = {
             'aerolinea': nombre_aero, 'vuelo': '', 'itinerario': '',
             'tiempo_transito': '', 'granjas_entrega': '', 'salida': '', 'llegada': '',
-            'kg_rates': [_kr(r) for r in rates],
+            'kg_rates': kg_rates_nuevas,
             'rate_increases': [], 'cargos_adicionales': [],
             'notas': '', 'es_continuacion': False, 'fecha_actualizacion': hoy
         }
 
-        if cot_id:
-            cot = Cotizacion.query.get(cot_id)
+        if cot_id and cot_id != 'NEW':
+            cot = Cotizacion.query.get(int(cot_id))
             if not cot:
                 errores.append(f'Cotización {cot_id} no encontrada')
                 continue
