@@ -1,6 +1,15 @@
 {% extends "cotizaciones/base_freightwise.html" %}
 {% block title %}Actualización Tarifas{% endblock %}
 {% block content %}
+<style>
+/* Quitar flechas spinner de inputs numéricos en la tabla de tarifas */
+#tabla-matches input[type=number]::-webkit-outer-spin-button,
+#tabla-matches input[type=number]::-webkit-inner-spin-button,
+#tabla-sinmatch input[type=number]::-webkit-outer-spin-button,
+#tabla-sinmatch input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+#tabla-matches input[type=number],
+#tabla-sinmatch input[type=number] { -moz-appearance:textfield; appearance:textfield; }
+</style>
 <div class="container-fluid py-4">
 
   <div class="row mb-3">
@@ -283,9 +292,9 @@ function renderTabla(data) {
           const cambioClass = k.cambio ? 'text-success fw-bold' : 'text-muted';
           tr.innerHTML += `
             <td class="text-center border-start text-muted">${anteriorStr}</td>
-            <td class="text-center p-0" style="min-width:90px;">
+            <td class="text-center p-0" style="min-width:85px;">
               <input type="number" step="0.01" min="0" class="form-control form-control-sm text-center border-0 rounded-0 ${cambioClass}"
-                     style="width:90px;margin:auto;"
+                     style="width:100%;"
                      value="${parseFloat(k.tarifa_nueva).toFixed(2)}"
                      data-gi="${gi}" data-kg="${kg}">
             </td>`;
@@ -293,7 +302,7 @@ function renderTabla(data) {
           tr.innerHTML += `<td class="text-center border-start text-muted small">—</td>
                            <td class="text-center p-0">
                              <input type="number" step="0.01" min="0" class="form-control form-control-sm text-center border-0 rounded-0 text-muted"
-                                    style="width:90px;margin:auto;" placeholder="—"
+                                    style="width:100%;" placeholder="—"
                                     data-gi="${gi}" data-kg="${kg}">
                            </td>`;
         }
@@ -363,7 +372,7 @@ function renderTabla(data) {
           tr.innerHTML += `
             <td class="text-center border-start p-0">
               <input type="number" step="0.01" min="0" class="form-control form-control-sm text-center border-0 rounded-0 fw-bold text-success"
-                     style="width:90px;margin:auto;"
+                     style="width:100%;"
                      value="${parseFloat(k.tarifa_nueva).toFixed(2)}"
                      data-mi="${mi}" data-kg="${kg}">
             </td>`;
@@ -371,7 +380,7 @@ function renderTabla(data) {
           tr.innerHTML += `
             <td class="text-center border-start p-0">
               <input type="number" step="0.01" min="0" class="form-control form-control-sm text-center border-0 rounded-0 text-muted"
-                     style="width:90px;margin:auto;" placeholder="—"
+                     style="width:100%;" placeholder="—"
                      data-mi="${mi}" data-kg="${kg}">
             </td>`;
         }
