@@ -5,7 +5,7 @@
   <div class="row mb-4">
     <div class="col">
       <h4 class="fw-bold mb-1">Actualización de Tarifas</h4>
-      <p class="text-muted small mb-0">Sube el screenshot o pega el texto — el sistema actualiza todas las cotizaciones automáticamente.</p>
+      <p class="text-muted small mb-0">Sube el screenshot o pega el texto — revisa la tabla y aplica.</p>
     </div>
   </div>
 
@@ -19,71 +19,100 @@
   <div class="card shadow-sm mb-4">
     <div class="card-body">
       <div class="row g-3">
-        <!-- Imagen -->
         <div class="col-md-5">
           <label class="form-label fw-semibold">Screenshot de tarifas</label>
           <div id="drop-zone" class="border rounded d-flex flex-column align-items-center justify-content-center p-4 text-muted"
-               style="min-height:180px; cursor:pointer; border-style:dashed !important; background:#fafafa;">
+               style="min-height:170px;cursor:pointer;border-style:dashed!important;background:#fafafa;">
             <i class="bi bi-image fs-2 mb-2"></i>
             <span id="drop-label">Arrastra, haz clic o pega (Ctrl+V)</span>
             <input type="file" id="input-imagen" accept="image/*" class="d-none">
-            <img id="preview-img" src="" class="mt-2 d-none" style="max-height:120px;max-width:100%;object-fit:contain;border-radius:4px;">
+            <img id="preview-img" src="" class="mt-2 d-none" style="max-height:110px;max-width:100%;object-fit:contain;border-radius:4px;">
           </div>
         </div>
-        <!-- Texto -->
         <div class="col-md-7">
           <label class="form-label fw-semibold">O pega el texto de las tarifas</label>
-          <textarea id="input-texto" class="form-control" rows="7"
+          <textarea id="input-texto" class="form-control" rows="6"
                     placeholder="Ej:&#10;MAD - Madrid&#10;+100kg: $3.50  +300kg: $3.20&#10;FSC: $0.15"></textarea>
         </div>
       </div>
-
       <div class="row g-3 mt-1 align-items-end">
         <div class="col-md-4">
           <label class="form-label small">Aerolínea</label>
           <select id="select-aerolinea" class="form-select form-select-sm">
             <option value="">— Autodetectar —</option>
-            {% for a in aerolineas %}
-            <option value="{{ a }}">{{ a }}</option>
-            {% endfor %}
+            {% for a in aerolineas %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
           </select>
         </div>
         <div class="col-auto">
-          <button id="btn-actualizar" class="btn btn-primary px-4" {% if not api_ok %}disabled{% endif %}>
-            <span id="spin" class="spinner-border spinner-border-sm d-none me-1"></span>
-            <i class="bi bi-robot me-1"></i> Actualizar Tarifas
+          <button id="btn-analizar" class="btn btn-primary px-4" {% if not api_ok %}disabled{% endif %}>
+            <span id="spin-a" class="spinner-border spinner-border-sm d-none me-1"></span>
+            <i class="bi bi-search me-1"></i> Analizar
           </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Resumen de lo aplicado -->
-  <div id="resumen" class="d-none">
-    <div class="card border-success mb-4">
-      <div class="card-header bg-success bg-opacity-10 d-flex align-items-center gap-2 py-2">
-        <i class="bi bi-check-circle-fill text-success"></i>
-        <span class="fw-semibold">Actualización completada — <span id="lbl-aerolinea" class="text-success"></span></span>
+  <!-- Tabla de revisión -->
+  <div id="seccion-revision" class="d-none">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div>
+        <h5 class="mb-0 fw-bold">Revisión — <span id="lbl-aerolinea" class="text-primary"></span></h5>
+        <small class="text-muted">Destinos: <span id="lbl-destinos"></span>
+          &nbsp;·&nbsp; <span class="text-warning"><i class="bi bi-info-circle"></i> FSC solo informativo — se actualiza en la pestaña FSC</span>
+        </small>
       </div>
-      <div class="card-body p-0">
-        <table class="table table-sm mb-0">
-          <thead class="table-light">
-            <tr><th>Aerolínea</th><th>Destino</th><th>Cotización</th><th>Estado</th></tr>
-          </thead>
-          <tbody id="tabla-actualizadas"></tbody>
-        </table>
+      <button id="btn-aplicar" class="btn btn-success px-4">
+        <span id="spin-ap" class="spinner-border spinner-border-sm d-none me-1"></span>
+        <i class="bi bi-check2-all me-1"></i> Aplicar Cambios
+      </button>
+    </div>
+
+    <!-- Tabla principal: matches existentes -->
+    <div id="tabla-matches-wrap" class="d-none">
+      <div class="card mb-4">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0" style="font-size:.875rem;">
+              <thead class="table-dark">
+                <tr>
+                  <th>Aerolínea</th>
+                  <th class="text-center">Destino</th>
+                  <th class="text-center">KG</th>
+                  <th class="text-end">Neta Anterior</th>
+                  <th class="text-end">Neta Nueva</th>
+                  <th class="text-end text-muted">FSC actual</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-matches"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Pendientes: múltiples cotizaciones para mismo IATA -->
-  <div id="seccion-pendientes" class="d-none">
-    <h6 class="fw-bold text-warning mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Hay varias cotizaciones para el mismo destino — elige cuál actualizar</h6>
-    <div id="lista-pendientes"></div>
-    <button id="btn-aplicar-pendientes" class="btn btn-warning mt-2">
-      <span id="spin-pend" class="spinner-border spinner-border-sm d-none me-1"></span>
-      Aplicar seleccionados
-    </button>
+    <!-- Sin match: aerolíneas nuevas -->
+    <div id="seccion-sinmatch" class="d-none">
+      <h6 class="text-warning fw-bold mb-2"><i class="bi bi-plus-circle me-1"></i>Aerolíneas nuevas — no están en ninguna cotización activa</h6>
+      <div class="card mb-4">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0" style="font-size:.875rem;">
+              <thead class="table-warning">
+                <tr>
+                  <th>Aerolínea</th>
+                  <th class="text-center">Destino</th>
+                  <th class="text-center">KG</th>
+                  <th class="text-end">Tarifa Nueva</th>
+                  <th>Agregar a cotización</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-sinmatch"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Toast -->
@@ -98,7 +127,8 @@
 </div>
 
 <script>
-let pendientesData = [];
+let filasData = [];
+let sinMatchData = [];
 
 // --- Drag & drop + paste ---
 const dropZone = document.getElementById('drop-zone');
@@ -126,7 +156,6 @@ document.addEventListener('paste', e => {
     }
   }
 });
-
 function loadPreview(file) {
   const reader = new FileReader();
   reader.onload = e => {
@@ -139,8 +168,8 @@ function loadPreview(file) {
   inputImg.files = dt.files;
 }
 
-// --- Actualizar ---
-document.getElementById('btn-actualizar').addEventListener('click', async () => {
+// --- Analizar ---
+document.getElementById('btn-analizar').addEventListener('click', async () => {
   const texto = document.getElementById('input-texto').value.trim();
   const imgFile = inputImg.files[0];
   if (!texto && !imgFile) { alert('Sube una imagen o pega el texto de las tarifas.'); return; }
@@ -151,108 +180,125 @@ document.getElementById('btn-actualizar').addEventListener('click', async () => 
   const hint = document.getElementById('select-aerolinea').value;
   if (hint) fd.append('aerolinea_hint', hint);
 
-  document.getElementById('btn-actualizar').disabled = true;
-  document.getElementById('spin').classList.remove('d-none');
-  document.getElementById('resumen').classList.add('d-none');
-  document.getElementById('seccion-pendientes').classList.add('d-none');
+  setLoad('btn-analizar', 'spin-a', true);
+  document.getElementById('seccion-revision').classList.add('d-none');
 
   try {
-    const resp = await fetch('/tarifas/api/actualizar', { method: 'POST', body: fd });
+    const resp = await fetch('/tarifas/api/analizar', { method: 'POST', body: fd });
     const data = await resp.json();
     if (!resp.ok || data.error) { alert(data.error || 'Error'); return; }
-    renderResumen(data);
-  } catch(e) {
-    alert('Error de red: ' + e.message);
-  } finally {
-    document.getElementById('btn-actualizar').disabled = false;
-    document.getElementById('spin').classList.add('d-none');
-  }
+    renderTabla(data);
+  } catch(e) { alert('Error de red: ' + e.message); }
+  finally { setLoad('btn-analizar', 'spin-a', false); }
 });
 
-function renderResumen(data) {
-  pendientesData = data.pendientes || [];
-  document.getElementById('lbl-aerolinea').textContent = data.aerolinea || '';
+function renderTabla(data) {
+  filasData = data.filas || [];
+  sinMatchData = data.sin_match || [];
 
-  const tbody = document.getElementById('tabla-actualizadas');
+  document.getElementById('lbl-aerolinea').textContent = data.aerolinea || '';
+  document.getElementById('lbl-destinos').textContent = (data.destinos_extraidos || []).join(', ') || '—';
+
+  // Tabla de matches
+  const tbody = document.getElementById('tbody-matches');
   tbody.innerHTML = '';
-  (data.actualizadas || []).forEach(a => {
-    const estadoBadge = a.nueva
-      ? '<span class="badge bg-info text-dark">Cotización nueva creada</span>'
-      : '<span class="badge bg-success">Actualizada</span>';
-    tbody.innerHTML += `<tr>
-      <td class="fw-semibold">${a.aerolinea}</td>
-      <td><span class="badge bg-secondary">${a.destino}</span></td>
-      <td class="text-muted small">${a.cot_id ? '#' + a.cot_id : '—'}</td>
-      <td>${estadoBadge}</td>
+  filasData.forEach(f => {
+    const cambio = f.cambio;
+    const cls = cambio ? 'table-warning fw-semibold' : 'text-muted';
+    const antStr = f.tarifa_actual !== null ? `$ ${parseFloat(f.tarifa_actual).toFixed(2)}` : '<em class="text-muted">nueva</em>';
+    const arrow = cambio ? '<i class="bi bi-arrow-right text-primary mx-1"></i>' : '=';
+    tbody.innerHTML += `<tr class="${cambio ? 'table-warning' : ''}">
+      <td>${f.aerolinea}</td>
+      <td class="text-center"><span class="badge bg-secondary">${f.destino}</span></td>
+      <td class="text-center fw-bold">${f.kg}</td>
+      <td class="text-end">${antStr}</td>
+      <td class="text-end fw-bold ${cambio ? 'text-success' : 'text-muted'}">$ ${parseFloat(f.tarifa_nueva).toFixed(2)} ${cambio ? '✓' : ''}</td>
+      <td class="text-end text-muted small">$ ${parseFloat(f.fsc_actual).toFixed(2)}</td>
     </tr>`;
   });
 
-  if (data.actualizadas && data.actualizadas.length > 0) {
-    document.getElementById('resumen').classList.remove('d-none');
-  }
+  document.getElementById('tabla-matches-wrap').classList.toggle('d-none', filasData.length === 0);
 
-  // Pendientes
-  if (pendientesData.length) {
-    const lista = document.getElementById('lista-pendientes');
-    lista.innerHTML = '';
-    pendientesData.forEach((p, idx) => {
-      const opts = p.cotizaciones_disponibles.map(c =>
-        `<option value="${c.id}">${c.label}</option>`
-      ).join('');
-      const ratesStr = (p.nuevas_rates || []).map(r => `${r.kg}: $${parseFloat(r.tarifa).toFixed(2)}`).join(' | ');
-      lista.innerHTML += `
-        <div class="card mb-2 border-warning">
-          <div class="card-body py-2 d-flex align-items-center gap-3 flex-wrap">
-            <span class="fw-bold">${p.aerolinea}</span>
-            <span class="badge bg-secondary">${p.iata}</span>
-            <span class="text-muted small">${ratesStr}</span>
-            <select class="form-select form-select-sm ms-auto pend-cot" data-idx="${idx}" style="max-width:260px;">
-              <option value="">— Seleccionar cotización —</option>
-              ${opts}
-            </select>
-          </div>
-        </div>`;
+  // Tabla sin_match
+  const tbody2 = document.getElementById('tbody-sinmatch');
+  tbody2.innerHTML = '';
+  sinMatchData.forEach((m, idx) => {
+    const rates = m.nuevas_rates || [];
+    rates.forEach((r, ri) => {
+      const t = parseFloat(r.tarifa) || 0;
+      let selHtml = '';
+      if (ri === 0) {
+        const rowspan = rates.length;
+        let optsHtml = '';
+        if (m.tiene_cot_propia) {
+          optsHtml = (m.cotizaciones_disponibles || []).map(c =>
+            `<option value="${c.id}">${c.label}</option>`
+          ).join('');
+        }
+        selHtml = `<td rowspan="${rowspan}" class="align-middle">
+          ${m.tiene_cot_propia
+            ? `<select class="form-select form-select-sm sinmatch-cot" data-idx="${idx}">
+                <option value="">— Seleccionar —</option>${optsHtml}</select>`
+            : `<span class="badge bg-info text-dark">Se creará cotización nueva</span>`
+          }
+        </td>`;
+      }
+      tbody2.innerHTML += `<tr>
+        <td>${ri === 0 ? `<strong>${m.aerolinea}</strong>` : ''}</td>
+        <td class="text-center">${ri === 0 ? `<span class="badge bg-secondary">${m.iata}</span>` : ''}</td>
+        <td class="text-center fw-bold">${r.kg}</td>
+        <td class="text-end fw-bold text-success">$ ${t.toFixed(2)}</td>
+        ${selHtml}
+      </tr>`;
     });
-    document.getElementById('seccion-pendientes').classList.remove('d-none');
-  }
+  });
+
+  document.getElementById('seccion-sinmatch').classList.toggle('d-none', sinMatchData.length === 0);
+  document.getElementById('seccion-revision').classList.remove('d-none');
 }
 
-// --- Aplicar pendientes ---
-document.getElementById('btn-aplicar-pendientes').addEventListener('click', async () => {
-  const items = [];
+// --- Aplicar ---
+document.getElementById('btn-aplicar').addEventListener('click', async () => {
+  // Validar sin_match con cotización propia
   let err = false;
-  pendientesData.forEach((p, idx) => {
-    const sel = document.querySelector(`.pend-cot[data-idx="${idx}"]`);
-    const cotId = sel && parseInt(sel.value);
-    if (!cotId) { err = true; return; }
-    items.push({ cot_id: cotId, aerolinea: p.aerolinea, nuevas_rates: p.nuevas_rates, fsc_nuevo: p.fsc_nuevo });
+  const nuevasPayload = sinMatchData.map((m, idx) => {
+    let cot_id = null;
+    if (m.tiene_cot_propia) {
+      const sel = document.querySelector(`.sinmatch-cot[data-idx="${idx}"]`);
+      cot_id = sel ? parseInt(sel.value) || null : null;
+      if (!cot_id) { err = true; }
+    }
+    return { iata: m.iata, aerolinea: m.aerolinea, nuevas_rates: m.nuevas_rates, fsc_nuevo: m.fsc_nuevo, cot_id };
   });
-  if (err) { alert('Selecciona una cotización para cada aerolínea pendiente.'); return; }
-  if (!items.length) return;
 
-  document.getElementById('btn-aplicar-pendientes').disabled = true;
-  document.getElementById('spin-pend').classList.remove('d-none');
+  if (err) { alert('Selecciona una cotización para cada aerolínea nueva.'); return; }
+
+  setLoad('btn-aplicar', 'spin-ap', true);
   try {
-    const resp = await fetch('/tarifas/api/aplicar-pendientes', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items })
+    const resp = await fetch('/tarifas/api/aplicar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filas: filasData, nuevas: nuevasPayload })
     });
     const data = await resp.json();
     if (!resp.ok || data.error) { alert(data.error || 'Error'); return; }
-    showToast(`${data.actualizadas} pendiente(s) aplicado(s).`);
-    document.getElementById('seccion-pendientes').classList.add('d-none');
-    pendientesData = [];
-  } catch(e) {
-    alert('Error de red: ' + e.message);
-  } finally {
-    document.getElementById('btn-aplicar-pendientes').disabled = false;
-    document.getElementById('spin-pend').classList.add('d-none');
-  }
+
+    let msg = `${data.actualizadas} cotización(es) actualizada(s).`;
+    if (data.errores && data.errores.length) msg += ' Errores: ' + data.errores.join(', ');
+    showToast(msg);
+    document.getElementById('seccion-revision').classList.add('d-none');
+    filasData = []; sinMatchData = [];
+  } catch(e) { alert('Error de red: ' + e.message); }
+  finally { setLoad('btn-aplicar', 'spin-ap', false); }
 });
 
+function setLoad(btnId, spinId, on) {
+  document.getElementById(btnId).disabled = on;
+  document.getElementById(spinId).classList.toggle('d-none', !on);
+}
 function showToast(msg) {
   document.getElementById('toast-msg').textContent = msg;
-  bootstrap.Toast.getOrCreateInstance(document.getElementById('toast-ok'), { delay: 4000 }).show();
+  bootstrap.Toast.getOrCreateInstance(document.getElementById('toast-ok'), { delay: 5000 }).show();
 }
 </script>
 {% endblock %}

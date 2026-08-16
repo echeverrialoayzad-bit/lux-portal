@@ -10,7 +10,6 @@ from lux_portal.auth.decorators import login_required
 
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
 
-# Sufijos a eliminar del nombre de aerolínea para normalizar
 _SUFIJOS = re.compile(
     r'\s+(FREIGHTER|PAX|CARGO|AIRLINES|AIRWAYS|AIR CARGO|PASSENGER|FREIGHT)\s*$',
     re.IGNORECASE
@@ -21,7 +20,7 @@ Analiza la imagen o texto y extrae TODOS los datos de tarifas.
 
 Devuelve SOLO JSON valido sin texto adicional ni markdown:
 {
-  "aerolinea": "nombre base de la aerolinea en MAYUSCULAS (sin palabras como FREIGHTER, PAX, CARGO, AIRLINES)",
+  "aerolinea": "nombre base de la aerolinea en MAYUSCULAS (sin FREIGHTER, PAX, CARGO, AIRLINES)",
   "destinos": [
     {
       "iata": "codigo IATA destino 3 letras mayusculas",
@@ -36,11 +35,11 @@ Devuelve SOLO JSON valido sin texto adicional ni markdown:
 }
 
 Reglas:
-- "aerolinea": solo el nombre base, ejemplo: AVIANCA, DELTA, LUFTHANSA, COPA, TURKISH — NO incluir FREIGHTER, PAX, CARGO, AIRLINES
+- "aerolinea": solo nombre base — AVIANCA, DELTA, LUFTHANSA, COPA, TURKISH — sin FREIGHTER, PAX, CARGO
 - "kg" siempre con "+" al inicio: +45, +100, +300, +500, +1000
 - "tarifa" es el valor numerico USD por kg (solo el numero, sin simbolos)
-- Si hay FSC separado para ese destino ponlo en "fsc"; si no, pon 0.00
-- Incluye TODOS los destinos que aparezcan en la imagen
+- "fsc": si viene separado en el documento ponlo; si no, pon 0.00
+- Incluye TODOS los destinos que aparezcan
 """
 
 
@@ -52,20 +51,7 @@ def _normalizar_kg(kg):
 
 
 def _normalizar_aerolinea(nombre):
-    """Elimina sufijos como FREIGHTER, PAX, CARGO del nombre."""
     return _SUFIJOS.sub('', str(nombre).upper().strip()).strip()
-
-
-def _build_kg_rate(nr, margen=0.0, costo_op=0.09, fsc=0.0):
-    t = float(nr.get('tarifa', 0) or 0)
-    return {
-        'kg': _normalizar_kg(nr.get('kg', '')),
-        'tarifa': f"{t:.2f}",
-        'margen': f"{margen:.2f}",
-        'costo_operativo': f"{costo_op:.2f}",
-        'fsc': f"{fsc:.2f}",
-        'tarifa_cliente': f"{t + margen + costo_op + fsc:.2f}"
-    }
 
 
 def _llamar_claude(content):
@@ -95,7 +81,6 @@ def index():
     from lux_portal.cotizaciones.models import Cotizacion
     cots = Cotizacion.query.filter(Cotizacion.estado != 'eliminado').all()
     destinos = sorted({c.destino for c in cots if c.destino})
-    # Nombres limpios y deduplicados para el dropdown
     aerolineas_set = set()
     for c in cots:
         for a in (c.aerolineas or []):
@@ -109,10 +94,10 @@ def index():
                            api_ok=bool(ANTHROPIC_API_KEY))
 
 
-@tarifas_bp.route('/api/actualizar', methods=['POST'])
+@tarifas_bp.route('/api/analizar', methods=['POST'])
 @login_required
-def actualizar():
-    """Extrae tarifas con Claude y las aplica automáticamente. Sin aprobación."""
+def analizar():
+    """Extrae tarifas con Claude y devuelve tabla de revisión. No toca la DB."""
     if not ANTHROPIC_API_KEY:
         return jsonify({'error': 'ANTHROPIC_API_KEY no configurada en Railway.'}), 500
 
@@ -146,171 +131,179 @@ def actualizar():
 
     from lux_portal.cotizaciones.models import Cotizacion
     cots = Cotizacion.query.filter(Cotizacion.estado != 'eliminado').all()
-    hoy = datetime.now().strftime('%Y-%m-%d')
 
-    # Nombre normalizado de la aerolínea
     aerolinea_ext = hint_aerolinea or _normalizar_aerolinea(extracted.get('aerolinea', ''))
 
-    actualizadas = []   # lo que se aplicó automáticamente
-    pendientes = []     # casos con múltiples cotizaciones para el mismo IATA → user decide
+    # Filas para la tabla de revisión
+    filas = []      # matches existentes
+    sin_match = []  # aerolíneas/destinos nuevos
 
     for dest_data in extracted.get('destinos', []):
         iata = dest_data.get('iata', '').upper().strip()
         nuevas = dest_data.get('kg_rates', [])
-        fsc_nuevo = float(dest_data.get('fsc', 0) or 0)
+        fsc_extraido = float(dest_data.get('fsc', 0) or 0)
         found_match = False
 
         for cot in cots:
             if not cot.destino or cot.destino.upper() != iata:
                 continue
 
-            aerolineas = list(cot.aerolineas or [])
-            changed = False
-
-            for aero in aerolineas:
+            for aero in (cot.aerolineas or []):
                 nombre_norm = _normalizar_aerolinea(aero.get('aerolinea', ''))
                 if aerolinea_ext != nombre_norm:
                     continue
 
-                # Actualizar tarifas existentes
-                kg_rates = list(aero.get('kg_rates', []))
-                kg_idx = {_normalizar_kg(kr.get('kg', '')): i for i, kr in enumerate(kg_rates)}
+                actuales = aero.get('kg_rates', [])
+                map_actual = {_normalizar_kg(kr.get('kg', '')): kr for kr in actuales}
 
                 for nr in nuevas:
                     kg_key = _normalizar_kg(nr.get('kg', ''))
                     t_nueva = float(nr.get('tarifa', 0) or 0)
-                    if kg_key in kg_idx:
-                        kr = dict(kg_rates[kg_idx[kg_key]])
-                        margen = float(kr.get('margen', 0) or 0)
-                        co = float(kr.get('costo_operativo', 0.09) or 0.09)
-                        fsc_usar = fsc_nuevo if fsc_nuevo > 0 else float(kr.get('fsc', 0) or 0)
-                        kr['tarifa'] = f"{t_nueva:.2f}"
-                        kr['fsc'] = f"{fsc_usar:.2f}"
-                        kr['tarifa_cliente'] = f"{t_nueva + margen + co + fsc_usar:.2f}"
-                        kg_rates[kg_idx[kg_key]] = kr
-                        changed = True
+                    kr_actual = map_actual.get(kg_key)
+                    t_actual = float(kr_actual.get('tarifa', 0) or 0) if kr_actual else None
+                    fsc_actual = float(kr_actual.get('fsc', 0) or 0) if kr_actual else 0.0
 
-                aero['kg_rates'] = kg_rates
-                aero['fecha_actualizacion'] = hoy
+                    filas.append({
+                        'cot_id': cot.id,
+                        'aerolinea': aerolinea_ext,
+                        'destino': iata,
+                        'kg': kg_key,
+                        'tarifa_actual': t_actual,
+                        'tarifa_nueva': t_nueva,
+                        'fsc_actual': fsc_actual,
+                        'fsc_extraido': fsc_extraido,
+                        'cambio': t_actual is None or abs(t_nueva - t_actual) > 0.001,
+                        'es_nueva_kg': t_actual is None,
+                    })
                 found_match = True
 
-            if changed:
-                cot.aerolineas = aerolineas
-                actualizadas.append({
-                    'aerolinea': aerolinea_ext, 'destino': iata,
-                    'cot_id': cot.id, 'nueva': False
-                })
-
         if not found_match:
-            cots_iata = [c for c in cots if c.destino and c.destino.upper() == iata]
-
-            if len(cots_iata) == 0:
-                # No existe cotización para este destino → crear nueva
-                fsc_usar = fsc_nuevo if fsc_nuevo > 0 else 0.0
-                nueva_cot = Cotizacion(
-                    origen='UIO', destino=iata,
-                    valid_from=datetime.now().strftime('%m/%d/%Y'),
-                    contacto_nombre='Daniela Echeverria',
-                    contacto_email='daniela.echeverria@freight-wise.com',
-                    mercancia='FRESH CUT FLOWERS',
-                    customer='', attn='', estado='borrador'
-                )
-                nueva_cot.aerolineas = [{
-                    'aerolinea': aerolinea_ext, 'vuelo': '', 'itinerario': '',
-                    'tiempo_transito': '', 'granjas_entrega': '', 'salida': '', 'llegada': '',
-                    'kg_rates': [_build_kg_rate(nr, fsc=fsc_usar) for nr in nuevas],
-                    'rate_increases': [], 'cargos_adicionales': [],
-                    'notas': '', 'es_continuacion': False, 'fecha_actualizacion': hoy
-                }]
-                nueva_cot.cargos_freightwise = [
-                    {"concepto": "Due Agent", "monto": "0"},
-                    {"concepto": "Certificado", "monto": "0"},
-                    {"concepto": "Fitosanitario", "monto": "0"},
-                ]
-                nueva_cot.notas_freightwise = ''
-                db.session.add(nueva_cot)
-                actualizadas.append({
-                    'aerolinea': aerolinea_ext, 'destino': iata,
-                    'cot_id': None, 'nueva': True
-                })
-
-            elif len(cots_iata) == 1:
-                # Una sola cotización para este IATA → agregar aerolínea directamente
-                cot = cots_iata[0]
-                fsc_usar = fsc_nuevo if fsc_nuevo > 0 else 0.0
-                aerolineas = list(cot.aerolineas or [])
-                aerolineas.append({
-                    'aerolinea': aerolinea_ext, 'vuelo': '', 'itinerario': '',
-                    'tiempo_transito': '', 'granjas_entrega': '', 'salida': '', 'llegada': '',
-                    'kg_rates': [_build_kg_rate(nr, fsc=fsc_usar) for nr in nuevas],
-                    'rate_increases': [], 'cargos_adicionales': [],
-                    'notas': '', 'es_continuacion': False, 'fecha_actualizacion': hoy
-                })
-                cot.aerolineas = aerolineas
-                actualizadas.append({
-                    'aerolinea': aerolinea_ext, 'destino': iata,
-                    'cot_id': cot.id, 'nueva': False
-                })
-
-            else:
-                # Múltiples cotizaciones para este IATA → el usuario elige
-                pendientes.append({
-                    'iata': iata,
-                    'ciudad': dest_data.get('ciudad', ''),
-                    'aerolinea': aerolinea_ext,
-                    'nuevas_rates': [{'kg': _normalizar_kg(nr.get('kg', '')), 'tarifa': nr.get('tarifa')}
-                                     for nr in nuevas],
-                    'fsc_nuevo': fsc_nuevo,
-                    'cotizaciones_disponibles': [
-                        {'id': c.id, 'label': f"#{c.id} — {c.destino}{(' / ' + c.customer) if c.customer else ''}"}
-                        for c in cots_iata
-                    ]
-                })
-
-    db.session.commit()
+            cots_iata = [
+                {'id': c.id, 'label': f"#{c.id} — {c.destino}{(' / ' + c.customer) if c.customer else ''}"}
+                for c in cots if c.destino and c.destino.upper() == iata
+            ]
+            sin_match.append({
+                'iata': iata,
+                'ciudad': dest_data.get('ciudad', ''),
+                'aerolinea': aerolinea_ext,
+                'nuevas_rates': [{'kg': _normalizar_kg(nr.get('kg', '')), 'tarifa': nr.get('tarifa')}
+                                 for nr in nuevas],
+                'fsc_nuevo': fsc_extraido,
+                'tiene_cot_propia': len(cots_iata) > 0,
+                'cotizaciones_disponibles': cots_iata,
+            })
 
     return jsonify({
         'aerolinea': aerolinea_ext,
-        'actualizadas': actualizadas,
-        'pendientes': pendientes
+        'destinos_extraidos': list({f['destino'] for f in filas} | {s['iata'] for s in sin_match}),
+        'filas': filas,
+        'sin_match': sin_match,
     })
 
 
-@tarifas_bp.route('/api/aplicar-pendientes', methods=['POST'])
+@tarifas_bp.route('/api/aplicar', methods=['POST'])
 @login_required
-def aplicar_pendientes():
-    """Aplica los pendientes donde el usuario seleccionó la cotización."""
+def aplicar():
+    """Aplica los cambios confirmados. Solo actualiza tarifa neta (FSC no se toca aquí)."""
     data = request.json or {}
-    items = data.get('items', [])
-    if not items:
-        return jsonify({'error': 'Nada para aplicar'}), 400
+    filas = data.get('filas', [])       # matches a actualizar
+    nuevas = data.get('nuevas', [])     # sin_match a agregar/crear
+    hoy = datetime.now().strftime('%Y-%m-%d')
 
     from lux_portal.cotizaciones.models import Cotizacion
-    hoy = datetime.now().strftime('%Y-%m-%d')
     actualizadas = 0
     errores = []
 
-    for item in items:
-        cot_id = item.get('cot_id')
-        nombre_aero = item.get('aerolinea', '')
-        nuevas_rates = item.get('nuevas_rates', [])
-        fsc_nuevo = float(item.get('fsc_nuevo', 0) or 0)
+    # --- Agrupar filas por cot_id ---
+    por_cot = {}
+    for f in filas:
+        cid = f.get('cot_id')
+        por_cot.setdefault(cid, []).append(f)
 
+    for cot_id, rows in por_cot.items():
         cot = Cotizacion.query.get(cot_id)
         if not cot:
             errores.append(f'Cotización {cot_id} no encontrada')
             continue
 
-        fsc_usar = fsc_nuevo if fsc_nuevo > 0 else 0.0
+        aerolinea_nombre = rows[0]['aerolinea']
         aerolineas = list(cot.aerolineas or [])
-        aerolineas.append({
+        changed = False
+
+        for aero in aerolineas:
+            if _normalizar_aerolinea(aero.get('aerolinea', '')) != aerolinea_nombre:
+                continue
+            kg_rates = list(aero.get('kg_rates', []))
+            kg_idx = {_normalizar_kg(kr.get('kg', '')): i for i, kr in enumerate(kg_rates)}
+
+            for row in rows:
+                kg_key = row['kg']
+                t_nueva = float(row['tarifa_nueva'])
+                if kg_key in kg_idx:
+                    kr = dict(kg_rates[kg_idx[kg_key]])
+                    margen = float(kr.get('margen', 0) or 0)
+                    co = float(kr.get('costo_operativo', 0.09) or 0.09)
+                    fsc = float(kr.get('fsc', 0) or 0)  # FSC no cambia aquí
+                    kr['tarifa'] = f"{t_nueva:.2f}"
+                    kr['tarifa_cliente'] = f"{t_nueva + margen + co + fsc:.2f}"
+                    kg_rates[kg_idx[kg_key]] = kr
+                    changed = True
+
+            aero['kg_rates'] = kg_rates
+            aero['fecha_actualizacion'] = hoy
+
+        if changed:
+            cot.aerolineas = aerolineas
+            actualizadas += 1
+
+    # --- Nuevas aerolíneas / cotizaciones ---
+    for item in nuevas:
+        iata = item.get('iata', '').upper()
+        nombre_aero = item.get('aerolinea', '')
+        rates = item.get('nuevas_rates', [])
+        fsc_usar = float(item.get('fsc_nuevo', 0) or 0)
+        cot_id = item.get('cot_id')  # None = crear cotización nueva
+
+        def _kr(nr):
+            t = float(nr.get('tarifa', 0) or 0)
+            return {'kg': _normalizar_kg(nr.get('kg', '')), 'tarifa': f"{t:.2f}",
+                    'margen': '0.00', 'costo_operativo': '0.09',
+                    'fsc': f"{fsc_usar:.2f}", 'tarifa_cliente': f"{t + 0.09 + fsc_usar:.2f}"}
+
+        aero_obj = {
             'aerolinea': nombre_aero, 'vuelo': '', 'itinerario': '',
             'tiempo_transito': '', 'granjas_entrega': '', 'salida': '', 'llegada': '',
-            'kg_rates': [_build_kg_rate(nr, fsc=fsc_usar) for nr in nuevas_rates],
+            'kg_rates': [_kr(r) for r in rates],
             'rate_increases': [], 'cargos_adicionales': [],
             'notas': '', 'es_continuacion': False, 'fecha_actualizacion': hoy
-        })
-        cot.aerolineas = aerolineas
+        }
+
+        if cot_id:
+            cot = Cotizacion.query.get(cot_id)
+            if not cot:
+                errores.append(f'Cotización {cot_id} no encontrada')
+                continue
+            aerolineas = list(cot.aerolineas or [])
+            aerolineas.append(aero_obj)
+            cot.aerolineas = aerolineas
+        else:
+            nueva_cot = Cotizacion(
+                origen='UIO', destino=iata,
+                valid_from=datetime.now().strftime('%m/%d/%Y'),
+                contacto_nombre='Daniela Echeverria',
+                contacto_email='daniela.echeverria@freight-wise.com',
+                mercancia='FRESH CUT FLOWERS',
+                customer='', attn='', estado='borrador'
+            )
+            nueva_cot.aerolineas = [aero_obj]
+            nueva_cot.cargos_freightwise = [
+                {"concepto": "Due Agent", "monto": "0"},
+                {"concepto": "Certificado", "monto": "0"},
+                {"concepto": "Fitosanitario", "monto": "0"},
+            ]
+            nueva_cot.notas_freightwise = ''
+            db.session.add(nueva_cot)
+
         actualizadas += 1
 
     if actualizadas > 0:
