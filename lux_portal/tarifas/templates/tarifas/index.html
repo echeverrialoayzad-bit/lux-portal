@@ -276,11 +276,17 @@ function renderTabla(data) {
       tr.className = rowClass;
       tr.dataset.gi = gi;
 
+      const cotOptsHtml = TODAS_COTS.map(c =>
+        `<option value="${c.id}" ${c.id === g.cot_id ? 'selected' : ''}>${c.label}</option>`
+      ).join('');
+
       tr.innerHTML = `
         <td class="fw-semibold">${g.aerolinea}</td>
-        <td class="text-center">
-          <span class="badge bg-secondary" style="font-size:.8rem;letter-spacing:1px;">${g.destino}</span>
-          <br><small class="text-muted" style="font-size:.72rem;">cot #${g.cot_id}</small>
+        <td class="text-center" style="min-width:200px;">
+          <select class="form-select form-select-sm grupo-cot" data-gi="${gi}" title="Si el destino leido esta mal, cambia aqui a la cotizacion correcta">
+            ${cotOptsHtml}
+          </select>
+          <small class="text-muted d-block" style="font-size:.7rem;">leído: ${g.destino}</small>
         </td>`;
 
       allKgs.forEach(kg => {
@@ -390,12 +396,22 @@ function renderTabla(data) {
         <td class="text-center">${fscE > 0 ? `$${fscE.toFixed(2)}` : '—'}</td>
         <td style="min-width:220px;">
           <select class="form-select form-select-sm sinmatch-cot" data-mi="${mi}">
-            <option value="NEW">➕ Crear cotización nueva para ${m.iata}</option>
+            <option value="NEW" class="sinmatch-opt-new" data-mi="${mi}">➕ Crear cotización nueva para ${m.iata}</option>
             ${optsHtml}
           </select>
         </td>`;
 
       tbody2.appendChild(tr);
+    });
+
+    // El texto "Crear cotizacion nueva para X" debe reflejar el destino
+    // corregido a mano, no quedarse pegado al que leyo mal la IA.
+    tbody2.querySelectorAll('.sinmatch-iata').forEach(input => {
+      input.addEventListener('input', () => {
+        const mi = input.dataset.mi;
+        const opt = tbody2.querySelector(`.sinmatch-opt-new[data-mi="${mi}"]`);
+        if (opt) opt.textContent = `➕ Crear cotización nueva para ${input.value.trim().toUpperCase() || '...'}`;
+      });
     });
 
     document.getElementById('seccion-sinmatch').classList.remove('d-none');
@@ -415,7 +431,9 @@ document.getElementById('btn-aplicar').addEventListener('click', async () => {
       const val = inp && inp.value ? parseFloat(inp.value) : null;
       return val !== null ? { kg, tarifa_nueva: val } : null;
     }).filter(Boolean);
-    return { ...g, kgs: kgsEdited };
+    const cotSel = document.querySelector(`.grupo-cot[data-gi="${gi}"]`);
+    const cot_id = cotSel ? parseInt(cotSel.value) : g.cot_id;
+    return { ...g, kgs: kgsEdited, cot_id };
   });
 
   // Leer valores editados de sin_match
