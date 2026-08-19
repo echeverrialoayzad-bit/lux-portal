@@ -1,0 +1,139 @@
+{% extends 'documentacion/base_documentacion.html' %}
+
+{% block title %}Documentacion - Lux Portal{% endblock %}
+
+{% block extra_css %}
+<style>
+    .clientes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
+
+    .cliente-card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: var(--shadow-card);
+        transition: all var(--t);
+        position: relative;
+    }
+    .cliente-card:hover { border-color: var(--border-accent); transform: translateY(-2px); color: inherit; }
+
+    .cliente-icon {
+        width: 44px; height: 44px; border-radius: 12px;
+        background: rgba(15,118,110,0.10); color: var(--doc-teal);
+        display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+        margin-bottom: 12px;
+    }
+    .cliente-nombre { font-weight: 700; font-size: 1.02rem; margin-bottom: 10px; padding-right: 24px; }
+
+    .progreso-track { height: 6px; background: rgba(15,118,110,0.10); border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+    .progreso-fill { height: 100%; background: var(--grad-teal); border-radius: 4px; }
+    .progreso-label { font-size: 0.78rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; }
+
+    .firma-badge { font-size: 0.7rem; }
+    .firma-ok { color: #0f766e; }
+    .firma-no { color: #b91c1c; }
+    .firma-pendiente { color: var(--text-muted); }
+
+    .btn-eliminar-cliente {
+        position: absolute; top: 14px; right: 14px; border: none; background: transparent;
+        color: var(--text-muted); padding: 4px; border-radius: 6px; line-height: 1;
+    }
+    .btn-eliminar-cliente:hover { color: #dc2626; background: rgba(220,38,38,0.08); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2><i class="bi bi-folder2-open text-primary"></i> Documentacion y Verificacion</h2>
+        <p class="text-secondary mb-0">Una carpeta por cliente con los 5 documentos que FreightWise necesita tener: Customer Associate Format, Shipping Instructions, cedula del representante legal, Tax ID/RUC y certificado bancario.</p>
+    </div>
+    <button class="btn btn-primary" id="btnNuevoCliente">
+        <i class="bi bi-plus-lg"></i> Nuevo Cliente
+    </button>
+</div>
+
+<div class="d-flex gap-2 mb-4" id="formNuevoCliente" style="display:none;">
+    <input type="text" id="nombreNuevoCliente" class="form-control" placeholder="Nombre del cliente" style="max-width: 320px;">
+    <button class="btn btn-primary" id="btnConfirmarNuevoCliente"><i class="bi bi-check-lg"></i> Crear</button>
+    <button class="btn btn-outline-secondary" id="btnCancelarNuevoCliente">Cancelar</button>
+</div>
+
+{% if clientes %}
+<div class="clientes-grid">
+    {% for c in clientes %}
+    {% set pct = (c.completos() / (tipos_documento|length) * 100) | round(0, 'floor') %}
+    <div style="position:relative;">
+        <a class="cliente-card" href="{{ url_for('documentacion.ver_cliente', id=c.id) }}">
+            <div class="cliente-icon"><i class="bi bi-building"></i></div>
+            <div class="cliente-nombre">{{ c.nombre }}</div>
+            <div class="progreso-track"><div class="progreso-fill" style="width: {{ pct }}%;"></div></div>
+            <div class="progreso-label">
+                <span>{{ c.completos() }} / {{ tipos_documento|length }} documentos</span>
+                {% if c.firma_verificada is none %}
+                    <span class="firma-badge firma-pendiente"><i class="bi bi-dash-circle"></i> Firma sin revisar</span>
+                {% elif c.firma_verificada %}
+                    <span class="firma-badge firma-ok"><i class="bi bi-check-circle-fill"></i> Firma coincide</span>
+                {% else %}
+                    <span class="firma-badge firma-no"><i class="bi bi-exclamation-triangle-fill"></i> Firma no coincide</span>
+                {% endif %}
+            </div>
+        </a>
+        <button class="btn-eliminar-cliente" onclick="eliminarCliente({{ c.id }}, '{{ c.nombre|replace("'", "\\'") }}')" title="Eliminar cliente">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="bi bi-folder2-open"></i>
+    <h5>Todavia no hay clientes</h5>
+    <p>Crea el primero con el boton de arriba</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BASE = "{{ url_for('documentacion.dashboard') }}".replace(/\/$/, '');
+
+const formNuevo = document.getElementById('formNuevoCliente');
+const inputNuevo = document.getElementById('nombreNuevoCliente');
+
+document.getElementById('btnNuevoCliente').onclick = () => {
+    formNuevo.style.display = 'flex';
+    inputNuevo.focus();
+};
+document.getElementById('btnCancelarNuevoCliente').onclick = () => {
+    formNuevo.style.display = 'none';
+    inputNuevo.value = '';
+};
+
+function crearCliente() {
+    const nombre = inputNuevo.value.trim();
+    if (!nombre) return;
+    fetch(`${BASE}/api/cliente`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({nombre})
+    }).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+        else alert('Error: ' + (data.error || ''));
+    });
+}
+document.getElementById('btnConfirmarNuevoCliente').onclick = crearCliente;
+inputNuevo.addEventListener('keydown', (e) => { if (e.key === 'Enter') crearCliente(); });
+
+function eliminarCliente(id, nombre) {
+    if (!confirm(`¿Eliminar "${nombre}" y todos sus documentos? Esta accion no se puede deshacer.`)) return;
+    fetch(`${BASE}/api/cliente/${id}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+        else alert('Error: ' + (data.error || ''));
+    });
+}
+</script>
+{% endblock %}

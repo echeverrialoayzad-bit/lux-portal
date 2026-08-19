@@ -68,6 +68,14 @@ AVAILABLE_MODULES = [
         'url': 'proformas.dashboard',
         'color': '#1a3a5c'  # Navy FreightWise para Proformas
     },
+    {
+        'id': 'documentacion',
+        'name': 'Documentacion',
+        'description': 'Documentos legales y verificacion de firma por cliente',
+        'icon': 'bi-file-earmark-lock2-fill',
+        'url': 'documentacion.dashboard',
+        'color': '#0f766e'  # Teal para Documentacion
+    },
 ]
 
 

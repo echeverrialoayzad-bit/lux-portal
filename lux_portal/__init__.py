@@ -29,6 +29,7 @@ def create_app(config_name='default'):
     from lux_portal.excel_online import excel_online_bp
     from lux_portal.proformas import proformas_bp
     from lux_portal.tarifas import tarifas_bp
+    from lux_portal.documentacion import documentacion_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -40,6 +41,7 @@ def create_app(config_name='default'):
     app.register_blueprint(excel_online_bp, url_prefix='/excel-online')
     app.register_blueprint(proformas_bp, url_prefix='/proformas')
     app.register_blueprint(tarifas_bp, url_prefix='/tarifas')
+    app.register_blueprint(documentacion_bp, url_prefix='/documentacion')
 
     # Crear tablas de base de datos y migrar columnas faltantes
     with app.app_context():
@@ -51,6 +53,7 @@ def create_app(config_name='default'):
         _seed_cargo_rules()
         _migrate_fsc_cargo_groups()
         _seed_dias_salida()
+        _seed_doc_clientes()
 
     return app
 
@@ -771,6 +774,33 @@ def _seed_dias_salida():
             registro = AirlineDepartureDays(aerolinea=aerolinea)
             registro.dias = dias
             db.session.add(registro)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+# ---------------------------------------------------------------------------
+# Documentacion: clientes conocidos al momento de crear el modulo. Solo
+# crea la carpeta (sin documentos); si la tabla ya tiene datos no hace nada.
+# ---------------------------------------------------------------------------
+_DOC_CLIENTES_SEED = [
+    'Flora Concept', 'Bryan Alexis', 'Danny Flowers', 'Nenova', 'Juniflor',
+    'Flores Anton Ramon', 'Vivax', 'Maxim', 'Biflorica', 'Fashion Garden',
+    'Rekpol', 'Optimus', 'Klia', 'Larissa', 'TBK', 'Flower Togo',
+    'Art Flora', 'Flor de los Andes', 'Passion',
+]
+
+
+def _seed_doc_clientes():
+    """Crea las carpetas de clientes iniciales si la tabla esta vacia."""
+    from lux_portal.documentacion.models import DocCliente
+
+    if DocCliente.query.first() is not None:
+        return
+
+    try:
+        for nombre in _DOC_CLIENTES_SEED:
+            db.session.add(DocCliente(nombre=nombre))
         db.session.commit()
     except Exception:
         db.session.rollback()

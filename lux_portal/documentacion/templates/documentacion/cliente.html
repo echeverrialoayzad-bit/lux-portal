@@ -1,0 +1,188 @@
+{% extends 'documentacion/base_documentacion.html' %}
+
+{% block title %}{{ cliente.nombre }} - Documentacion{% endblock %}
+
+{% block extra_css %}
+<style>
+    .doc-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--border);
+    }
+    .doc-row:last-child { border-bottom: none; }
+
+    .doc-icon {
+        width: 42px; height: 42px; border-radius: 10px; flex: 0 0 auto;
+        display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+    }
+    .doc-icon.ok { background: rgba(15,118,110,0.10); color: var(--doc-teal); }
+    .doc-icon.pendiente { background: rgba(217,119,6,0.10); color: var(--doc-amber); }
+
+    .doc-info { flex: 1; min-width: 0; }
+    .doc-titulo { font-weight: 700; font-size: 0.95rem; }
+    .doc-desc { font-size: 0.8rem; color: var(--text-secondary); }
+    .doc-archivo-actual { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+    .doc-actions { display: flex; gap: 8px; flex: 0 0 auto; align-items: center; }
+    .doc-actions input[type=file] { display: none; }
+
+    .firma-panel {
+        background: rgba(15,118,110,0.05);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px 22px;
+        margin-top: 20px;
+    }
+    .firma-resultado { font-size: 0.88rem; line-height: 1.6; }
+    .firma-resultado dt { font-weight: 700; color: var(--text-primary); }
+    .firma-resultado dd { color: var(--text-secondary); margin-bottom: 10px; }
+    .disclaimer { font-size: 0.75rem; color: var(--text-muted); margin-top: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+    <div>
+        <a href="{{ url_for('documentacion.dashboard') }}" class="text-decoration-none text-secondary small mb-2 d-inline-block">
+            <i class="bi bi-arrow-left"></i> Todos los clientes
+        </a>
+        <h2 class="mb-0"><i class="bi bi-building text-primary"></i> {{ cliente.nombre }}</h2>
+    </div>
+</div>
+
+<div class="card mb-0">
+    <div class="card-header"><i class="bi bi-folder2 me-2"></i>Documentos</div>
+    <div class="card-body p-0">
+        {% for tipo_key, tipo_nombre, tipo_desc in tipos_documento %}
+        {% set archivo = archivos[tipo_key] %}
+        <div class="doc-row" data-tipo="{{ tipo_key }}">
+            <div class="doc-icon {{ 'ok' if archivo else 'pendiente' }}">
+                <i class="bi {{ 'bi-file-earmark-check-fill' if archivo else 'bi-file-earmark-arrow-up' }}"></i>
+            </div>
+            <div class="doc-info">
+                <div class="doc-titulo">{{ tipo_nombre }}</div>
+                {% if tipo_desc %}<div class="doc-desc">{{ tipo_desc }}</div>{% endif %}
+                {% if archivo %}
+                <div class="doc-archivo-actual">
+                    <i class="bi bi-paperclip"></i> {{ archivo.nombre_archivo }} &middot; subido {{ archivo.fecha_subida.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="doc-actions">
+                {% if archivo %}
+                <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('documentacion.ver_archivo', id=archivo.id) }}" target="_blank">
+                    <i class="bi bi-eye"></i> Ver
+                </a>
+                <button class="btn btn-outline-danger btn-sm" onclick="eliminarArchivo({{ archivo.id }}, '{{ tipo_key }}')">
+                    <i class="bi bi-trash"></i>
+                </button>
+                {% endif %}
+                <label class="btn btn-outline-primary btn-sm mb-0">
+                    <i class="bi bi-upload"></i> {{ 'Reemplazar' if archivo else 'Subir' }}
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" class="input-subir" data-tipo="{{ tipo_key }}">
+                </label>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="firma-panel">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <div>
+            <strong><i class="bi bi-stars me-1"></i> Verificacion de firma asistida por IA</strong>
+            <div class="text-secondary small">Compara el nombre y la firma del Customer Associate Format contra la cedula del representante legal.</div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btnVerificarFirma">
+            <i class="bi bi-search"></i> Verificar firma
+        </button>
+    </div>
+    <div id="resultadoFirma">
+        {% if firma_resultado %}
+            {% set r = firma_resultado %}
+            <div class="firma-resultado">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Nombre en cedula</dt><dd class="col-sm-8">{{ r.nombre_en_cedula or '—' }}</dd>
+                    <dt class="col-sm-4">Nombre en el formato</dt><dd class="col-sm-8">{{ r.nombre_en_formato or '—' }}</dd>
+                    <dt class="col-sm-4">¿Coinciden?</dt>
+                    <dd class="col-sm-8">
+                        {% if r.nombres_coinciden %}<span class="badge" style="background:#0f766e;color:#fff;">Si</span>
+                        {% elif r.nombres_coinciden == false %}<span class="badge" style="background:#dc2626;color:#fff;">No</span>
+                        {% else %}<span class="badge bg-secondary">No se pudo determinar</span>{% endif %}
+                        &nbsp;<span class="text-muted small">confianza: {{ r.confianza or '—' }}</span>
+                    </dd>
+                    <dt class="col-sm-4">Observaciones</dt><dd class="col-sm-8">{{ r.observaciones or '—' }}</dd>
+                </dl>
+                <div class="disclaimer">Revisado el {{ cliente.firma_verificacion_fecha.strftime('%Y-%m-%d %H:%M') }}. Esto es una revision asistida por IA, no una verificacion forense — confirma siempre con criterio propio.</div>
+            </div>
+        {% else %}
+            <div class="text-muted small">Todavia no se ha corrido la verificacion. Sube el Customer Associate Format y la cedula, luego toca "Verificar firma".</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BASE = "{{ url_for('documentacion.dashboard') }}".replace(/\/$/, '');
+const CLIENTE_ID = {{ cliente.id }};
+
+document.querySelectorAll('.input-subir').forEach(input => {
+    input.addEventListener('change', () => {
+        const file = input.files[0];
+        if (!file) return;
+        const tipo = input.dataset.tipo;
+        const fd = new FormData();
+        fd.append('tipo', tipo);
+        fd.append('archivo', file);
+
+        const row = input.closest('.doc-row');
+        const label = input.closest('label');
+        const original = label.innerHTML;
+        label.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Subiendo...';
+
+        fetch(`${BASE}/api/cliente/${CLIENTE_ID}/archivo`, {method: 'POST', body: fd})
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) location.reload();
+                else { alert('Error: ' + (data.error || '')); label.innerHTML = original; }
+            })
+            .catch(e => { alert('Error de red: ' + e.message); label.innerHTML = original; });
+    });
+});
+
+function eliminarArchivo(id, tipo) {
+    if (!confirm('¿Eliminar este documento?')) return;
+    fetch(`${BASE}/api/archivo/${id}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+        else alert('Error: ' + (data.error || ''));
+    });
+}
+
+document.getElementById('btnVerificarFirma').addEventListener('click', () => {
+    const btn = document.getElementById('btnVerificarFirma');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Analizando...';
+
+    fetch(`${BASE}/api/cliente/${CLIENTE_ID}/verificar-firma`, {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || ''));
+                btn.disabled = false;
+                btn.innerHTML = original;
+            }
+        })
+        .catch(e => {
+            alert('Error de red: ' + e.message);
+            btn.disabled = false;
+            btn.innerHTML = original;
+        });
+});
+</script>
+{% endblock %}
