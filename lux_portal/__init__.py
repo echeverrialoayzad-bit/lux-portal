@@ -142,6 +142,8 @@ def _migrate_db(app):
         # Cotizaciones: cargos FreightWise editables + notas
         ('cotizaciones', 'cargos_freightwise_json', "TEXT"),
         ('cotizaciones', 'notas_freightwise', "TEXT"),
+        # Documentacion: titulo libre para documentos "extra" (no esenciales)
+        ('doc_archivos', 'titulo_extra', "VARCHAR(200)"),
     ]
     for table, column, col_type in migrations:
         try:

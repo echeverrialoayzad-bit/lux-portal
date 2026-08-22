@@ -28,6 +28,17 @@
     .doc-actions { display: flex; gap: 8px; flex: 0 0 auto; align-items: center; }
     .doc-actions input[type=file] { display: none; }
 
+    .extra-add-row {
+        display: flex;
+        gap: 10px;
+        padding: 16px 22px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .extra-add-row input[type=text] { flex: 1; min-width: 220px; }
+    .extra-add-row input[type=file] { display: none; }
+    .extra-empty { padding: 18px 22px; color: var(--text-muted); font-size: 0.85rem; }
+
     .firma-panel {
         background: rgba(15,118,110,0.05);
         border: 1px solid var(--border);
@@ -86,6 +97,42 @@
             </div>
         </div>
         {% endfor %}
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header"><i class="bi bi-folder-plus me-2"></i>Documentos adicionales</div>
+    <div class="card-body p-0">
+        {% if archivos_extra %}
+        {% for archivo in archivos_extra %}
+        <div class="doc-row">
+            <div class="doc-icon ok"><i class="bi bi-file-earmark-check-fill"></i></div>
+            <div class="doc-info">
+                <div class="doc-titulo">{{ archivo.titulo_extra }}</div>
+                <div class="doc-archivo-actual">
+                    <i class="bi bi-paperclip"></i> {{ archivo.nombre_archivo }} &middot; subido {{ archivo.fecha_subida.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+            </div>
+            <div class="doc-actions">
+                <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('documentacion.ver_archivo', id=archivo.id) }}" target="_blank">
+                    <i class="bi bi-eye"></i> Ver
+                </a>
+                <button class="btn btn-outline-danger btn-sm" onclick="eliminarArchivo({{ archivo.id }})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="extra-empty">Todavia no hay documentos adicionales para este cliente.</div>
+        {% endif %}
+        <div class="extra-add-row">
+            <input type="text" id="tituloExtra" class="form-control form-control-sm" placeholder="Titulo del documento (ej. Registro Mercantil)">
+            <label class="btn btn-outline-primary btn-sm mb-0">
+                <i class="bi bi-upload"></i> Agregar documento
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png" id="inputSubirExtra">
+            </label>
+        </div>
     </div>
 </div>
 
@@ -151,6 +198,35 @@ document.querySelectorAll('.input-subir').forEach(input => {
             })
             .catch(e => { alert('Error de red: ' + e.message); label.innerHTML = original; });
     });
+});
+
+document.getElementById('inputSubirExtra').addEventListener('change', () => {
+    const input = document.getElementById('inputSubirExtra');
+    const tituloInput = document.getElementById('tituloExtra');
+    const file = input.files[0];
+    if (!file) return;
+    const titulo = tituloInput.value.trim();
+    if (!titulo) {
+        alert('Ponle un titulo al documento antes de subirlo.');
+        input.value = '';
+        return;
+    }
+    const fd = new FormData();
+    fd.append('tipo', 'extra');
+    fd.append('titulo_extra', titulo);
+    fd.append('archivo', file);
+
+    const label = input.closest('label');
+    const original = label.innerHTML;
+    label.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Subiendo...';
+
+    fetch(`${BASE}/api/cliente/${CLIENTE_ID}/archivo`, {method: 'POST', body: fd})
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) location.reload();
+            else { alert('Error: ' + (data.error || '')); label.innerHTML = original; }
+        })
+        .catch(e => { alert('Error de red: ' + e.message); label.innerHTML = original; });
 });
 
 function eliminarArchivo(id, tipo) {

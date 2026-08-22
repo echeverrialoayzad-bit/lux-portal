@@ -24,6 +24,10 @@ TIPOS_DOCUMENTO = [
 TIPOS_DOCUMENTO_KEYS = [t[0] for t in TIPOS_DOCUMENTO]
 TIPOS_DOCUMENTO_NOMBRES = {t[0]: t[1] for t in TIPOS_DOCUMENTO}
 
+# Tipo especial para documentos que no son ninguno de los 5 esenciales, pero
+# que igual se guardan (con su propio titulo descriptivo en vez de un tipo fijo).
+TIPO_EXTRA = 'extra'
+
 
 class DocCliente(db.Model):
     """Una carpeta de cliente."""
@@ -44,12 +48,19 @@ class DocCliente(db.Model):
                                 order_by='DocArchivo.fecha_subida.desc()')
 
     def archivos_por_tipo(self):
-        """Ultimo archivo vigente por cada tipo de documento (dict tipo -> DocArchivo|None)."""
+        """Ultimo archivo vigente por cada uno de los 5 tipos esenciales
+        (checklist), como dict tipo -> DocArchivo|None."""
         resultado = {tipo: None for tipo in TIPOS_DOCUMENTO_KEYS}
         for a in self.archivos:
             if a.tipo in resultado and resultado[a.tipo] is None:
                 resultado[a.tipo] = a
         return resultado
+
+    def archivos_extra(self):
+        """Todos los documentos adicionales (no esenciales), los mas
+        recientes primero. A diferencia de los 5 esenciales, aqui se
+        acumulan todos, no se reemplazan."""
+        return [a for a in self.archivos if a.tipo == TIPO_EXTRA]
 
     def completos(self):
         presentes = self.archivos_por_tipo()
@@ -64,6 +75,7 @@ class DocCliente(db.Model):
             'total': len(TIPOS_DOCUMENTO_KEYS),
             'firma_verificada': self.firma_verificada,
             'archivos': {tipo: (a.to_dict() if a else None) for tipo, a in presentes.items()},
+            'archivos_extra': [a.to_dict() for a in self.archivos_extra()],
         }
 
 
@@ -76,6 +88,7 @@ class DocArchivo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cliente_id = db.Column(db.Integer, db.ForeignKey('doc_clientes.id'), nullable=False)
     tipo = db.Column(db.String(50), nullable=False)
+    titulo_extra = db.Column(db.String(200))  # solo se usa cuando tipo == TIPO_EXTRA
     nombre_archivo = db.Column(db.String(300))
     mimetype = db.Column(db.String(100))
     contenido = db.Column(db.LargeBinary, nullable=False)
@@ -85,6 +98,7 @@ class DocArchivo(db.Model):
         return {
             'id': self.id,
             'tipo': self.tipo,
+            'titulo_extra': self.titulo_extra,
             'nombre_archivo': self.nombre_archivo,
             'mimetype': self.mimetype,
             'fecha_subida': self.fecha_subida.strftime('%Y-%m-%d %H:%M') if self.fecha_subida else None,

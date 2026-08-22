@@ -13,6 +13,7 @@ from flask import render_template, request, jsonify, send_file, flash, redirect,
 from lux_portal.documentacion import documentacion_bp
 from lux_portal.documentacion.models import (
     DocCliente, DocArchivo, TIPOS_DOCUMENTO, TIPOS_DOCUMENTO_KEYS, TIPOS_DOCUMENTO_NOMBRES,
+    TIPO_EXTRA,
 )
 from lux_portal.auth.decorators import login_required
 from lux_portal.extensions import db
@@ -117,9 +118,10 @@ def eliminar_cliente(id):
 @documentacion_bp.route('/cliente/<int:id>')
 @login_required
 def ver_cliente(id):
-    """Carpeta del cliente: los 5 documentos."""
+    """Carpeta del cliente: los 5 documentos esenciales + los adicionales."""
     cliente = DocCliente.query.get_or_404(id)
     archivos = cliente.archivos_por_tipo()
+    archivos_extra = cliente.archivos_extra()
     firma_resultado = None
     if cliente.firma_verificacion_detalle:
         try:
@@ -131,6 +133,7 @@ def ver_cliente(id):
         cliente=cliente,
         tipos_documento=TIPOS_DOCUMENTO,
         archivos=archivos,
+        archivos_extra=archivos_extra,
         firma_resultado=firma_resultado,
     )
 
@@ -141,7 +144,12 @@ def subir_archivo(id):
     try:
         cliente = DocCliente.query.get_or_404(id)
         tipo = request.form.get('tipo', '')
-        if tipo not in TIPOS_DOCUMENTO_KEYS:
+        titulo_extra = (request.form.get('titulo_extra') or '').strip()
+
+        if tipo == TIPO_EXTRA:
+            if not titulo_extra:
+                return jsonify({'success': False, 'error': 'Falta el titulo del documento adicional'}), 400
+        elif tipo not in TIPOS_DOCUMENTO_KEYS:
             return jsonify({'success': False, 'error': 'Tipo de documento invalido'}), 400
 
         archivo_file = request.files.get('archivo')
@@ -161,6 +169,7 @@ def subir_archivo(id):
         nuevo = DocArchivo(
             cliente_id=cliente.id,
             tipo=tipo,
+            titulo_extra=titulo_extra if tipo == TIPO_EXTRA else None,
             nombre_archivo=archivo_file.filename,
             mimetype=mimetype,
             contenido=contenido,
