@@ -18,7 +18,7 @@ from lux_portal.cotizaciones.data import AEROLINEAS_LISTA, CARGOS_COMUNES, CARGO
 from lux_portal.cotizaciones.continentes import CONTINENTES, continente_de
 from lux_portal.cotizaciones.utils.excel_generator import (
     guardar_cotizacion_bytes, generar_desglose_tarifa_bytes, generar_desglose_tarifa_png_bytes,
-    generar_reporte_netas_bytes,
+    generar_reporte_netas_bytes, generar_reporte_fsc_bytes,
 )
 from lux_portal.cotizaciones.utils.pdf_generator import guardar_cotizacion_pdf_bytes
 from lux_portal.auth.decorators import login_required
@@ -489,6 +489,29 @@ def fsc_dashboard():
         'cotizaciones/fsc.html',
         aerolineas=dict(sorted(aerolineas.items())),
         grupo_ids=grupos_por_nombre,
+    )
+
+
+@cotizaciones_bp.route('/fsc/exportar')
+@login_required
+def exportar_fsc():
+    """Descarga un Excel con la tabla maestra de FSC (misma data que /fsc)."""
+    grupos = AirlineFscGroup.query.order_by(AirlineFscGroup.aerolinea).all()
+    reglas = AirlineFscRule.query.order_by(AirlineFscRule.aerolinea, AirlineFscRule.order, AirlineFscRule.id).all()
+    aerolineas = defaultdict(list)
+    for g in grupos:
+        aerolineas[g.aerolinea]
+    for r in reglas:
+        aerolineas[r.aerolinea].append(r.to_dict())
+
+    excel_bytes = generar_reporte_fsc_bytes(dict(sorted(aerolineas.items())))
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    nombre_archivo = f"FreightWise_FSC_{timestamp}.xlsx"
+    return send_file(
+        excel_bytes,
+        as_attachment=True,
+        download_name=nombre_archivo,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
 

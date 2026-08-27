@@ -884,6 +884,95 @@ def generar_reporte_netas_bytes(destinos_filas, idioma='es', errores=None, con_f
     return output
 
 
+def generar_reporte_fsc_bytes(aerolineas):
+    """Genera un Excel de una sola hoja con la tabla maestra de FSC por
+    aerolinea (la misma data que se ve en /cotizaciones/fsc). `aerolineas`
+    es un dict {aerolinea: [regla_dict, ...]} donde cada regla_dict trae
+    'nombre', 'destinos' (lista) y 'fsc'."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'FSC'
+
+    PURPLE = '4535A8'
+    PURPLE_LIGHT = 'E4DFF7'
+    purple_fill = PatternFill(start_color=PURPLE, end_color=PURPLE, fill_type='solid')
+    light_fill = PatternFill(start_color=PURPLE_LIGHT, end_color=PURPLE_LIGHT, fill_type='solid')
+    no_fill = PatternFill(fill_type=None)
+    white_bold = Font(name='Arial', size=11, bold=True, color='FFFFFF')
+    header_font = Font(name='Arial', size=10, bold=True, color='FFFFFF')
+    black_font = Font(name='Arial', size=10, color='000000')
+    bold_black = Font(name='Arial', size=10, bold=True, color='000000')
+
+    thin = Side(style='thin', color='B7AEDE')
+
+    columnas = ['Aerolinea', 'Nombre / Region', 'Destinos', 'FSC (USD)']
+    ultima_col = get_column_letter(len(columnas))
+
+    ws['A1'] = 'FREIGHTWISE - FSC por Aerolinea'
+    ws.merge_cells(f'A1:{ultima_col}1')
+    ws['A1'].font = white_bold
+    ws['A1'].fill = purple_fill
+    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[1].height = 26
+
+    ws['A2'] = f"Actualizado al {datetime.now().strftime('%d/%m/%Y')}"
+    ws.merge_cells(f'A2:{ultima_col}2')
+    ws['A2'].font = Font(name='Arial', size=10, bold=True, color='FFFFFF')
+    ws['A2'].fill = purple_fill
+    ws['A2'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[2].height = 20
+
+    fila_enc = 3
+    for i, col_name in enumerate(columnas, start=1):
+        celda = ws.cell(row=fila_enc, column=i, value=col_name)
+        celda.font = header_font
+        celda.fill = purple_fill
+        celda.alignment = Alignment(horizontal='center', vertical='center')
+        celda.border = Border(top=thin, bottom=thin, left=thin, right=thin)
+    ws.row_dimensions[fila_enc].height = 18
+
+    fila = fila_enc + 1
+    idx = 0
+    for aerolinea, reglas in aerolineas.items():
+        filas_aerolinea = reglas or [{'nombre': 'Todos los destinos', 'destinos': [], 'fsc': '0.00'}]
+        for regla in filas_aerolinea:
+            fill = light_fill if idx % 2 == 0 else no_fill
+            destinos_txt = ', '.join(regla.get('destinos') or []) or 'Todos los destinos'
+            valores = [aerolinea, regla.get('nombre', ''), destinos_txt, regla.get('fsc', '0.00')]
+            for col_i, valor in enumerate(valores, start=1):
+                celda = ws.cell(row=fila, column=col_i, value=valor)
+                celda.fill = fill
+                celda.border = Border(top=thin, bottom=thin, left=thin, right=thin)
+                if col_i == 1:
+                    celda.font = bold_black
+                    celda.alignment = Alignment(horizontal='center', vertical='center')
+                elif col_i == 4:
+                    try:
+                        celda.value = float(valor)
+                    except (TypeError, ValueError):
+                        celda.value = 0.0
+                    celda.number_format = '"$"#,##0.00'
+                    celda.font = black_font
+                    celda.alignment = Alignment(horizontal='right', vertical='center')
+                else:
+                    celda.font = black_font
+                    celda.alignment = Alignment(horizontal='left', vertical='center')
+            fila += 1
+            idx += 1
+
+    if idx == 0:
+        ws.cell(row=fila, column=1, value='(sin datos)').font = black_font
+
+    anchos = [22, 26, 50, 14]
+    for i, ancho in enumerate(anchos, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = ancho
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
 def generar_desglose_tarifa_png_bytes(ruta, filas, idioma='es'):
     """Genera la misma tabla de desglose de tarifa que generar_desglose_tarifa_bytes
     pero como imagen PNG (mismo estilo morado FreightWise). Filas consecutivas
