@@ -139,6 +139,13 @@ def crear_app(db_url):
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = db_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    # El vigia corre horas y Railway corta las conexiones ociosas. Sin esto,
+    # la primera consulta despues de un rato quieto revienta con
+    # "server closed the connection unexpectedly".
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 280,
+    }
     db.init_app(app)
     return app
 

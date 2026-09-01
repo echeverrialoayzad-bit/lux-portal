@@ -59,6 +59,17 @@ def _conectar():
         app = win32com.client.Dispatch('Outlook.Application')
         return app.GetNamespace('MAPI')
     except Exception as exc:
+        # COM se inicializa por hilo. Si el llamador arranco esto desde un hilo
+        # secundario sin CoInitialize, el error no tiene nada que ver con que
+        # Outlook falte, y decir lo contrario manda a buscar el problema al
+        # lugar equivocado.
+        if 'CoInitialize' in str(exc):
+            raise OutlookNoDisponible(
+                'Fallo de inicializacion de COM: quien llamo a esto lo hizo '
+                'desde un hilo que no llamo a pythoncom.CoInitialize(). '
+                'Outlook esta bien; el problema es del codigo que lo invoca. '
+                f'Detalle: {exc}'
+            )
         raise OutlookNoDisponible(
             'No se pudo abrir Outlook. Revisa que tengas el Outlook clasico '
             '(el de Office, no el nuevo de Windows) instalado y con tu cuenta '

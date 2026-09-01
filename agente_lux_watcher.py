@@ -302,9 +302,15 @@ def main():
         trabajando.set()
 
         def tarea():
+            # COM hay que inicializarlo en cada hilo que lo use: sin esto,
+            # Outlook falla con "No se ha llamado a CoInitialize" apenas el
+            # trabajo salio del hilo principal.
+            import pythoncom
+            pythoncom.CoInitialize()
             try:
                 _leer(app, args, motivo)
             finally:
+                pythoncom.CoUninitialize()
                 trabajando.clear()
 
         threading.Thread(target=tarea, daemon=True).start()
