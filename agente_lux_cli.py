@@ -193,6 +193,14 @@ def cmd_exportar(args):
         if args.solo_tarifas:
             pendientes = [c for c in pendientes if c.id in relevantes]
 
+        # Por tandas: un lote enorme (la primera corrida trae un mes entero)
+        # se puede caer a la mitad y perder todo el trabajo. Mejor tandas
+        # chicas que se cargan y quedan guardadas antes de seguir.
+        quedan = 0
+        if args.max_correos and len(pendientes) > args.max_correos:
+            quedan = len(pendientes) - args.max_correos
+            pendientes = pendientes[:args.max_correos]
+
         os.makedirs(CARPETA_ADJUNTOS, exist_ok=True)
         correos = []
         n_adjuntos = 0
@@ -249,6 +257,8 @@ def cmd_exportar(args):
     n_relevantes = sum(1 for c in correos if c['parece_tarifas'])
     print(f'{len(correos)} correo(s) pendientes exportados a {ARCHIVO_PENDIENTES}')
     print(f'  de esos, {n_relevantes} parecen traer tarifas o recargos')
+    if quedan:
+        print(f'  quedan {quedan} para la siguiente tanda')
     if n_adjuntos:
         print(f'{n_adjuntos} adjunto(s) guardados en {CARPETA_ADJUNTOS}/ '
               f'(solo los de correos de tarifas)')
@@ -363,6 +373,21 @@ def _quedarse_con_lo_mas_nuevo(hallazgos, fecha_de_mail):
     return vigentes, descartados
 
 
+def _ids_de_la_tanda():
+    """Los mail_id que se exportaron en la ultima tanda.
+
+    Es lo que delimita hasta donde llego el analisis. Devuelve None si no se
+    puede leer el archivo, y en ese caso el caller no marca nada de mas."""
+    if not os.path.exists(ARCHIVO_PENDIENTES):
+        return None
+    try:
+        with open(ARCHIVO_PENDIENTES, 'r', encoding='utf-8-sig') as fh:
+            datos = json.load(fh)
+    except (ValueError, OSError):
+        return None
+    return {c.get('mail_id') for c in (datos.get('correos') or [])}
+
+
 def cmd_cargar(args):
     if not os.path.exists(ARCHIVO_HALLAZGOS):
         sys.exit(f'No existe {ARCHIVO_HALLAZGOS}. Genera ese archivo con Claude Code primero.')
@@ -469,12 +494,20 @@ def cmd_cargar(args):
             db.session.add(hallazgo)
             n_hallazgos += 1
 
-        # Los correos pendientes que el analisis no menciono quedan marcados
-        # como analizados sin hallazgos, para que no se re-exporten siempre.
+        # Los correos de esta tanda que el analisis no menciono quedan
+        # marcados como revisados sin novedades, para que no se re-exporten
+        # siempre.
+        #
+        # OJO: solo los de ESTA tanda. Con el analisis por tandas, los demas
+        # pendientes no se miraron siquiera; darlos por revisados los sacaria
+        # de la cola para siempre y se perderian tarifas en silencio.
+        en_la_tanda = _ids_de_la_tanda()
         mencionados = {e.get('mail_id') for e in (datos.get('correos') or [])}
         sin_mencionar = 0
         for mail_id, correo in pendientes.items():
             if mail_id in mencionados:
+                continue
+            if en_la_tanda is not None and mail_id not in en_la_tanda:
                 continue
             correo.estado = 'analizado'
             correo.categoria = 'otro'
@@ -623,6 +656,8 @@ def main():
                        help='Exportar unicamente los correos que parecen traer '
                             'tarifas o recargos. Mas rapido, pero la bitacora '
                             'queda sin el resto de los correos.')
+    p_exp.add_argument('--max-correos', type=int, default=0, dest='max_correos',
+                       help='Tope de correos por tanda. 0 = todos.')
     sub.add_parser('cargar', help='Sube _agente_lux/hallazgos.json al portal.')
     sub.add_parser('estado', help='Contadores rapidos.')
 

@@ -128,8 +128,11 @@ def _correr(comando, cwd, timeout):
     """Corre un comando y devuelve (ok, salida)."""
     import subprocess
     try:
+        # stdin cerrado: el vigia corre de fondo y no tiene consola, asi que
+        # cualquier subproceso que intente leer entrada se colgaria.
         r = subprocess.run(comando, cwd=cwd, capture_output=True, text=True,
-                           timeout=timeout, encoding='utf-8', errors='replace')
+                           timeout=timeout, encoding='utf-8', errors='replace',
+                           stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired:
         return False, f'Se paso de {timeout} segundos.'
     salida = (r.stdout or '') + (r.stderr or '')
@@ -139,6 +142,10 @@ def _correr(comando, cwd, timeout):
 def _analizar(app, args, carpeta_proyecto):
     """Exporta, le pide el analisis a Claude Code sin ventana, y carga.
 
+    Va por tandas chicas a proposito: la primera corrida puede traer un mes
+    entero de correos, y un lote enorme que se cae a la mitad pierde todo el
+    trabajo. Cada tanda se carga y queda guardada antes de seguir.
+
     Claude Code corre con la suscripcion de Daniela, no con creditos de API:
     por eso el analisis pasa por el CLI local y no por el servidor."""
     import os
@@ -146,34 +153,56 @@ def _analizar(app, args, carpeta_proyecto):
 
     py = _sys.executable
     cli = os.path.join(carpeta_proyecto, 'agente_lux_cli.py')
+    resumenes = []
 
-    _marcar(app, 'analizando', 'Preparando los correos...')
-    ok, salida = _correr([py, cli, 'exportar', '--solo-tarifas'],
-                         carpeta_proyecto, 300)
-    if not ok:
-        raise RuntimeError(f'Fallo el exportar: {salida[-400:]}')
+    for tanda in range(1, args.max_tandas + 1):
+        etiqueta = f'tanda {tanda}' if tanda > 1 else 'los correos'
+        _marcar(app, 'analizando', f'Preparando {etiqueta}...')
+        # Sin --solo-tarifas a proposito: la bitacora necesita el resumen de
+        # todos los correos, no solo los de tarifas. Los que no son de tarifas
+        # salen rapido igual, porque de esos no se vuelcan los adjuntos.
+        ok, salida_exp = _correr(
+            [py, cli, 'exportar', '--max-correos', str(args.tanda)],
+            carpeta_proyecto, 300)
+        if not ok:
+            raise RuntimeError(f'Fallo el exportar: {salida_exp[-400:]}')
 
-    if 'No hay nada por analizar' in salida:
-        log('No habia correos por analizar.')
+        if 'No hay nada por analizar' in salida_exp:
+            break
+
+        quedan = 'para la siguiente tanda' in salida_exp
+
+        log(f'Analizando {etiqueta} con Claude Code...')
+        _marcar(app, 'analizando',
+                f'Claude Code esta revisando {etiqueta}'
+                + (' (hay mas en cola)' if quedan else '') + '...')
+        ok, salida = _correr(
+            # Skill va en la lista porque el prompt le pide usar agente-lux;
+            # sin eso no puede cargarlo y pierde las reglas de vigencia y FSC.
+            ['claude', '-p', PROMPT_ANALISIS,
+             '--allowedTools', 'Skill', 'Read', 'Write', 'Glob', 'Grep',
+             '--permission-mode', 'acceptEdits'],
+            carpeta_proyecto, args.timeout_analisis)
+        if not ok:
+            raise RuntimeError(f'Fallo el analisis: {salida[-400:]}')
+
+        _marcar(app, 'analizando', f'Guardando los hallazgos de {etiqueta}...')
+        ok, salida_car = _correr([py, cli, 'cargar'], carpeta_proyecto, 300)
+        if not ok:
+            raise RuntimeError(f'Fallo el cargar: {salida_car[-400:]}')
+
+        primera = salida_car.splitlines()[0] if salida_car else ''
+        log(f'{etiqueta}: {primera}')
+        resumenes.append(primera)
+
+        if not quedan:
+            break
+
+    if not resumenes:
         return 'Sin correos nuevos por analizar.'
-
-    log('Pidiendole el analisis a Claude Code...')
-    _marcar(app, 'analizando', 'Claude Code esta leyendo los correos...')
-    ok, salida = _correr(
-        ['claude', '-p', PROMPT_ANALISIS,
-         '--allowedTools', 'Read', 'Write', 'Glob', 'Grep',
-         '--permission-mode', 'acceptEdits'],
-        carpeta_proyecto, args.timeout_analisis)
-    if not ok:
-        raise RuntimeError(f'Fallo el analisis: {salida[-400:]}')
-
-    _marcar(app, 'analizando', 'Guardando los hallazgos...')
-    ok, salida = _correr([py, cli, 'cargar'], carpeta_proyecto, 300)
-    if not ok:
-        raise RuntimeError(f'Fallo el cargar: {salida[-400:]}')
-
-    # La primera linea del cargar ya dice cuantos hallazgos entraron.
-    return salida.splitlines()[0] if salida else 'Analisis terminado.'
+    if len(resumenes) == 1:
+        return resumenes[0]
+    return f'{len(resumenes)} tandas analizadas. Ultima: {resumenes[-1]}'
 
 
 def _leer(app, args, motivo):
@@ -225,9 +254,14 @@ def main():
     parser.add_argument('--sin-analisis', action='store_false', dest='analizar',
                         help='Solo bajar los correos, sin pedirle el analisis '
                              'a Claude Code.')
-    parser.add_argument('--timeout-analisis', type=int, default=1800,
+    parser.add_argument('--tanda', type=int, default=25,
+                        help='Correos por tanda de analisis (por defecto 25).')
+    parser.add_argument('--max-tandas', type=int, default=12, dest='max_tandas',
+                        help='Tope de tandas por ciclo, para no quedarse toda '
+                             'la noche vaciando una cola vieja.')
+    parser.add_argument('--timeout-analisis', type=int, default=900,
                         dest='timeout_analisis',
-                        help='Segundos maximos para el analisis (por defecto 30 min).')
+                        help='Segundos maximos por tanda (por defecto 15 min).')
     parser.add_argument('--instalar-tarea', action='store_true',
                         dest='instalar_tarea',
                         help='Programar el vigia para que arranque con Windows.')
