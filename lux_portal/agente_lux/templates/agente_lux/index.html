@@ -9,6 +9,11 @@
              border-left:2px solid #dee2e6; padding-left:.5rem; }
   .al-dia { font-weight:600; font-size:.9rem; color:#334; }
   .al-val-nuevo { width:92px; }
+  .al-vistazo { font-size:.8rem; color:#555; }
+  .al-hora { font-variant-numeric:tabular-nums; font-weight:600; color:#444; }
+  .al-punto { display:inline-block; width:8px; height:8px; border-radius:50%; }
+  .al-punto-on { background:#28a745; }
+  .al-punto-off { background:#dc3545; }
   #tabla-hallazgos input[type=number]::-webkit-outer-spin-button,
   #tabla-hallazgos input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   #tabla-hallazgos input[type=number] { -moz-appearance:textfield; appearance:textfield; }
@@ -26,39 +31,23 @@
       </p>
     </div>
     <div class="text-end">
-      <div id="estado-cuenta" class="small text-muted mb-2">—</div>
+      <div id="estado-cuenta" class="small text-muted mb-1">—</div>
+      <div id="estado-vigia" class="small text-muted mb-2"></div>
       <button id="btn-refresh" class="btn btn-primary btn-sm">
-        <i class="bi bi-arrow-clockwise me-1"></i>Refresh correos
+        <i class="bi bi-arrow-clockwise me-1"></i>Refresh y analizar
       </button>
     </div>
   </div>
 
-  {% if not config_ok %}
-  <div class="alert alert-danger">
-    <strong>Falta configurar Microsoft en Railway.</strong>
-    Variables pendientes: <code>{{ falta_config|join(', ') }}</code>
-  </div>
-  {% endif %}
-
   {% if not cuenta %}
   <div class="alert alert-warning">
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <div>
-        <strong>Correo no conectado.</strong>
-        Hay dos formas de conectarlo, y puedes usar cualquiera de las dos.
-      </div>
-      {% if config_ok %}
-      <a href="{{ url_for('agente_lux.oauth_iniciar') }}" class="btn btn-warning btn-sm">
-        <i class="bi bi-microsoft me-1"></i>Conectar por Microsoft 365
-      </a>
-      {% endif %}
-    </div>
-    <hr class="my-2">
-    <div class="small mb-0">
-      <strong>Opción local (no necesita aprobación del administrador):</strong>
-      lee el correo desde tu Outlook de escritorio. En tu PC, dentro de la carpeta del
-      proyecto, corre:
-      <div><code>python agente_lux_cli.py leer-outlook</code></div>
+    <strong>Todavía no se ha leído tu correo.</strong>
+    Abre una terminal en la carpeta del proyecto y arranca el vigía:
+    <div class="mt-1"><code>python agente_lux_watcher.py</code></div>
+    <div class="small mt-1">
+      Déjalo abierto: es lo que le permite a este botón llegar a tu Outlook.
+      Para que arranque solo con Windows:
+      <code>python agente_lux_watcher.py --instalar-tarea</code>
     </div>
   </div>
   {% endif %}
@@ -67,21 +56,41 @@
 
   <ul class="nav nav-tabs mb-3" role="tablist">
     <li class="nav-item">
-      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-updates" type="button">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-hoy" type="button">
+        Correos de hoy <span id="badge-hoy" class="badge bg-secondary ms-1">0</span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-updates" type="button">
         Actualizaciones <span id="badge-hallazgos" class="badge bg-secondary ms-1">0</span>
       </button>
     </li>
     <li class="nav-item">
       <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-bitacora" type="button">
-        Bitácora de correos
+        Bitácora
       </button>
     </li>
   </ul>
 
   <div class="tab-content">
 
-    <!-- ============ TAB 1: actualizaciones propuestas ============ -->
-    <div class="tab-pane fade show active" id="tab-updates">
+    <!-- ============ TAB 1: correos de hoy ============ -->
+    <div class="tab-pane fade show active" id="tab-hoy">
+      <div class="card al-card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="small text-muted" id="resumen-hoy">—</div>
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-outline-secondary active" onclick="cargarHoy(0, this)">Hoy</button>
+            <button class="btn btn-outline-secondary" onclick="cargarHoy(2, this)">48 h</button>
+            <button class="btn btn-outline-secondary" onclick="cargarHoy(7, this)">7 días</button>
+          </div>
+        </div>
+        <div id="lista-hoy"></div>
+      </div>
+    </div>
+
+    <!-- ============ TAB 2: actualizaciones propuestas ============ -->
+    <div class="tab-pane fade" id="tab-updates">
       <div class="card al-card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div class="small text-muted" id="resumen-hallazgos">Sin cambios propuestos.</div>
@@ -111,26 +120,19 @@
         <div id="hallazgos-vacio" class="al-vacio">
           <i class="bi bi-inbox fs-3 d-block mb-2"></i>
           No hay cambios propuestos.<br>
-          <span class="small">Dale a <strong>Refresh correos</strong> y luego corre el análisis local.</span>
+          <span class="small">Después del refresh, corre el análisis en tu PC.</span>
         </div>
       </div>
 
       <div class="mt-3 small text-muted">
         <i class="bi bi-info-circle me-1"></i>
-        El análisis corre en tu PC con Claude Code (no gasta API). En la carpeta del proyecto:
-        <div class="mt-1">
-          <code>python agente_lux_cli.py leer-outlook</code> &rarr;
-          <code>exportar</code> &rarr; pídele el análisis a Claude Code &rarr;
-          <code>cargar</code>
-        </div>
-        <div class="mt-1">
-          Si conectaste por Microsoft 365, el paso <code>leer-outlook</code> lo reemplaza
-          el botón <strong>Refresh correos</strong> de arriba.
-        </div>
+        El botón <strong>Refresh y analizar</strong> hace todo el ciclo: lee tu Outlook,
+        le pide el análisis a Claude Code en tu PC (con tu suscripción, no gasta API)
+        y deja acá los cambios propuestos.
       </div>
     </div>
 
-    <!-- ============ TAB 2: bitácora ============ -->
+    <!-- ============ TAB 3: bitácora ============ -->
     <div class="tab-pane fade" id="tab-bitacora">
       <div id="bitacora-contenido"></div>
     </div>
@@ -139,12 +141,10 @@
 </div>
 
 <script>
-const HALLAZGOS = new Map();
-
 function banner(msg, tipo) {
   const el = document.getElementById('banner');
   el.className = 'alert py-2 small alert-' + (tipo || 'info');
-  el.textContent = msg;
+  el.innerHTML = msg;
   el.classList.remove('d-none');
 }
 function ocultarBanner() { document.getElementById('banner').classList.add('d-none'); }
@@ -159,53 +159,157 @@ function escapar(txt) {
 async function cargarEstado() {
   const r = await fetch('{{ url_for("agente_lux.estado") }}');
   const d = await r.json();
-  const el = document.getElementById('estado-cuenta');
+  const elCuenta = document.getElementById('estado-cuenta');
+  const elVigia = document.getElementById('estado-vigia');
   const btn = document.getElementById('btn-refresh');
-  const esLocal = d.cuenta && d.cuenta.modo === 'local';
 
   if (d.cuenta) {
-    el.innerHTML = '<i class="bi bi-envelope-check text-success me-1"></i>'
+    elCuenta.innerHTML = '<i class="bi bi-envelope-check text-success me-1"></i>'
       + escapar(d.cuenta.email)
-      + (esLocal ? ' <span class="badge bg-light text-dark border">Outlook local</span>' : '')
       + (d.cuenta.ultimo_scan ? ' · última lectura ' + escapar(d.cuenta.ultimo_scan) : ' · sin lecturas aún');
+
+    // El botón solo sirve si el vigía está vivo en la PC: si no, nadie
+    // puede abrir el Outlook.
+    if (d.cuenta.vigia_activo) {
+      elVigia.innerHTML = '<span class="al-punto al-punto-on me-1"></span>Tu PC está escuchando';
+      btn.disabled = false;
+      btn.title = '';
+    } else {
+      elVigia.innerHTML = '<span class="al-punto al-punto-off me-1"></span>Tu PC no está escuchando';
+      btn.disabled = true;
+      btn.title = 'Corre python agente_lux_watcher.py en tu PC';
+    }
   } else {
-    el.innerHTML = '<i class="bi bi-envelope-slash text-danger me-1"></i>Sin correo conectado';
+    elCuenta.innerHTML = '<i class="bi bi-envelope-slash text-danger me-1"></i>Sin correo leído';
+    elVigia.innerHTML = '';
+    btn.disabled = true;
   }
 
-  // En modo local el portal no puede llegar al buzón: el botón solo estorba.
-  btn.classList.toggle('d-none', esLocal);
+  document.getElementById('badge-hoy').textContent = d.correos_hoy || 0;
 
-  if (d.pendientes_de_analisis > 0) {
-    banner(d.pendientes_de_analisis + ' correo(s) esperando análisis. '
-      + 'Corre en tu PC: python agente_lux_cli.py exportar', 'warning');
+  if (d.pendientes_de_analisis > 0 && d.cuenta && d.cuenta.refresh_estado !== 'analizando') {
+    banner(d.pendientes_de_analisis + ' correo(s) todavía sin analizar. '
+      + 'Dale a <strong>Refresh y analizar</strong> para que Agente Lux los revise.', 'warning');
   }
+  return d;
 }
 
 // ---------------------------------------------------------------- refresh
 document.getElementById('btn-refresh').addEventListener('click', async (ev) => {
   const btn = ev.currentTarget;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Revisando correo…';
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Pidiéndole a tu PC…';
   ocultarBanner();
+
   try {
     const r = await fetch('{{ url_for("agente_lux.refresh") }}', {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
     });
     const d = await r.json();
-    if (!r.ok) { banner(d.error || 'Error al revisar el correo.', 'danger'); }
-    else if (d.correos_nuevos === 0) {
-      banner('Sin correos nuevos desde el último refresh (' + d.correos_revisados + ' revisados).', 'success');
-    } else {
-      banner(d.correos_nuevos + ' correo(s) nuevos descargados. '
-        + 'Ahora corre el análisis local: python agente_lux_cli.py exportar', 'warning');
+    if (!r.ok) {
+      banner(escapar(d.error || 'No se pudo pedir la lectura.'), 'danger');
+      btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Refresh y analizar';
+      cargarEstado();
+      return;
     }
+    await esperarLectura(btn);
   } catch (e) {
-    banner('Error de red: ' + e.message, 'danger');
+    banner('Error de red: ' + escapar(e.message), 'danger');
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Refresh y analizar';
+    btn.disabled = false;
   }
-  btn.disabled = false;
-  btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Refresh correos';
-  cargarEstado(); cargarHallazgos(); cargarBitacora();
 });
+
+// El vigía atiende la solicitud en unos segundos; mientras tanto preguntamos
+// por el estado hasta que termine.
+async function esperarLectura(btn) {
+  // El ciclo completo (leer + analizar con Claude Code) puede tomar varios
+  // minutos, asi que se muestra en qué va en cada momento.
+  const ETIQUETA = {
+    solicitado: 'Esperando a tu PC…',
+    corriendo:  'Leyendo tu Outlook…',
+    analizando: 'Analizando los correos…'
+  };
+  for (let i = 0; i < 400; i++) {
+    const d = await cargarEstado();
+    const est = d.cuenta ? d.cuenta.refresh_estado : 'libre';
+
+    if (est === 'ok') {
+      banner(escapar(d.cuenta.refresh_mensaje || 'Listo.'), 'success');
+      break;
+    }
+    if (est === 'error') {
+      banner('Falló: ' + escapar(d.cuenta.refresh_mensaje || ''), 'danger');
+      break;
+    }
+
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>'
+      + (ETIQUETA[est] || 'Trabajando…');
+    if (d.cuenta && d.cuenta.refresh_mensaje) {
+      banner('<span class="spinner-border spinner-border-sm me-2"></span>'
+        + escapar(d.cuenta.refresh_mensaje), 'info');
+    }
+    await new Promise(r => setTimeout(r, 3000));
+  }
+  btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Refresh y analizar';
+  btn.disabled = false;
+  cargarHoy();
+  cargarHallazgos();
+  cargarBitacora();
+}
+
+// ---------------------------------------------------------------- correos de hoy
+let rangoHoy = 0;
+
+async function cargarHoy(dias, boton) {
+  if (dias !== undefined) rangoHoy = dias;
+  if (boton) {
+    boton.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    boton.classList.add('active');
+  }
+
+  const r = await fetch('{{ url_for("agente_lux.hoy") }}?dias=' + rangoHoy);
+  const d = await r.json();
+  const cont = document.getElementById('lista-hoy');
+
+  document.getElementById('resumen-hoy').textContent = d.total
+    ? `${d.total} correo(s)` + (d.sin_analizar ? ` · ${d.sin_analizar} sin analizar` : ' · todos analizados')
+    : 'Sin correos en este rango.';
+
+  if (!d.total) {
+    cont.innerHTML = `<div class="al-vacio">
+      <i class="bi bi-envelope fs-3 d-block mb-2"></i>
+      No llegó nada en este rango.<br>
+      <span class="small">Dale a <strong>Refresh correos</strong> para volver a mirar.</span></div>`;
+    return;
+  }
+
+  cont.innerHTML = '<ul class="list-group list-group-flush">'
+    + d.correos.map(c => `
+      <li class="list-group-item">
+        <div class="d-flex gap-3">
+          <div class="al-hora small text-nowrap">${escapar((c.fecha || '').slice(11))}</div>
+          <div class="flex-grow-1">
+            <div class="fw-semibold small">
+              ${c.requiere_accion ? '<i class="bi bi-flag-fill text-danger me-1"></i>' : ''}
+              ${escapar(c.asunto)}
+            </div>
+            <div class="small text-muted">
+              ${escapar(c.remitente_nombre)}
+              ${c.aerolinea ? `<span class="badge bg-light text-dark border ms-1">${escapar(c.aerolinea)}</span>` : ''}
+              ${c.n_adjuntos ? `<span class="ms-1"><i class="bi bi-paperclip"></i> ${c.n_adjuntos}</span>` : ''}
+            </div>
+            ${c.resumen
+              ? `<div class="al-vistazo mt-1"><i class="bi bi-stars text-primary me-1"></i>${escapar(c.resumen)}</div>`
+              : `<div class="al-vistazo mt-1 text-muted">${escapar(c.vistazo)}</div>`}
+            ${(c.temas || []).length
+              ? `<ul class="small mb-0 mt-1">${c.temas.map(t => `<li>${escapar(t)}</li>`).join('')}</ul>`
+              : ''}
+          </div>
+        </div>
+      </li>`).join('')
+    + '</ul>';
+}
 
 // ---------------------------------------------------------------- hallazgos
 const ETIQUETA_TIPO = {
@@ -273,9 +377,6 @@ async function cargarHallazgos() {
   const r = await fetch('{{ url_for("agente_lux.hallazgos") }}?estado=pendiente,aprobado');
   const d = await r.json();
   const filas = d.hallazgos || [];
-
-  HALLAZGOS.clear();
-  filas.forEach(h => HALLAZGOS.set(h.id, h));
 
   document.getElementById('badge-hallazgos').textContent = filas.length;
   document.getElementById('cuerpo-hallazgos').innerHTML = filas.map(filaHallazgo).join('');
@@ -388,7 +489,6 @@ async function cargarBitacora() {
               <div class="text-end" style="min-width:110px;">
                 ${c.categoria ? `<span class="badge bg-light text-dark border">${escapar(c.categoria)}</span>` : ''}
                 ${c.n_adjuntos ? `<div class="small text-muted mt-1"><i class="bi bi-paperclip"></i> ${c.n_adjuntos}</div>` : ''}
-                ${c.web_link ? `<a class="small" href="${escapar(c.web_link)}" target="_blank" rel="noopener">Abrir</a>` : ''}
               </div>
             </div>
           </li>`).join('')}
@@ -397,7 +497,11 @@ async function cargarBitacora() {
 }
 
 cargarEstado();
+cargarHoy(0);
 cargarHallazgos();
 cargarBitacora();
+
+// Mantiene vivo el indicador del vigía sin tener que recargar la página.
+setInterval(cargarEstado, 30000);
 </script>
 {% endblock %}

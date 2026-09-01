@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Agente Lux - vigia local.
+
+El portal corre en Railway y no puede alcanzar el Outlook de esta PC. Este
+proceso cierra ese hueco: se queda escuchando y, cuando Daniela aprieta
+"Refresh correos" en el portal, hace todo el ciclo de una:
+
+    1. lee el buzon de Outlook
+    2. le pide el analisis a Claude Code sin ventana (claude -p), que usa la
+       suscripcion en vez de creditos de API
+    3. sube los hallazgos al portal para que ella los apruebe
+
+Ademas repite el ciclo solo cada cierto rato, para que la bitacora del dia
+este al dia sin tener que apretar nada.
+
+USO
+---
+    python agente_lux_watcher.py                # cada 20 min + atiende el boton
+    python agente_lux_watcher.py --auto 10      # relee cada 10 minutos
+    python agente_lux_watcher.py --auto 0       # solo cuando se aprieta el boton
+    python agente_lux_watcher.py --carpeta "Inbox/AEROLINEAS"
+
+Dejalo abierto en una ventana, o programalo para que arranque con Windows:
+    python agente_lux_watcher.py --instalar-tarea
+
+Para que pare: Ctrl+C.
+"""
+
+import argparse
+import sys
+import time
+import traceback
+from datetime import datetime, timedelta
+
+# Reutiliza la conexion y el arranque de la app del CLI.
+from agente_lux_cli import crear_app, resolver_db
+
+LATIDO_SEGUNDOS = 15
+
+
+def _ahora():
+    return datetime.now().strftime('%H:%M:%S')
+
+
+def log(mensaje):
+    print(f'[{_ahora()}] {mensaje}', flush=True)
+
+
+def instalar_tarea():
+    """Registra una tarea de Windows que arranca el vigia al iniciar sesion."""
+    import os
+    import subprocess
+
+    script = os.path.abspath(__file__)
+    carpeta = os.path.dirname(script)
+    comando = f'cmd /c cd /d "{carpeta}" && "{sys.executable}" "{script}"'
+
+    resultado = subprocess.run(
+        ['schtasks', '/Create', '/TN', 'Agente Lux - vigia',
+         '/TR', comando, '/SC', 'ONLOGON', '/RL', 'LIMITED', '/F'],
+        capture_output=True, text=True,
+    )
+    if resultado.returncode == 0:
+        print('Tarea creada: el vigia va a arrancar solo cada vez que inicies '
+              'sesion en Windows.')
+        print('Para quitarla:  schtasks /Delete /TN "Agente Lux - vigia" /F')
+    else:
+        print('No se pudo crear la tarea:')
+        print(resultado.stdout or resultado.stderr)
+        sys.exit(1)
+
+
+PROMPT_ANALISIS = (
+    'Usa el skill agente-lux. Lee _agente_lux/pendientes.json y los adjuntos '
+    'que referencia, comparalos contra estado_actual, y escribe '
+    '_agente_lux/hallazgos.json con el formato del docstring de '
+    'agente_lux_cli.py. Recuerda: de cada tarifa o FSC solo vale el correo mas '
+    'reciente, y en los hallazgos de FSC el campo destinos es obligatorio. '
+    'No corras ningun comando ni modifiques nada mas: tu unica salida es ese '
+    'archivo.'
+)
+
+
+def _marcar(app, estado, mensaje, limpiar_solicitud=False):
+    """Deja el estado visible en el portal."""
+    from lux_portal.extensions import db
+    from lux_portal.agente_lux import ingesta_local
+
+    with app.app_context():
+        cuenta = ingesta_local.cuenta_local()
+        cuenta.refresh_estado = estado
+        cuenta.refresh_mensaje = mensaje[:500]
+        if limpiar_solicitud:
+            cuenta.refresh_solicitado = None
+        db.session.commit()
+
+
+def _correr(comando, cwd, timeout):
+    """Corre un comando y devuelve (ok, salida)."""
+    import subprocess
+    try:
+        r = subprocess.run(comando, cwd=cwd, capture_output=True, text=True,
+                           timeout=timeout, encoding='utf-8', errors='replace')
+    except subprocess.TimeoutExpired:
+        return False, f'Se paso de {timeout} segundos.'
+    salida = (r.stdout or '') + (r.stderr or '')
+    return r.returncode == 0, salida.strip()
+
+
+def _analizar(app, args, carpeta_proyecto):
+    """Exporta, le pide el analisis a Claude Code sin ventana, y carga.
+
+    Claude Code corre con la suscripcion de Daniela, no con creditos de API:
+    por eso el analisis pasa por el CLI local y no por el servidor."""
+    import os
+    import sys as _sys
+
+    py = _sys.executable
+    cli = os.path.join(carpeta_proyecto, 'agente_lux_cli.py')
+
+    _marcar(app, 'analizando', 'Preparando los correos...')
+    ok, salida = _correr([py, cli, 'exportar', '--solo-tarifas'],
+                         carpeta_proyecto, 300)
+    if not ok:
+        raise RuntimeError(f'Fallo el exportar: {salida[-400:]}')
+
+    if 'No hay nada por analizar' in salida:
+        log('No habia correos por analizar.')
+        return 'Sin correos nuevos por analizar.'
+
+    log('Pidiendole el analisis a Claude Code...')
+    _marcar(app, 'analizando', 'Claude Code esta leyendo los correos...')
+    ok, salida = _correr(
+        ['claude', '-p', PROMPT_ANALISIS,
+         '--allowedTools', 'Read', 'Write', 'Glob', 'Grep',
+         '--permission-mode', 'acceptEdits'],
+        carpeta_proyecto, args.timeout_analisis)
+    if not ok:
+        raise RuntimeError(f'Fallo el analisis: {salida[-400:]}')
+
+    _marcar(app, 'analizando', 'Guardando los hallazgos...')
+    ok, salida = _correr([py, cli, 'cargar'], carpeta_proyecto, 300)
+    if not ok:
+        raise RuntimeError(f'Fallo el cargar: {salida[-400:]}')
+
+    # La primera linea del cargar ya dice cuantos hallazgos entraron.
+    return salida.splitlines()[0] if salida else 'Analisis terminado.'
+
+
+def _leer(app, args, motivo):
+    """Lee el buzon y, si corresponde, analiza. Deja todo visible en el portal."""
+    import os
+    from lux_portal.agente_lux import ingesta_local
+
+    carpeta_proyecto = os.path.dirname(os.path.abspath(__file__))
+
+    try:
+        _marcar(app, 'corriendo', 'Leyendo tu Outlook...')
+        with app.app_context():
+            cuenta = ingesta_local.cuenta_local()
+            stats = ingesta_local.ingerir(
+                cuenta,
+                carpeta=args.carpeta,
+                limite=args.limite,
+                recursivo=not args.sin_subcarpetas,
+            )
+        resumen = ingesta_local.resumen_texto(stats)
+        log(f'{motivo}: {resumen} ({stats["pendientes"]} por analizar)')
+
+        if args.analizar and stats['pendientes']:
+            resumen += ' ' + _analizar(app, args, carpeta_proyecto)
+
+        _marcar(app, 'ok', resumen, limpiar_solicitud=True)
+        log(resumen)
+        return stats
+
+    except Exception as exc:
+        log(f'ERROR en {motivo}: {exc}')
+        try:
+            _marcar(app, 'error', str(exc), limpiar_solicitud=True)
+        except Exception:
+            pass
+        return None
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Vigia local de Agente Lux.')
+    parser.add_argument('--db', help='URL de PostgreSQL (por defecto usa .env).')
+    parser.add_argument('--auto', type=int, default=20,
+                        help='Releer solo cada N minutos. 0 = solo con el boton.')
+    parser.add_argument('--carpeta', default='Inbox',
+                        help='Carpeta a leer. Por defecto Inbox con subcarpetas.')
+    parser.add_argument('--sin-subcarpetas', action='store_true',
+                        dest='sin_subcarpetas')
+    parser.add_argument('--limite', type=int, default=500)
+    parser.add_argument('--sin-analisis', action='store_false', dest='analizar',
+                        help='Solo bajar los correos, sin pedirle el analisis '
+                             'a Claude Code.')
+    parser.add_argument('--timeout-analisis', type=int, default=1800,
+                        dest='timeout_analisis',
+                        help='Segundos maximos para el analisis (por defecto 30 min).')
+    parser.add_argument('--instalar-tarea', action='store_true',
+                        dest='instalar_tarea',
+                        help='Programar el vigia para que arranque con Windows.')
+    args = parser.parse_args()
+
+    if args.instalar_tarea:
+        instalar_tarea()
+        return
+
+    app = crear_app(resolver_db(args))
+    from lux_portal.extensions import db
+    from lux_portal.agente_lux import ingesta_local
+
+    # Verifica Outlook antes de entrar al bucle, para fallar con un mensaje
+    # claro en vez de repetir el mismo error cada 15 segundos.
+    from lux_portal.agente_lux import outlook_local
+    try:
+        correo = outlook_local.cuenta_principal()
+    except outlook_local.OutlookNoDisponible as exc:
+        sys.exit(f'{exc}')
+
+    log(f'Vigia arrancado para {correo}')
+    log(f'Carpeta: {args.carpeta}'
+        + ('' if args.sin_subcarpetas else ' (con subcarpetas)'))
+    log('Relectura automatica: '
+        + (f'cada {args.auto} min' if args.auto else 'desactivada'))
+    log('Escuchando el boton del portal. Ctrl+C para parar.')
+
+    ultimo_auto = datetime.utcnow()
+
+    try:
+        while True:
+            try:
+                with app.app_context():
+                    cuenta = ingesta_local.cuenta_local()
+                    cuenta.vigia_visto = datetime.utcnow()
+                    solicitado = cuenta.refresh_estado == 'solicitado'
+                    db.session.commit()
+
+                if solicitado:
+                    _leer(app, args, 'boton del portal')
+                    ultimo_auto = datetime.utcnow()
+
+                elif args.auto and (datetime.utcnow() - ultimo_auto
+                                    >= timedelta(minutes=args.auto)):
+                    _leer(app, args, 'relectura automatica')
+                    ultimo_auto = datetime.utcnow()
+
+            except Exception:
+                # Un fallo de red no puede tumbar el vigia: se reintenta en el
+                # siguiente latido.
+                log('Fallo el latido, reintentando:')
+                traceback.print_exc()
+
+            time.sleep(LATIDO_SEGUNDOS)
+
+    except KeyboardInterrupt:
+        log('Vigia detenido.')
+
+
+if __name__ == '__main__':
+    main()

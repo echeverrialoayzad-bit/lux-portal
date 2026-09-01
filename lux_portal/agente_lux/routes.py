@@ -10,26 +10,18 @@ Dos pantallas en una:
                          hablo y que quedo pendiente.
 """
 
-import secrets
 from datetime import datetime, timedelta
 
-from flask import (
-    render_template, request, jsonify, redirect, url_for, session, flash
-)
+from flask import render_template, request, jsonify
 
 from lux_portal.agente_lux import agente_lux_bp
-from lux_portal.agente_lux import graph, contexto, reglas
+from lux_portal.agente_lux import contexto, reglas
 from lux_portal.agente_lux.aplicar import aplicar_hallazgo
 from lux_portal.agente_lux.models import (
-    AgenteCuenta, AgenteMail, AgenteAdjunto, AgenteHallazgo, AgenteScan,
+    AgenteCuenta, AgenteMail, AgenteHallazgo,
 )
 from lux_portal.extensions import db
 from lux_portal.auth.decorators import login_required
-
-# Cuando nunca se ha hecho un scan, cuantos dias hacia atras mirar.
-DIAS_PRIMER_SCAN = 7
-# Solape al re-escanear, por si un correo entro con retraso en el buzon.
-HORAS_SOLAPE = 6
 
 
 def _cuenta():
@@ -47,182 +39,43 @@ def index():
     return render_template(
         'agente_lux/index.html',
         cuenta=cuenta.to_dict() if cuenta else None,
-        config_ok=graph.config_ok(),
-        falta_config=graph.falta_config(),
         resumen=contexto.resumen_corto(),
     )
 
 
 # ---------------------------------------------------------------------------
-# Conexion con Microsoft 365
-# ---------------------------------------------------------------------------
-
-def _redirect_uri():
-    return graph.redirect_uri(
-        url_for('agente_lux.oauth_callback', _external=True)
-    )
-
-
-@agente_lux_bp.route('/oauth/iniciar')
-@login_required
-def oauth_iniciar():
-    if not graph.config_ok():
-        flash('Faltan variables de Microsoft en Railway: '
-              + ', '.join(graph.falta_config()), 'danger')
-        return redirect(url_for('agente_lux.index'))
-
-    estado = secrets.token_urlsafe(24)
-    session['agente_lux_oauth_state'] = estado
-    return redirect(graph.url_autorizacion(_redirect_uri(), estado))
-
-
-@agente_lux_bp.route('/oauth/callback')
-@login_required
-def oauth_callback():
-    error = request.args.get('error')
-    if error:
-        detalle = request.args.get('error_description', error)
-        flash(f'Microsoft rechazo la conexion: {detalle}', 'danger')
-        return redirect(url_for('agente_lux.index'))
-
-    esperado = session.pop('agente_lux_oauth_state', None)
-    if not esperado or request.args.get('state') != esperado:
-        flash('La respuesta de Microsoft no coincide con la solicitud. '
-              'Intenta conectar de nuevo.', 'danger')
-        return redirect(url_for('agente_lux.index'))
-
-    codigo = request.args.get('code')
-    if not codigo:
-        flash('Microsoft no devolvio ningun codigo de autorizacion.', 'danger')
-        return redirect(url_for('agente_lux.index'))
-
-    try:
-        payload = graph.canjear_codigo(codigo, _redirect_uri())
-        cuenta = _cuenta() or AgenteCuenta()
-        graph.guardar_token(cuenta, payload)
-        datos = graph.perfil(cuenta.access_token)
-        cuenta.email = datos['email']
-        cuenta.conectada_en = datetime.utcnow()
-        if cuenta.id is None:
-            db.session.add(cuenta)
-        db.session.commit()
-        flash(f'Correo conectado: {cuenta.email}', 'success')
-    except Exception as exc:
-        db.session.rollback()
-        flash(f'No se pudo conectar el correo: {exc}', 'danger')
-
-    return redirect(url_for('agente_lux.index'))
-
-
-@agente_lux_bp.route('/api/desconectar', methods=['POST'])
-@login_required
-def desconectar():
-    """Borra los tokens. Los correos ya descargados se conservan."""
-    cuenta = _cuenta()
-    if cuenta:
-        db.session.delete(cuenta)
-        db.session.commit()
-    return jsonify({'ok': True})
-
-
-# ---------------------------------------------------------------------------
-# Refresh: bajar correos nuevos
+# Refresh: le pide a la PC que lea el Outlook
 # ---------------------------------------------------------------------------
 
 @agente_lux_bp.route('/api/refresh', methods=['POST'])
 @login_required
 def refresh():
-    """Baja los correos nuevos del buzon. No analiza nada todavia."""
+    """Deja pedida una lectura del buzon.
+
+    Railway no puede alcanzar el Outlook de escritorio, asi que este boton no
+    lee nada por si mismo: anota la solicitud y el vigia que corre en la PC
+    (agente_lux_watcher.py) la atiende en los siguientes segundos. El portal
+    se entera del resultado consultando /api/estado."""
     cuenta = _cuenta()
     if not cuenta:
-        return jsonify({'error': 'No hay ninguna cuenta de correo conectada.'}), 400
-
-    if (cuenta.modo or 'graph') == 'local':
-        # En modo local el portal no tiene como llegar al buzon: los correos
-        # entran desde la PC de Daniela con el CLI.
         return jsonify({
-            'error': 'Esta cuenta lee el correo desde tu Outlook local, no '
-                     'desde el servidor. Corre en tu PC: '
+            'error': 'Todavia no hay ninguna cuenta. Corre una vez en tu PC: '
                      'python agente_lux_cli.py leer-outlook'
         }), 400
 
-    dias = int((request.json or {}).get('dias') or 0)
+    if not cuenta.vigia_activo():
+        return jsonify({
+            'error': 'El vigia no esta corriendo en tu PC, asi que nadie puede '
+                     'abrir el Outlook. Abre una terminal en la carpeta del '
+                     'proyecto y corre:  python agente_lux_watcher.py'
+        }), 409
 
-    scan = AgenteScan(iniciado_en=datetime.utcnow(), estado='en_curso')
-    db.session.add(scan)
+    cuenta.refresh_solicitado = datetime.utcnow()
+    cuenta.refresh_estado = 'solicitado'
+    cuenta.refresh_mensaje = 'Esperando a tu PC...'
     db.session.commit()
 
-    try:
-        token = graph.token_valido(cuenta)
-        db.session.commit()   # persistir el token renovado
-
-        if dias > 0:
-            desde = datetime.utcnow() - timedelta(days=dias)
-        elif cuenta.ultimo_scan:
-            desde = cuenta.ultimo_scan - timedelta(hours=HORAS_SOLAPE)
-        else:
-            desde = datetime.utcnow() - timedelta(days=DIAS_PRIMER_SCAN)
-
-        mensajes = graph.listar_mensajes(token, desde)
-        nuevos = 0
-
-        for mensaje in mensajes:
-            graph_id = mensaje.get('id')
-            if not graph_id:
-                continue
-            if AgenteMail.query.filter_by(graph_id=graph_id).first():
-                continue
-
-            correo_remitente, nombre_remitente = graph.remitente_de(mensaje)
-            correo = AgenteMail(
-                graph_id=graph_id,
-                fecha=graph.fecha_de(mensaje),
-                remitente=correo_remitente[:250],
-                remitente_nombre=nombre_remitente[:250],
-                asunto=(mensaje.get('subject') or '(sin asunto)')[:500],
-                cuerpo=graph.texto_de(mensaje),
-                web_link=mensaje.get('webLink'),
-                estado='pendiente',
-            )
-            db.session.add(correo)
-            db.session.flush()   # necesitamos el id para los adjuntos
-
-            if mensaje.get('hasAttachments'):
-                for adj in graph.descargar_adjuntos(token, graph_id):
-                    db.session.add(AgenteAdjunto(
-                        mail_id=correo.id,
-                        nombre=adj['nombre'][:400],
-                        mime=adj['mime'][:150],
-                        size=adj['size'],
-                        contenido_b64=adj['contenido_b64'],
-                    ))
-            nuevos += 1
-
-        cuenta.ultimo_scan = datetime.utcnow()
-        scan.terminado_en = datetime.utcnow()
-        scan.correos_nuevos = nuevos
-        scan.correos_revisados = len(mensajes)
-        scan.estado = 'ok'
-        db.session.commit()
-
-        pendientes = AgenteMail.query.filter_by(estado='pendiente').count()
-        return jsonify({
-            'ok': True,
-            'correos_nuevos': nuevos,
-            'correos_revisados': len(mensajes),
-            'pendientes_de_analisis': pendientes,
-            'ultimo_scan': cuenta.ultimo_scan.strftime('%Y-%m-%d %H:%M'),
-        })
-
-    except Exception as exc:
-        db.session.rollback()
-        scan = AgenteScan.query.get(scan.id)
-        if scan:
-            scan.estado = 'error'
-            scan.terminado_en = datetime.utcnow()
-            scan.mensaje = str(exc)[:1000]
-            db.session.commit()
-        return jsonify({'error': str(exc)}), 500
+    return jsonify({'ok': True, 'estado': 'solicitado'})
 
 
 # ---------------------------------------------------------------------------
@@ -233,15 +86,83 @@ def refresh():
 @login_required
 def estado():
     cuenta = _cuenta()
-    ultimo = AgenteScan.query.order_by(AgenteScan.id.desc()).first()
+    hoy = datetime.utcnow().date()
     return jsonify({
         'cuenta': cuenta.to_dict() if cuenta else None,
-        'config_ok': graph.config_ok(),
-        'falta_config': graph.falta_config(),
         'pendientes_de_analisis': AgenteMail.query.filter_by(estado='pendiente').count(),
         'hallazgos_pendientes': AgenteHallazgo.query.filter_by(estado='pendiente').count(),
         'hallazgos_aprobados': AgenteHallazgo.query.filter_by(estado='aprobado').count(),
-        'ultimo_scan': ultimo.to_dict() if ultimo else None,
+        'correos_hoy': AgenteMail.query.filter(
+            AgenteMail.fecha >= datetime.combine(hoy, datetime.min.time())
+        ).count(),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Correos del dia
+# ---------------------------------------------------------------------------
+
+def _vistazo(correo, largo=220):
+    """Primeras lineas utiles del cuerpo, para leer de un vistazo sin abrir
+    el correo. Sirve incluso antes de que el analisis lo haya resumido."""
+    cuerpo = (correo.cuerpo or '').strip()
+    if not cuerpo:
+        return ''
+
+    lineas = []
+    for linea in cuerpo.splitlines():
+        limpia = linea.strip()
+        if not limpia:
+            continue
+        # Saltar las citas del hilo anterior y los encabezados reenviados.
+        if limpia.startswith('>'):
+            continue
+        if limpia.lower().startswith(('de:', 'from:', 'enviado el:', 'sent:',
+                                      'para:', 'to:', 'asunto:', 'subject:',
+                                      'cc:', 'cco:')):
+            continue
+        lineas.append(limpia)
+        if sum(len(x) for x in lineas) >= largo:
+            break
+
+    texto = ' '.join(lineas)[:largo]
+    return texto + ('...' if len(' '.join(lineas)) > largo else '')
+
+
+@agente_lux_bp.route('/api/hoy')
+@login_required
+def hoy():
+    """Los correos que llegaron hoy, con un vistazo rapido de cada uno.
+
+    A diferencia de la bitacora, esto no espera al analisis: el vistazo sale
+    del cuerpo del correo, asi que sirve apenas el vigia los sube."""
+    dias = int(request.args.get('dias', 0))
+    if dias > 0:
+        desde = datetime.utcnow() - timedelta(days=dias)
+    else:
+        desde = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+
+    correos = (AgenteMail.query
+               .filter(AgenteMail.fecha >= desde)
+               .order_by(AgenteMail.fecha.desc())
+               .all())
+
+    salida = []
+    for correo in correos:
+        datos = correo.to_dict()
+        datos['vistazo'] = _vistazo(correo)
+        datos['aerolinea'] = (
+            (correo.carpeta or '').split('/')[-1]
+            if (correo.carpeta or '').upper().startswith('INBOX/AEROLINEAS/')
+            else ''
+        )
+        salida.append(datos)
+
+    return jsonify({
+        'desde': desde.strftime('%Y-%m-%d %H:%M'),
+        'correos': salida,
+        'total': len(salida),
+        'sin_analizar': sum(1 for c in salida if c['estado'] == 'pendiente'),
     })
 
 

@@ -150,6 +150,11 @@ def _migrate_db(app):
         ('agente_cuenta', 'modo', "VARCHAR(20) DEFAULT 'graph'"),
         # Agente Lux: carpeta de Outlook de origen (identifica la aerolinea)
         ('agente_mails', 'carpeta', 'VARCHAR(300)'),
+        # Agente Lux: puente entre el boton del portal y el vigia en la PC
+        ('agente_cuenta', 'refresh_solicitado', 'TIMESTAMP'),
+        ('agente_cuenta', 'refresh_estado', "VARCHAR(20) DEFAULT 'libre'"),
+        ('agente_cuenta', 'refresh_mensaje', 'TEXT'),
+        ('agente_cuenta', 'vigia_visto', 'TIMESTAMP'),
     ]
     for table, column, col_type in migrations:
         try:

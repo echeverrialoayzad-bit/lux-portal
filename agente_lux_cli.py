@@ -523,8 +523,8 @@ def cmd_estado(args):
 # leer-outlook  (alternativa a Microsoft Graph, sin aprobacion del admin)
 # ---------------------------------------------------------------------------
 
-DIAS_PRIMERA_LECTURA = 7
-HORAS_SOLAPE = 6
+# El rango de lectura lo decide ingesta_local, que es el mismo codigo que usa
+# el vigia cuando la lectura la dispara el boton del portal.
 
 
 def cmd_carpetas(args):
@@ -542,43 +542,29 @@ def cmd_carpetas(args):
 
 
 def cmd_leer_outlook(args):
-    """Lee el buzon desde el Outlook de escritorio y guarda los correos nuevos."""
-    from lux_portal.agente_lux import outlook_local
+    """Lee el buzon desde el Outlook de escritorio y guarda los correos nuevos.
 
+    Es la version a mano de lo mismo que hace el vigia cuando Daniela aprieta
+    el boton del portal: los dos llaman a ingesta_local.ingerir."""
     app = crear_app(resolver_db(args))
-    from lux_portal.extensions import db
-    from lux_portal.agente_lux.models import AgenteCuenta, AgenteMail, AgenteAdjunto
+    from lux_portal.agente_lux import ingesta_local, outlook_local
 
     with app.app_context():
-        cuenta = AgenteCuenta.query.first()
-
-        if cuenta is None:
-            try:
-                email = outlook_local.cuenta_principal()
-            except outlook_local.OutlookNoDisponible as exc:
-                sys.exit(str(exc))
-            cuenta = AgenteCuenta(email=email or 'Outlook local', modo='local',
-                                  conectada_en=datetime.utcnow())
-            db.session.add(cuenta)
-            db.session.commit()
+        existia = ingesta_local.cuenta_local(crear=False) is not None
+        try:
+            cuenta = ingesta_local.cuenta_local()
+        except outlook_local.OutlookNoDisponible as exc:
+            sys.exit(str(exc))
+        if not existia:
             print(f'Cuenta local registrada: {cuenta.email}')
-        elif (cuenta.modo or 'graph') != 'local':
-            sys.exit('La cuenta guardada esta en modo Microsoft 365. Para pasar a '
-                     'modo local, desconectala primero desde el portal.')
-
-        if args.dias:
-            desde = datetime.now() - timedelta(days=args.dias)
-        elif cuenta.ultimo_scan:
-            desde = cuenta.ultimo_scan - timedelta(hours=HORAS_SOLAPE)
-        else:
-            desde = datetime.now() - timedelta(days=DIAS_PRIMERA_LECTURA)
 
         alcance = args.carpeta + ('' if args.sin_subcarpetas else ' (con subcarpetas)')
-        print(f'Leyendo "{alcance}" desde {desde.strftime("%Y-%m-%d %H:%M")} ...')
+        print(f'Leyendo "{alcance}" ...')
 
         try:
-            correos = outlook_local.leer(
-                desde,
+            stats = ingesta_local.ingerir(
+                cuenta,
+                dias=args.dias,
                 carpeta=args.carpeta,
                 limite=args.limite,
                 recursivo=not args.sin_subcarpetas,
@@ -586,62 +572,21 @@ def cmd_leer_outlook(args):
         except outlook_local.OutlookNoDisponible as exc:
             sys.exit(str(exc))
 
-        truncado = len(correos) >= args.limite
-        nuevos, adjuntos_guardados = 0, 0
+    print(f'{stats["revisados"]} correo(s) revisados, '
+          f'{stats["nuevos"]} nuevo(s) guardados.')
+    if stats['adjuntos']:
+        print(f'{stats["adjuntos"]} adjunto(s) con contenido (imagenes/PDF).')
 
-        for datos in correos:
-            if AgenteMail.query.filter_by(graph_id=datos['id_unico']).first():
-                continue
-
-            correo = AgenteMail(
-                graph_id=datos['id_unico'],
-                fecha=datos['fecha'],
-                carpeta=(datos.get('carpeta') or '')[:300],
-                remitente=(datos['remitente'] or '')[:250],
-                remitente_nombre=(datos['remitente_nombre'] or '')[:250],
-                asunto=(datos['asunto'] or '(sin asunto)')[:500],
-                cuerpo=datos['cuerpo'],
-                estado='pendiente',
-            )
-            db.session.add(correo)
-            db.session.flush()
-
-            for adj in datos['adjuntos']:
-                contenido_b64 = None
-                if adj['contenido']:
-                    contenido_b64 = base64.b64encode(adj['contenido']).decode('ascii')
-                    adjuntos_guardados += 1
-                db.session.add(AgenteAdjunto(
-                    mail_id=correo.id,
-                    nombre=(adj['nombre'] or 'adjunto')[:400],
-                    mime=(adj['mime'] or '')[:150],
-                    size=adj['size'],
-                    contenido_b64=contenido_b64,
-                ))
-            nuevos += 1
-
-        # Si se llego al tope, hay correos dentro del rango que no se
-        # alcanzaron a leer: mover la marca de agua los daria por leidos.
-        if not truncado:
-            cuenta.ultimo_scan = datetime.utcnow()
-        db.session.commit()
-
-        pendientes = AgenteMail.query.filter_by(estado='pendiente').count()
-
-    print(f'{len(correos)} correo(s) revisados, {nuevos} nuevo(s) guardados.')
-    if adjuntos_guardados:
-        print(f'{adjuntos_guardados} adjunto(s) con contenido (imagenes/PDF).')
-
-    if truncado:
+    if stats['truncado']:
         print()
         print(f'AVISO: se llego al tope de {args.limite} correos, asi que puede '
               f'haber mas dentro del rango sin leer.')
         print('No se movio la marca de la ultima lectura. Corre de nuevo con un '
               'rango mas corto, por ejemplo:  --dias 2')
 
-    if pendientes:
+    if stats['pendientes']:
         print()
-        print(f'Hay {pendientes} correo(s) por analizar. Siguiente paso:')
+        print(f'Hay {stats["pendientes"]} correo(s) por analizar. Siguiente paso:')
         print('  python agente_lux_cli.py exportar')
     else:
         print('No quedo nada pendiente de analisis.')

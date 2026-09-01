@@ -30,20 +30,39 @@ class AgenteCuenta(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(250))
-    modo = db.Column(db.String(20), default='graph')
+    modo = db.Column(db.String(20), default='local')
     refresh_token = db.Column(db.Text)
     access_token = db.Column(db.Text)
     token_expira = db.Column(db.DateTime)
     conectada_en = db.Column(db.DateTime, default=datetime.utcnow)
     ultimo_scan = db.Column(db.DateTime)
 
+    # --- Puente entre el boton del portal y la PC -------------------------
+    # Railway no puede alcanzar el Outlook de escritorio, asi que el boton
+    # solo deja una solicitud aca y el vigia local (agente_lux_watcher.py) la
+    # atiende. Estos campos son el buzon de ida y vuelta entre los dos.
+    refresh_solicitado = db.Column(db.DateTime)   # cuando se apreto el boton
+    refresh_estado = db.Column(db.String(20), default='libre')
+    # libre | solicitado | corriendo | ok | error
+    refresh_mensaje = db.Column(db.Text)
+    vigia_visto = db.Column(db.DateTime)          # ultimo latido del vigia
+
+    def vigia_activo(self, segundos=90):
+        """True si el vigia dio senales de vida hace poco."""
+        if not self.vigia_visto:
+            return False
+        return (datetime.utcnow() - self.vigia_visto).total_seconds() < segundos
+
     def to_dict(self):
         return {
             'id': self.id,
             'email': self.email,
-            'modo': self.modo or 'graph',
+            'modo': self.modo or 'local',
             'conectada_en': self.conectada_en.strftime('%Y-%m-%d %H:%M') if self.conectada_en else None,
             'ultimo_scan': self.ultimo_scan.strftime('%Y-%m-%d %H:%M') if self.ultimo_scan else None,
+            'refresh_estado': self.refresh_estado or 'libre',
+            'refresh_mensaje': self.refresh_mensaje,
+            'vigia_activo': self.vigia_activo(),
         }
 
 
@@ -213,24 +232,6 @@ class AgenteHallazgo(db.Model):
         }
 
 
-class AgenteScan(db.Model):
-    """Bitacora de cada refresh de correo."""
-    __tablename__ = 'agente_scans'
-
-    id = db.Column(db.Integer, primary_key=True)
-    iniciado_en = db.Column(db.DateTime, default=datetime.utcnow)
-    terminado_en = db.Column(db.DateTime)
-    correos_nuevos = db.Column(db.Integer, default=0)
-    correos_revisados = db.Column(db.Integer, default=0)
-    estado = db.Column(db.String(20), default='en_curso')   # en_curso | ok | error
-    mensaje = db.Column(db.Text)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'iniciado_en': self.iniciado_en.strftime('%Y-%m-%d %H:%M') if self.iniciado_en else None,
-            'correos_nuevos': self.correos_nuevos,
-            'correos_revisados': self.correos_revisados,
-            'estado': self.estado,
-            'mensaje': self.mensaje,
-        }
+# La bitacora de escaneos (AgenteScan) se quito junto con la via de Microsoft
+# Graph: ahora el estado de la ultima lectura vive en la propia cuenta
+# (refresh_estado / refresh_mensaje), que es lo que muestra el portal.
