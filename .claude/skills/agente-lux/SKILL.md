@@ -48,26 +48,31 @@ sirve: Daniela necesita ver "de 3.00 a 2.85", no solo "2.85".
 
 ## Reglas que no se negocian
 
-**Las tarifas netas solo salen de respuestas a las solicitudes de Daniela.**
-Ella manda un correo pidiendo tarifas y la aerolínea contesta sobre ese mismo
-hilo. El campo `respuesta_a_mi_solicitud` te dice si el correo es una de esas
-respuestas.
+**Nunca saques una tarifa neta de una reserva o una guía.** Es el error más
+caro de este flujo. Una reserva confirmada trae cifras por kilo que son el
+precio de *ese* embarque, no la tarifa vigente del trayecto. El campo
+`es_reserva_o_guia` marca esos correos, y `cargar` rechaza cualquier hallazgo
+`tarifa` que venga de uno — la instrucción sola no basta para algo que se
+aplica sobre datos de producción.
 
-Si es `false`, **no propongas ningún hallazgo de tipo `tarifa` desde ese
-correo**, por más que veas números que parezcan tarifas. Las reservas, los
-cierres, las guías aéreas y los manifiestos están llenos de cifras por kilo
-que no son la tarifa vigente — son el precio de un embarque puntual. Proponer
-una de esas como tarifa nueva es el error más fácil de cometer acá, y `cargar`
-lo rechaza.
+**Las tarifas buenas llegan como respuesta a una solicitud de Daniela.** Ella
+manda un correo pidiendo tarifas (asunto tipo "Tarifa Flor", "Tarifas
+actualizadas") y la aerolínea contesta sobre ese mismo hilo. El campo
+`respuesta_a_mi_solicitud` te dice cuándo pasa eso, y es la fuente más
+confiable: úsala para poner `confianza: "alta"`.
 
-Excepción: los avisos de **fuel surcharge** sí llegan como comunicados, no como
-respuesta. Un hallazgo `fsc` desde un correo con `respuesta_a_mi_solicitud`
-en `false` es válido **si el correo es claramente un aviso de recargo** (asunto
-tipo "Fuel Surcharge update", "Actualización FSC"). Si el correo es una reserva
-o una guía, no.
+Pero **no es la única fuente válida**, y esto está medido sobre el buzón real:
+solo el 59% de los correos de tarifas son respuestas. El resto son comunicados
+que la aerolínea manda por su cuenta, y son igual de reales:
 
-Cuando el campo venga `null` no se pudo determinar: trátalo como `false` para
-tarifas y baja la confianza.
+- Avisos de fuel surcharge — "Fuel Surcharge update", "ACTUALIZACION FSC"
+- Anuncios de subida de tarifa — "INCREMENTO TARIFA AMS", "Actualización tarifaria"
+
+Esos valen. Lo que no vale es un precio sacado de una reserva.
+
+Cuando `respuesta_a_mi_solicitud` venga `false` y el correo no sea claramente
+un comunicado de tarifas o recargo, baja la confianza y dilo en la
+`descripcion` para que ella lo verifique.
 
 **Solo vale lo más reciente.** Una tarifa o un FSC de hace un mes no le sirve
 de nada a Daniela. Si dos correos hablan de la misma aerolínea + destino + tier,

@@ -240,9 +240,11 @@ def cmd_exportar(args):
                 # La carpeta identifica la aerolinea: el buzon esta archivado
                 # en Inbox/AEROLINEAS/<AEROLINEA>.
                 'carpeta': correo.carpeta or '',
-                # True = la aerolinea contesto a una solicitud de tarifas de
-                # Daniela. Es la unica fuente valida de tarifas netas.
+                # True = la aerolinea contesto sobre el hilo que abrio Daniela
+                # pidiendo tarifas. Es la fuente mas confiable.
                 'respuesta_a_mi_solicitud': correo.respuesta_mia,
+                # True = reserva, cierre o guia. De aca no salen tarifas netas.
+                'es_reserva_o_guia': bool(correo.operativo),
                 # Pista: si es False, casi seguro es una reserva o un tema
                 # operativo. Resumelo para la bitacora, pero no gastes tiempo
                 # buscandole tarifas (sus adjuntos ni siquiera se volcaron).
@@ -312,12 +314,11 @@ def _validar_hallazgo(h, indice, correos):
     # deja pasar y el hallazgo queda con su alerta.
     if tipo == 'tarifa':
         correo = correos.get(mail_id)
-        if correo is not None and correo.respuesta_mia is False:
+        if correo is not None and correo.operativo:
             errores.append(
                 f'{prefijo}: el correo {mail_id} ("{(correo.asunto or "")[:50]}") '
-                f'no contesta a ninguna solicitud de tarifas, asi que de ahi no '
-                f'se sacan tarifas netas. Si trae un aviso de fuel surcharge, '
-                f'mandalo como tipo "fsc".')
+                f'es una reserva o guia. Las cifras por kilo que trae son el '
+                f'precio de ese embarque, no la tarifa vigente.')
 
     if h.get('confianza') and h['confianza'] not in CONFIANZAS_VALIDAS:
         errores.append(f'{prefijo}: confianza "{h["confianza"]}" invalida.')
@@ -652,57 +653,43 @@ def cmd_leer_outlook(args):
         print('No quedo nada pendiente de analisis.')
 
 
-def cmd_marcar_respuestas(args):
-    """Rellena respuesta_mia en los correos leidos antes de que existiera.
+def cmd_clasificar(args):
+    """Rellena las senales de origen en los correos ya leidos.
 
-    Sin esto, el guardarraíl que impide sacar tarifas de reservas no cubre a
-    los correos viejos, porque no sabe si contestan a una solicitud."""
+    Se calculan sobre el asunto y el cuerpo que ya estan guardados, sin abrir
+    Outlook, asi que corre en segundos. Sirve para los correos que se leyeron
+    antes de que existieran estas columnas."""
     app = crear_app(resolver_db(args))
     from lux_portal.extensions import db
-    from lux_portal.agente_lux.models import AgenteMail
+    from lux_portal.agente_lux.models import AgenteCuenta, AgenteMail
     from lux_portal.agente_lux import outlook_local
 
-    try:
-        ns = outlook_local._conectar()
-        conversaciones = outlook_local.conversaciones_propias(ns)
-    except outlook_local.OutlookNoDisponible as exc:
-        sys.exit(str(exc))
-
-    if conversaciones is None:
-        sys.exit('No se pudo leer la carpeta de Elementos enviados.')
-    print(f'{len(conversaciones)} conversacion(es) iniciadas por ti en el ultimo '
-          f'tiempo.')
-
     with app.app_context():
-        pendientes = AgenteMail.query.filter(AgenteMail.respuesta_mia.is_(None)).all()
-        print(f'{len(pendientes)} correo(s) sin el dato. Revisando en Outlook...')
+        cuenta = AgenteCuenta.query.first()
+        mi_correo = cuenta.email if cuenta else ''
+        if not mi_correo:
+            sys.exit('No hay cuenta guardada, no se sabe cual es tu direccion.')
+        print(f'Tu direccion: {mi_correo}')
 
-        respuestas, otros, perdidos = 0, 0, 0
-        for correo in pendientes:
-            entry_id = (correo.graph_id or '')
-            if not entry_id.startswith('outlook:'):
-                continue
-            try:
-                item = ns.GetItemFromID(entry_id[len('outlook:'):])
-                conv = getattr(item, 'ConversationID', None)
-            except Exception:
-                # El correo se movio o se borro del buzon desde que se leyo.
-                perdidos += 1
-                continue
+        correos = AgenteMail.query.all()
+        respuestas, operativos = 0, 0
 
-            correo.respuesta_mia = bool(conv and conv in conversaciones)
+        for correo in correos:
+            correo.respuesta_mia = outlook_local.es_respuesta_a_mi(
+                correo.asunto, correo.cuerpo, mi_correo)
+            correo.operativo = outlook_local.parece_operativo(correo.asunto)
             if correo.respuesta_mia:
                 respuestas += 1
-            else:
-                otros += 1
+            if correo.operativo:
+                operativos += 1
 
         db.session.commit()
 
     print()
-    print(f'{respuestas} contestan a una solicitud tuya (de ahi si salen tarifas)')
-    print(f'{otros} son reservas, guias o avisos (de ahi no)')
-    if perdidos:
-        print(f'{perdidos} ya no estan en el buzon, quedaron sin dato')
+    print(f'{len(correos)} correo(s) clasificados:')
+    print(f'  {respuestas} contestan a una solicitud tuya de tarifas')
+    print(f'  {operativos} son reservas, cierres o guias (bloqueados como '
+          f'fuente de tarifas)')
 
 
 def main():
@@ -729,9 +716,9 @@ def main():
                            help='Tope de correos por corrida (por defecto 500).')
 
     sub.add_parser('carpetas', help='Lista las carpetas de Outlook disponibles.')
-    sub.add_parser('marcar-respuestas',
-                   help='Marca cuales correos ya leidos contestan a una '
-                        'solicitud tuya de tarifas.')
+    sub.add_parser('clasificar',
+                   help='Marca en los correos ya leidos cuales contestan a una '
+                        'solicitud tuya y cuales son reservas o guias.')
 
     p_exp = sub.add_parser('exportar',
                            help='Vuelca los correos pendientes a _agente_lux/.')
@@ -748,7 +735,7 @@ def main():
     {
         'leer-outlook': cmd_leer_outlook,
         'carpetas': cmd_carpetas,
-        'marcar-respuestas': cmd_marcar_respuestas,
+        'clasificar': cmd_clasificar,
         'exportar': cmd_exportar,
         'cargar': cmd_cargar,
         'estado': cmd_estado,

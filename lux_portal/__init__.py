@@ -152,6 +152,8 @@ def _migrate_db(app):
         ('agente_mails', 'carpeta', 'VARCHAR(300)'),
         # Agente Lux: si el correo contesta a una solicitud de Daniela
         ('agente_mails', 'respuesta_mia', 'BOOLEAN'),
+        # Agente Lux: correo de reserva/AWB (nunca es fuente de tarifas)
+        ('agente_mails', 'operativo', 'BOOLEAN DEFAULT FALSE'),
         # Agente Lux: puente entre el boton del portal y el vigia en la PC
         ('agente_cuenta', 'refresh_solicitado', 'TIMESTAMP'),
         ('agente_cuenta', 'refresh_estado', "VARCHAR(20) DEFAULT 'libre'"),

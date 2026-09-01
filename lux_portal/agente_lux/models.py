@@ -90,6 +90,10 @@ class AgenteMail(db.Model):
     # sobre el mismo correo. Lo que no es respuesta suya es reserva, guia o
     # aviso, y de ahi no se sacan tarifas. None = no se pudo determinar.
     respuesta_mia = db.Column(db.Boolean)
+    # Reserva, cierre, AWB o guia. Estan llenos de cifras por kilo que son el
+    # precio de un embarque puntual, no la tarifa vigente: de aca nunca se
+    # sacan tarifas netas.
+    operativo = db.Column(db.Boolean, default=False)
 
     estado = db.Column(db.String(30), default='pendiente', index=True)
 
@@ -124,6 +128,7 @@ class AgenteMail(db.Model):
             'asunto': self.asunto,
             'carpeta': self.carpeta,
             'respuesta_mia': self.respuesta_mia,
+            'operativo': bool(self.operativo),
             'estado': self.estado,
             'categoria': self.categoria,
             'resumen': self.resumen,

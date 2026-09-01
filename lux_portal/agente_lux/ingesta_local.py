@@ -69,6 +69,7 @@ def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
             fecha=datos['fecha'],
             carpeta=(datos.get('carpeta') or '')[:300],
             respuesta_mia=datos.get('respuesta_mia'),
+            operativo=bool(datos.get('operativo')),
             remitente=(datos['remitente'] or '')[:250],
             remitente_nombre=(datos['remitente_nombre'] or '')[:250],
             asunto=(datos['asunto'] or '(sin asunto)')[:500],
