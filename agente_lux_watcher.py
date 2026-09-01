@@ -30,6 +30,7 @@ Para que pare: Ctrl+C.
 
 import argparse
 import sys
+import threading
 import time
 import traceback
 from datetime import datetime, timedelta
@@ -92,9 +93,35 @@ def _marcar(app, estado, mensaje, limpiar_solicitud=False):
         cuenta = ingesta_local.cuenta_local()
         cuenta.refresh_estado = estado
         cuenta.refresh_mensaje = mensaje[:500]
+        cuenta.vigia_visto = datetime.utcnow()
         if limpiar_solicitud:
             cuenta.refresh_solicitado = None
         db.session.commit()
+
+
+def _latir(app, cuenta_id):
+    """Marca que el vigia sigue vivo.
+
+    Va como UPDATE puntual y no por el ORM a proposito: el ciclo de trabajo
+    corre en otro hilo y escribe refresh_estado sobre la misma fila, asi que
+    guardar el objeto entero desde aca podria pisarle el estado con un valor
+    viejo."""
+    from lux_portal.extensions import db
+
+    with app.app_context():
+        db.session.execute(
+            db.text('UPDATE agente_cuenta SET vigia_visto = :ahora WHERE id = :id'),
+            {'ahora': datetime.utcnow(), 'id': cuenta_id},
+        )
+        db.session.commit()
+
+
+def _hay_solicitud(app):
+    from lux_portal.agente_lux import ingesta_local
+
+    with app.app_context():
+        cuenta = ingesta_local.cuenta_local()
+        return cuenta.id, cuenta.refresh_estado == 'solicitado'
 
 
 def _correr(comando, cwd, timeout):
@@ -230,23 +257,38 @@ def main():
     log('Escuchando el boton del portal. Ctrl+C para parar.')
 
     ultimo_auto = datetime.utcnow()
+    # El ciclo completo puede tardar media hora entre leer y analizar. Corre en
+    # otro hilo para que el latido no se congele: si se congelara, el portal
+    # diria "tu PC no esta escuchando" justo mientras esta trabajando.
+    trabajando = threading.Event()
+
+    def lanzar(motivo):
+        if trabajando.is_set():
+            return
+        trabajando.set()
+
+        def tarea():
+            try:
+                _leer(app, args, motivo)
+            finally:
+                trabajando.clear()
+
+        threading.Thread(target=tarea, daemon=True).start()
 
     try:
         while True:
             try:
-                with app.app_context():
-                    cuenta = ingesta_local.cuenta_local()
-                    cuenta.vigia_visto = datetime.utcnow()
-                    solicitado = cuenta.refresh_estado == 'solicitado'
-                    db.session.commit()
+                cuenta_id, solicitado = _hay_solicitud(app)
+                _latir(app, cuenta_id)
 
                 if solicitado:
-                    _leer(app, args, 'boton del portal')
+                    lanzar('boton del portal')
                     ultimo_auto = datetime.utcnow()
 
-                elif args.auto and (datetime.utcnow() - ultimo_auto
-                                    >= timedelta(minutes=args.auto)):
-                    _leer(app, args, 'relectura automatica')
+                elif args.auto and not trabajando.is_set() and (
+                        datetime.utcnow() - ultimo_auto
+                        >= timedelta(minutes=args.auto)):
+                    lanzar('relectura automatica')
                     ultimo_auto = datetime.utcnow()
 
             except Exception:

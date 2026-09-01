@@ -70,6 +70,15 @@ def refresh():
                      'proyecto y corre:  python agente_lux_watcher.py'
         }), 409
 
+    if cuenta.refresh_estado in ('solicitado', 'corriendo', 'analizando'):
+        # Pedir otra vez encima de un ciclo en curso solo lo pisaria: el vigia
+        # atiende de a uno.
+        return jsonify({
+            'ok': True,
+            'estado': cuenta.refresh_estado,
+            'aviso': 'Ya hay una revision en curso.',
+        })
+
     cuenta.refresh_solicitado = datetime.utcnow()
     cuenta.refresh_estado = 'solicitado'
     cuenta.refresh_mensaje = 'Esperando a tu PC...'
