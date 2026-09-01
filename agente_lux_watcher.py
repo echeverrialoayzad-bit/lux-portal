@@ -277,11 +277,41 @@ def main():
 
     # Verifica Outlook antes de entrar al bucle, para fallar con un mensaje
     # claro en vez de repetir el mismo error cada 15 segundos.
+    #
+    # Con timeout porque las llamadas COM pueden colgarse indefinidamente si
+    # quedo una instancia de Outlook trabada (pasa cuando se mata un proceso
+    # a mitad de una operacion). Sin esto el vigia se queda mudo para siempre
+    # y desde el portal parece que la PC simplemente no escucha.
     from lux_portal.agente_lux import outlook_local
-    try:
-        correo = outlook_local.cuenta_principal()
-    except outlook_local.OutlookNoDisponible as exc:
-        sys.exit(f'{exc}')
+
+    resultado = {}
+
+    def comprobar():
+        import pythoncom
+        pythoncom.CoInitialize()
+        try:
+            resultado['correo'] = outlook_local.cuenta_principal()
+        except Exception as exc:
+            resultado['error'] = str(exc)
+        finally:
+            pythoncom.CoUninitialize()
+
+    hilo = threading.Thread(target=comprobar, daemon=True)
+    hilo.start()
+    hilo.join(timeout=60)
+
+    if hilo.is_alive():
+        sys.exit(
+            'Outlook no responde: la llamada se quedo colgada mas de un minuto.\n'
+            'Suele pasar cuando quedo una instancia trabada. Prueba:\n'
+            '  1. Cerrar Outlook y volver a abrirlo.\n'
+            '  2. Si sigue igual, reiniciar la PC.\n'
+            'Despues vuelve a arrancar el vigia.'
+        )
+    if 'error' in resultado:
+        sys.exit(resultado['error'])
+
+    correo = resultado.get('correo') or '(cuenta sin identificar)'
 
     log(f'Vigia arrancado para {correo}')
     log(f'Carpeta: {args.carpeta}'
