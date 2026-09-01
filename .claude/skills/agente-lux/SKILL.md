@@ -24,10 +24,20 @@ Si `exportar` dice que no hay correos pendientes, avísale que primero le dé
 
 ## Qué contiene `pendientes.json`
 
-- `correos[]` — asunto, remitente, cuerpo en texto plano y rutas a los adjuntos
-  ya decodificados en `_agente_lux/adjuntos/` (imágenes y PDFs). **Léelos con la
-  herramienta Read**: casi siempre la tabla de tarifas viene en una imagen, no en
-  el texto.
+- `correos[]` — asunto, remitente, fecha, **carpeta**, cuerpo en texto plano y
+  rutas a los adjuntos ya decodificados en `_agente_lux/adjuntos/` (imágenes y
+  PDFs). **Léelos con la herramienta Read**: casi siempre la tabla de tarifas
+  viene en una imagen, no en el texto.
+- El campo `parece_tarifas` te dice por dónde empezar. En un mes típico, de
+  ~200 correos archivados solo ~45 traen tarifas o recargos; el resto son
+  reservas, cierres y temas operativos. Los adjuntos **solo se vuelcan a disco
+  para los marcados `true`** — a los demás resúmelos para la bitácora leyendo
+  el cuerpo y sigue. No es infalible: si un correo marcado `false` claramente
+  habla de tarifas en el cuerpo, trátalo igual.
+- El campo `carpeta` identifica la aerolínea: el buzón está archivado como
+  `Inbox/AEROLINEAS/<AEROLÍNEA>`. Si un correo viene de `Inbox/AEROLINEAS/AVIANCA`,
+  la aerolínea es AVIANCA — no la deduzcas del texto ni del remitente. Usa el
+  texto solo cuando la carpeta no lo diga (por ejemplo un correo en `Inbox` suelto).
 - `estado_actual` — la foto de lo que hay hoy en producción:
   - `cotizaciones[]` con `cot_id`, `destino` y los `kg_rates` vigentes por aerolínea
   - `fsc_reglas[]` con `regla_id`, `aerolinea`, `destinos` y `fsc`
@@ -37,6 +47,20 @@ Siempre compara contra `estado_actual`. Un hallazgo sin valor actual al lado no
 sirve: Daniela necesita ver "de 3.00 a 2.85", no solo "2.85".
 
 ## Reglas que no se negocian
+
+**Solo vale lo más reciente.** Una tarifa o un FSC de hace un mes no le sirve
+de nada a Daniela. Si dos correos hablan de la misma aerolínea + destino + tier,
+propón **únicamente el del correo más nuevo** y no menciones el viejo como
+hallazgo. Lo mismo con el FSC de una misma aerolínea y alcance.
+
+Fíjate además en las fechas de vigencia que trae el propio correo ("effective
+April 1st", "valid from…"): si un correo viejo anunciaba una tarifa que ya fue
+reemplazada por otra más nueva, la vieja no existe. Y si una tarifa tiene fecha
+de vigencia futura, dilo en la `descripcion` para que ella sepa desde cuándo
+aplica.
+
+`cargar` también deduplica por su cuenta y descarta lo superado, pero no cuentes
+con eso: es una red de seguridad, no un sustituto de mirar las fechas.
 
 **FSC — el error más caro.** `detalle.destinos` es obligatorio y explícito:
 - `[]` significa **TODOS los destinos de esa aerolínea**.

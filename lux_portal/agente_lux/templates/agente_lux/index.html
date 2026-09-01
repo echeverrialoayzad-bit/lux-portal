@@ -40,15 +40,26 @@
   </div>
   {% endif %}
 
-  {% if config_ok and not cuenta %}
-  <div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <div>
-      <strong>Correo no conectado.</strong>
-      Agente Lux necesita permiso de <em>solo lectura</em> sobre tu buzón para poder revisarlo.
+  {% if not cuenta %}
+  <div class="alert alert-warning">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <strong>Correo no conectado.</strong>
+        Hay dos formas de conectarlo, y puedes usar cualquiera de las dos.
+      </div>
+      {% if config_ok %}
+      <a href="{{ url_for('agente_lux.oauth_iniciar') }}" class="btn btn-warning btn-sm">
+        <i class="bi bi-microsoft me-1"></i>Conectar por Microsoft 365
+      </a>
+      {% endif %}
     </div>
-    <a href="{{ url_for('agente_lux.oauth_iniciar') }}" class="btn btn-warning btn-sm">
-      <i class="bi bi-microsoft me-1"></i>Conectar correo
-    </a>
+    <hr class="my-2">
+    <div class="small mb-0">
+      <strong>Opción local (no necesita aprobación del administrador):</strong>
+      lee el correo desde tu Outlook de escritorio. En tu PC, dentro de la carpeta del
+      proyecto, corre:
+      <div><code>python agente_lux_cli.py leer-outlook</code></div>
+    </div>
   </div>
   {% endif %}
 
@@ -106,10 +117,16 @@
 
       <div class="mt-3 small text-muted">
         <i class="bi bi-info-circle me-1"></i>
-        El análisis de los correos corre en tu PC con Claude Code (no gasta API).
-        Después de hacer refresh, ejecuta:
-        <code>python agente_lux_cli.py exportar</code> &rarr; pídele el análisis a Claude Code &rarr;
-        <code>python agente_lux_cli.py cargar</code>
+        El análisis corre en tu PC con Claude Code (no gasta API). En la carpeta del proyecto:
+        <div class="mt-1">
+          <code>python agente_lux_cli.py leer-outlook</code> &rarr;
+          <code>exportar</code> &rarr; pídele el análisis a Claude Code &rarr;
+          <code>cargar</code>
+        </div>
+        <div class="mt-1">
+          Si conectaste por Microsoft 365, el paso <code>leer-outlook</code> lo reemplaza
+          el botón <strong>Refresh correos</strong> de arriba.
+        </div>
       </div>
     </div>
 
@@ -143,16 +160,24 @@ async function cargarEstado() {
   const r = await fetch('{{ url_for("agente_lux.estado") }}');
   const d = await r.json();
   const el = document.getElementById('estado-cuenta');
+  const btn = document.getElementById('btn-refresh');
+  const esLocal = d.cuenta && d.cuenta.modo === 'local';
+
   if (d.cuenta) {
     el.innerHTML = '<i class="bi bi-envelope-check text-success me-1"></i>'
       + escapar(d.cuenta.email)
-      + (d.cuenta.ultimo_scan ? ' · último refresh ' + escapar(d.cuenta.ultimo_scan) : ' · sin refresh aún');
+      + (esLocal ? ' <span class="badge bg-light text-dark border">Outlook local</span>' : '')
+      + (d.cuenta.ultimo_scan ? ' · última lectura ' + escapar(d.cuenta.ultimo_scan) : ' · sin lecturas aún');
   } else {
     el.innerHTML = '<i class="bi bi-envelope-slash text-danger me-1"></i>Sin correo conectado';
   }
+
+  // En modo local el portal no puede llegar al buzón: el botón solo estorba.
+  btn.classList.toggle('d-none', esLocal);
+
   if (d.pendientes_de_analisis > 0) {
-    banner(d.pendientes_de_analisis + ' correo(s) descargados esperando análisis local. '
-      + 'Corre: python agente_lux_cli.py exportar', 'warning');
+    banner(d.pendientes_de_analisis + ' correo(s) esperando análisis. '
+      + 'Corre en tu PC: python agente_lux_cli.py exportar', 'warning');
   }
 }
 
@@ -191,6 +216,16 @@ const ETIQUETA_TIPO = {
   info:   ['Info',        'bg-light text-dark border']
 };
 
+// Una tarifa de hace un mes casi nunca sigue vigente: hay que poder verlo
+// de un vistazo sin abrir el correo.
+function etiquetaAntiguedad(dias) {
+  if (dias == null) return '';
+  if (dias <= 1)  return '<span class="badge bg-success">hoy</span>';
+  if (dias <= 7)  return `<span class="badge bg-light text-dark border">hace ${dias} días</span>`;
+  if (dias <= 21) return `<span class="badge bg-warning text-dark">hace ${dias} días</span>`;
+  return `<span class="badge bg-danger">hace ${dias} días — ¿sigue vigente?</span>`;
+}
+
 function filaHallazgo(h) {
   const [etiqueta, color] = ETIQUETA_TIPO[h.tipo] || ['Otro', 'bg-secondary'];
   const alcance = h.tipo === 'fsc'
@@ -224,7 +259,11 @@ function filaHallazgo(h) {
     <td><span class="small text-uppercase">${escapar(h.confianza || '')}</span></td>
     <td>
       <div class="small">${escapar(h.mail_asunto || '')}</div>
-      <div class="small text-muted">${escapar(h.mail_remitente || '')} · ${escapar(h.mail_fecha || '')}</div>
+      <div class="small text-muted">
+        ${escapar(h.mail_remitente || '')} · ${escapar(h.mail_fecha || '')}
+        ${etiquetaAntiguedad(h.mail_dias)}
+      </div>
+      ${h.mail_carpeta ? `<div class="small text-muted"><i class="bi bi-folder2 me-1"></i>${escapar(h.mail_carpeta)}</div>` : ''}
       ${h.cita ? `<div class="al-cita mt-1">“${escapar(h.cita)}”</div>` : ''}
     </td>
   </tr>`;

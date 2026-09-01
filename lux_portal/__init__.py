@@ -146,6 +146,10 @@ def _migrate_db(app):
         ('cotizaciones', 'notas_freightwise', "TEXT"),
         # Documentacion: titulo libre para documentos "extra" (no esenciales)
         ('doc_archivos', 'titulo_extra', "VARCHAR(200)"),
+        # Agente Lux: modo de lectura del correo (graph | local)
+        ('agente_cuenta', 'modo', "VARCHAR(20) DEFAULT 'graph'"),
+        # Agente Lux: carpeta de Outlook de origen (identifica la aerolinea)
+        ('agente_mails', 'carpeta', 'VARCHAR(300)'),
     ]
     for table, column, col_type in migrations:
         try:

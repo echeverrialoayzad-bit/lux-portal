@@ -16,14 +16,21 @@ from lux_portal.extensions import db
 
 
 class AgenteCuenta(db.Model):
-    """Cuenta de correo Microsoft 365 conectada. Se espera una sola fila.
+    """Cuenta de correo conectada. Se espera una sola fila.
 
-    El refresh_token es lo unico que hay que conservar: el access_token se
-    renueva solo a partir de el y dura ~1 hora."""
+    modo 'graph'  -> el portal baja los correos por Microsoft Graph. Requiere
+                     que un administrador del tenant apruebe la app.
+    modo 'local'  -> los correos se leen desde el Outlook de escritorio con
+                     `agente_lux_cli.py leer-outlook`. No necesita Azure ni
+                     aprobacion del administrador.
+
+    En modo local no hay tokens: refresh_token queda en None y el unico campo
+    que importa es ultimo_scan, que marca hasta donde se leyo."""
     __tablename__ = 'agente_cuenta'
 
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(250))
+    modo = db.Column(db.String(20), default='graph')
     refresh_token = db.Column(db.Text)
     access_token = db.Column(db.Text)
     token_expira = db.Column(db.DateTime)
@@ -34,6 +41,7 @@ class AgenteCuenta(db.Model):
         return {
             'id': self.id,
             'email': self.email,
+            'modo': self.modo or 'graph',
             'conectada_en': self.conectada_en.strftime('%Y-%m-%d %H:%M') if self.conectada_en else None,
             'ultimo_scan': self.ultimo_scan.strftime('%Y-%m-%d %H:%M') if self.ultimo_scan else None,
         }
@@ -54,6 +62,10 @@ class AgenteMail(db.Model):
     asunto = db.Column(db.String(500))
     cuerpo = db.Column(db.Text)
     web_link = db.Column(db.Text)
+    # Ruta de la carpeta de Outlook, ej "Inbox/AEROLINEAS/AVIANCA". El buzon
+    # esta archivado por aerolinea, asi que esto identifica la aerolinea sin
+    # tener que deducirla del texto.
+    carpeta = db.Column(db.String(300))
 
     estado = db.Column(db.String(30), default='pendiente', index=True)
 
@@ -86,6 +98,7 @@ class AgenteMail(db.Model):
             'remitente': self.remitente,
             'remitente_nombre': self.remitente_nombre or self.remitente,
             'asunto': self.asunto,
+            'carpeta': self.carpeta,
             'estado': self.estado,
             'categoria': self.categoria,
             'resumen': self.resumen,
@@ -170,12 +183,20 @@ class AgenteHallazgo(db.Model):
         self.detalle_json = json.dumps(value or {}, ensure_ascii=False)
 
     def to_dict(self):
+        # Antiguedad del correo que lo origino: una tarifa de hace un mes no
+        # sirve de nada, asi que la pantalla lo tiene que dejar ver.
+        dias = None
+        if self.mail and self.mail.fecha:
+            dias = max((datetime.utcnow() - self.mail.fecha).days, 0)
+
         return {
             'id': self.id,
             'mail_id': self.mail_id,
             'mail_asunto': self.mail.asunto if self.mail else None,
             'mail_remitente': (self.mail.remitente_nombre or self.mail.remitente) if self.mail else None,
             'mail_fecha': self.mail.fecha.strftime('%Y-%m-%d %H:%M') if (self.mail and self.mail.fecha) else None,
+            'mail_carpeta': self.mail.carpeta if self.mail else None,
+            'mail_dias': dias,
             'tipo': self.tipo,
             'aerolinea': self.aerolinea,
             'destino': self.destino or '',

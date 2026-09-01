@@ -137,6 +137,15 @@ def refresh():
     if not cuenta:
         return jsonify({'error': 'No hay ninguna cuenta de correo conectada.'}), 400
 
+    if (cuenta.modo or 'graph') == 'local':
+        # En modo local el portal no tiene como llegar al buzon: los correos
+        # entran desde la PC de Daniela con el CLI.
+        return jsonify({
+            'error': 'Esta cuenta lee el correo desde tu Outlook local, no '
+                     'desde el servidor. Corre en tu PC: '
+                     'python agente_lux_cli.py leer-outlook'
+        }), 400
+
     dias = int((request.json or {}).get('dias') or 0)
 
     scan = AgenteScan(iniciado_en=datetime.utcnow(), estado='en_curso')
@@ -244,10 +253,13 @@ def estado():
 @login_required
 def hallazgos():
     estados = request.args.get('estado', 'pendiente,aprobado').split(',')
+    # Lo mas reciente primero: si algo viene de un correo viejo, que se vea
+    # abajo y no se confunda con lo que acaba de llegar.
     filas = (AgenteHallazgo.query
+             .outerjoin(AgenteMail, AgenteHallazgo.mail_id == AgenteMail.id)
              .filter(AgenteHallazgo.estado.in_([e.strip() for e in estados if e.strip()]))
-             .order_by(AgenteHallazgo.tipo, AgenteHallazgo.aerolinea,
-                       AgenteHallazgo.destino, AgenteHallazgo.id)
+             .order_by(AgenteMail.fecha.desc().nullslast(),
+                       AgenteHallazgo.aerolinea, AgenteHallazgo.destino)
              .all())
     return jsonify({'hallazgos': [h.to_dict() for h in filas]})
 

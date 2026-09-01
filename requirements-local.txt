@@ -1,0 +1,8 @@
+# Dependencias que solo se usan en la maquina de Daniela, para el analisis
+# local de Agente Lux. NO van en requirements.txt: Railway corre en Linux y
+# pywin32 no existe ahi, asi que el despliegue fallaria.
+#
+#   pip install -r requirements-local.txt
+
+# Acceso al Outlook de escritorio (modo local, sin Azure ni admin del tenant)
+pywin32>=306
