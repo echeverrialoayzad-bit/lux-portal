@@ -144,10 +144,27 @@ def crear_app(db_url):
 
 
 def resolver_db(args):
-    url = args.db or os.environ.get('DATABASE_URL', '').strip()
+    if args.db:
+        return args.db
+
+    # El .env de la carpeta del proyecto guarda la conexion a Railway, para no
+    # tener que exportarla en cada terminal. Esta en .gitignore.
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+    except ImportError:
+        pass
+
+    url = os.environ.get('DATABASE_URL', '').strip()
     if not url:
-        sys.exit('Falta la conexion. Exporta DATABASE_URL o pasa --db '
-                 '"postgresql://usuario:clave@host:puerto/base".')
+        sys.exit(
+            'Falta la conexion a la base.\n'
+            '  - Crea un archivo .env en la carpeta del proyecto con:\n'
+            '      DATABASE_URL=postgresql://usuario:clave@host:puerto/base\n'
+            '  - O pasa --db "postgresql://..."\n'
+            'La URL publica sale de Railway: servicio Postgres -> Variables -> '
+            'DATABASE_PUBLIC_URL.'
+        )
     return url
 
 
