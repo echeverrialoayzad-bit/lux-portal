@@ -240,6 +240,9 @@ def cmd_exportar(args):
                 # La carpeta identifica la aerolinea: el buzon esta archivado
                 # en Inbox/AEROLINEAS/<AEROLINEA>.
                 'carpeta': correo.carpeta or '',
+                # True = la aerolinea contesto a una solicitud de tarifas de
+                # Daniela. Es la unica fuente valida de tarifas netas.
+                'respuesta_a_mi_solicitud': correo.respuesta_mia,
                 # Pista: si es False, casi seguro es una reserva o un tema
                 # operativo. Resumelo para la bitacora, pero no gastes tiempo
                 # buscandole tarifas (sus adjuntos ni siquiera se volcaron).
@@ -284,8 +287,10 @@ def cmd_exportar(args):
 # cargar
 # ---------------------------------------------------------------------------
 
-def _validar_hallazgo(h, indice, ids_validos):
-    """Devuelve lista de errores para un hallazgo. Vacia = esta bien."""
+def _validar_hallazgo(h, indice, correos):
+    """Devuelve lista de errores para un hallazgo. Vacia = esta bien.
+
+    `correos` mapea mail_id -> AgenteMail de los pendientes de esta tanda."""
     errores = []
     prefijo = f'hallazgos[{indice}]'
 
@@ -296,8 +301,23 @@ def _validar_hallazgo(h, indice, ids_validos):
         return errores
 
     mail_id = h.get('mail_id')
-    if mail_id is not None and mail_id not in ids_validos:
+    if mail_id is not None and mail_id not in correos:
         errores.append(f'{prefijo}: mail_id {mail_id} no esta entre los correos pendientes.')
+
+    # Las tarifas netas solo salen de respuestas a las solicitudes de Daniela.
+    # Una reserva o una guia aerea esta llena de cifras por kilo que no son la
+    # tarifa vigente, y confundirlas es el error mas caro de este flujo.
+    # Solo se rechaza cuando consta que NO es respuesta suya: si el dato no se
+    # pudo determinar (correos leidos antes de que existiera este campo) se
+    # deja pasar y el hallazgo queda con su alerta.
+    if tipo == 'tarifa':
+        correo = correos.get(mail_id)
+        if correo is not None and correo.respuesta_mia is False:
+            errores.append(
+                f'{prefijo}: el correo {mail_id} ("{(correo.asunto or "")[:50]}") '
+                f'no contesta a ninguna solicitud de tarifas, asi que de ahi no '
+                f'se sacan tarifas netas. Si trae un aviso de fuel surcharge, '
+                f'mandalo como tipo "fsc".')
 
     if h.get('confianza') and h['confianza'] not in CONFIANZAS_VALIDAS:
         errores.append(f'{prefijo}: confianza "{h["confianza"]}" invalida.')
@@ -418,7 +438,7 @@ def cmd_cargar(args):
         # Validar todo antes de escribir nada.
         errores = []
         for i, h in enumerate(datos.get('hallazgos') or []):
-            errores.extend(_validar_hallazgo(h, i, set(pendientes.keys())))
+            errores.extend(_validar_hallazgo(h, i, pendientes))
 
         if errores:
             print('El archivo tiene problemas y no se cargo nada:\n')
@@ -632,6 +652,59 @@ def cmd_leer_outlook(args):
         print('No quedo nada pendiente de analisis.')
 
 
+def cmd_marcar_respuestas(args):
+    """Rellena respuesta_mia en los correos leidos antes de que existiera.
+
+    Sin esto, el guardarraíl que impide sacar tarifas de reservas no cubre a
+    los correos viejos, porque no sabe si contestan a una solicitud."""
+    app = crear_app(resolver_db(args))
+    from lux_portal.extensions import db
+    from lux_portal.agente_lux.models import AgenteMail
+    from lux_portal.agente_lux import outlook_local
+
+    try:
+        ns = outlook_local._conectar()
+        conversaciones = outlook_local.conversaciones_propias(ns)
+    except outlook_local.OutlookNoDisponible as exc:
+        sys.exit(str(exc))
+
+    if conversaciones is None:
+        sys.exit('No se pudo leer la carpeta de Elementos enviados.')
+    print(f'{len(conversaciones)} conversacion(es) iniciadas por ti en el ultimo '
+          f'tiempo.')
+
+    with app.app_context():
+        pendientes = AgenteMail.query.filter(AgenteMail.respuesta_mia.is_(None)).all()
+        print(f'{len(pendientes)} correo(s) sin el dato. Revisando en Outlook...')
+
+        respuestas, otros, perdidos = 0, 0, 0
+        for correo in pendientes:
+            entry_id = (correo.graph_id or '')
+            if not entry_id.startswith('outlook:'):
+                continue
+            try:
+                item = ns.GetItemFromID(entry_id[len('outlook:'):])
+                conv = getattr(item, 'ConversationID', None)
+            except Exception:
+                # El correo se movio o se borro del buzon desde que se leyo.
+                perdidos += 1
+                continue
+
+            correo.respuesta_mia = bool(conv and conv in conversaciones)
+            if correo.respuesta_mia:
+                respuestas += 1
+            else:
+                otros += 1
+
+        db.session.commit()
+
+    print()
+    print(f'{respuestas} contestan a una solicitud tuya (de ahi si salen tarifas)')
+    print(f'{otros} son reservas, guias o avisos (de ahi no)')
+    if perdidos:
+        print(f'{perdidos} ya no estan en el buzon, quedaron sin dato')
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Puente entre el portal Lux y el analisis local de correos.'
@@ -656,6 +729,9 @@ def main():
                            help='Tope de correos por corrida (por defecto 500).')
 
     sub.add_parser('carpetas', help='Lista las carpetas de Outlook disponibles.')
+    sub.add_parser('marcar-respuestas',
+                   help='Marca cuales correos ya leidos contestan a una '
+                        'solicitud tuya de tarifas.')
 
     p_exp = sub.add_parser('exportar',
                            help='Vuelca los correos pendientes a _agente_lux/.')
@@ -672,6 +748,7 @@ def main():
     {
         'leer-outlook': cmd_leer_outlook,
         'carpetas': cmd_carpetas,
+        'marcar-respuestas': cmd_marcar_respuestas,
         'exportar': cmd_exportar,
         'cargar': cmd_cargar,
         'estado': cmd_estado,

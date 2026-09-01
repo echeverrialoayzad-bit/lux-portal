@@ -150,6 +150,8 @@ def _migrate_db(app):
         ('agente_cuenta', 'modo', "VARCHAR(20) DEFAULT 'graph'"),
         # Agente Lux: carpeta de Outlook de origen (identifica la aerolinea)
         ('agente_mails', 'carpeta', 'VARCHAR(300)'),
+        # Agente Lux: si el correo contesta a una solicitud de Daniela
+        ('agente_mails', 'respuesta_mia', 'BOOLEAN'),
         # Agente Lux: puente entre el boton del portal y el vigia en la PC
         ('agente_cuenta', 'refresh_solicitado', 'TIMESTAMP'),
         ('agente_cuenta', 'refresh_estado', "VARCHAR(20) DEFAULT 'libre'"),

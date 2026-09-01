@@ -48,6 +48,27 @@ sirve: Daniela necesita ver "de 3.00 a 2.85", no solo "2.85".
 
 ## Reglas que no se negocian
 
+**Las tarifas netas solo salen de respuestas a las solicitudes de Daniela.**
+Ella manda un correo pidiendo tarifas y la aerolínea contesta sobre ese mismo
+hilo. El campo `respuesta_a_mi_solicitud` te dice si el correo es una de esas
+respuestas.
+
+Si es `false`, **no propongas ningún hallazgo de tipo `tarifa` desde ese
+correo**, por más que veas números que parezcan tarifas. Las reservas, los
+cierres, las guías aéreas y los manifiestos están llenos de cifras por kilo
+que no son la tarifa vigente — son el precio de un embarque puntual. Proponer
+una de esas como tarifa nueva es el error más fácil de cometer acá, y `cargar`
+lo rechaza.
+
+Excepción: los avisos de **fuel surcharge** sí llegan como comunicados, no como
+respuesta. Un hallazgo `fsc` desde un correo con `respuesta_a_mi_solicitud`
+en `false` es válido **si el correo es claramente un aviso de recargo** (asunto
+tipo "Fuel Surcharge update", "Actualización FSC"). Si el correo es una reserva
+o una guía, no.
+
+Cuando el campo venga `null` no se pudo determinar: trátalo como `false` para
+tarifas y baja la confianza.
+
 **Solo vale lo más reciente.** Una tarifa o un FSC de hace un mes no le sirve
 de nada a Daniela. Si dos correos hablan de la misma aerolínea + destino + tier,
 propón **únicamente el del correo más nuevo** y no menciones el viejo como

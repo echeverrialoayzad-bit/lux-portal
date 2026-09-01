@@ -85,6 +85,11 @@ class AgenteMail(db.Model):
     # esta archivado por aerolinea, asi que esto identifica la aerolinea sin
     # tener que deducirla del texto.
     carpeta = db.Column(db.String(300))
+    # True si el correo llego como respuesta a un hilo que arranco Daniela.
+    # Las tarifas buenas son siempre asi: ella pide y la aerolinea contesta
+    # sobre el mismo correo. Lo que no es respuesta suya es reserva, guia o
+    # aviso, y de ahi no se sacan tarifas. None = no se pudo determinar.
+    respuesta_mia = db.Column(db.Boolean)
 
     estado = db.Column(db.String(30), default='pendiente', index=True)
 
@@ -118,6 +123,7 @@ class AgenteMail(db.Model):
             'remitente_nombre': self.remitente_nombre or self.remitente,
             'asunto': self.asunto,
             'carpeta': self.carpeta,
+            'respuesta_mia': self.respuesta_mia,
             'estado': self.estado,
             'categoria': self.categoria,
             'resumen': self.resumen,

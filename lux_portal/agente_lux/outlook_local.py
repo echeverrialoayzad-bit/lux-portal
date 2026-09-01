@@ -20,7 +20,7 @@ Requiere:  pip install pywin32
 import mimetypes
 import os
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Solo se guarda el contenido de adjuntos que pueden traer tarifas.
 MIMES_UTILES = ('image/', 'application/pdf')
@@ -37,7 +37,14 @@ MAX_ADJUNTOS_POR_CORREO = 10
 
 # Constantes de Outlook (no dependen de pywin32).
 OL_FOLDER_INBOX = 6
+OL_FOLDER_ENVIADOS = 5
 OL_MAIL_ITEM = 43
+
+# Cuanto mirar hacia atras en Elementos enviados para saber que conversaciones
+# nacieron de una solicitud de Daniela. Una aerolinea puede tardar semanas en
+# contestar, asi que la ventana es mucho mas amplia que la de lectura.
+DIAS_ENVIADOS = 240
+MAX_ENVIADOS = 3000
 
 # Tope de mensajes a recorrer, para no colgarse en un buzon enorme.
 MAX_RECORRIDO = 800
@@ -238,6 +245,52 @@ def _adjuntos(item):
     return salida
 
 
+def conversaciones_propias(ns, dias=DIAS_ENVIADOS):
+    """ConversationID de los hilos que arrancaron con un correo de Daniela.
+
+    Las tarifas buenas llegan como respuesta a una solicitud que ella mando:
+    si el hilo no nacio de un correo suyo, lo que traiga es una reserva, una
+    guia o un aviso, y de ahi no hay que sacar tarifas.
+
+    Si algo falla devuelve None (no un set vacio) para que el caller sepa que
+    no pudo determinarlo y no marque todo como "no es respuesta mia"."""
+    try:
+        enviados = ns.GetDefaultFolder(OL_FOLDER_ENVIADOS)
+        items = enviados.Items
+        try:
+            items.Sort('[SentOn]', True)
+        except Exception:
+            pass
+    except Exception:
+        return None
+
+    corte = datetime.now() - timedelta(days=dias)
+    ids = set()
+    recorridos = 0
+
+    try:
+        for item in items:
+            recorridos += 1
+            if recorridos > MAX_ENVIADOS:
+                break
+            try:
+                if getattr(item, 'Class', None) != OL_MAIL_ITEM:
+                    continue
+                enviado = item.SentOn
+                fecha = datetime(enviado.year, enviado.month, enviado.day)
+                if fecha < corte:
+                    break
+                conv = getattr(item, 'ConversationID', None)
+                if conv:
+                    ids.add(conv)
+            except Exception:
+                continue
+    except Exception:
+        return ids or None
+
+    return ids
+
+
 def _expandir(carpeta, ruta):
     """(carpeta, ruta) de esta carpeta y de todas sus subcarpetas."""
     salida = [(carpeta, ruta)]
@@ -249,7 +302,7 @@ def _expandir(carpeta, ruta):
     return salida
 
 
-def _leer_carpeta(carpeta, ruta, desde, limite):
+def _leer_carpeta(carpeta, ruta, desde, limite, conversaciones_mias=None):
     """Correos de una sola carpeta, mas nuevos primero."""
     try:
         items = carpeta.Items
@@ -292,10 +345,18 @@ def _leer_carpeta(carpeta, ruta, desde, limite):
         except Exception:
             cuerpo = ''
 
+        # Respuesta a un hilo que arranco Daniela = solicitud de tarifas
+        # contestada. None significa "no se pudo determinar".
+        respuesta_mia = None
+        if conversaciones_mias is not None:
+            conv = getattr(item, 'ConversationID', None)
+            respuesta_mia = bool(conv and conv in conversaciones_mias)
+
         correos.append({
             'id_unico': f'outlook:{entry_id}',
             'fecha': fecha,
             'carpeta': ruta,
+            'respuesta_mia': respuesta_mia,
             'remitente': _email_remitente(item),
             'remitente_nombre': getattr(item, 'SenderName', '') or '',
             'asunto': getattr(item, 'Subject', '') or '(sin asunto)',
@@ -319,12 +380,17 @@ def leer(desde, carpeta='Inbox', limite=200, recursivo=True):
     ns = _conectar()
     origen = _resolver_carpeta(ns, carpeta)
 
+    # Se calcula una sola vez para todas las carpetas: recorrer Elementos
+    # enviados es caro y el resultado es el mismo para todas.
+    conversaciones_mias = conversaciones_propias(ns)
+
     ruta_base = carpeta or 'Inbox'
     objetivos = _expandir(origen, ruta_base) if recursivo else [(origen, ruta_base)]
 
     correos = []
     for sub, ruta in objetivos:
-        correos.extend(_leer_carpeta(sub, ruta, desde, limite))
+        correos.extend(_leer_carpeta(sub, ruta, desde, limite,
+                                     conversaciones_mias))
 
     correos.sort(key=lambda c: c['fecha'], reverse=True)
     return correos[:limite]
