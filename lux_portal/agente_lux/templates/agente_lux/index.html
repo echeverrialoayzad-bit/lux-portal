@@ -1,0 +1,364 @@
+{% extends "cotizaciones/base_freightwise.html" %}
+{% block title %}Agente Lux{% endblock %}
+{% block content %}
+<style>
+  .al-card { border:1px solid #e6e6e6; border-radius:.5rem; }
+  .al-alerta { background:#fff8e1; border-left:3px solid #f0ad4e; padding:.4rem .6rem;
+               font-size:.78rem; border-radius:.2rem; }
+  .al-cita { font-size:.75rem; color:#6c757d; font-style:italic;
+             border-left:2px solid #dee2e6; padding-left:.5rem; }
+  .al-dia { font-weight:600; font-size:.9rem; color:#334; }
+  .al-val-nuevo { width:92px; }
+  #tabla-hallazgos input[type=number]::-webkit-outer-spin-button,
+  #tabla-hallazgos input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  #tabla-hallazgos input[type=number] { -moz-appearance:textfield; appearance:textfield; }
+  .al-vacio { padding:2.5rem 1rem; text-align:center; color:#8a8a8a; }
+</style>
+
+<div class="container-fluid py-4">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+    <div>
+      <h4 class="fw-bold mb-1"><i class="bi bi-robot me-1"></i>Agente Lux</h4>
+      <p class="text-muted small mb-0">
+        Revisa tu correo, te propone las actualizaciones de tarifas y FSC, y solo
+        aplica lo que apruebes.
+      </p>
+    </div>
+    <div class="text-end">
+      <div id="estado-cuenta" class="small text-muted mb-2">—</div>
+      <button id="btn-refresh" class="btn btn-primary btn-sm">
+        <i class="bi bi-arrow-clockwise me-1"></i>Refresh correos
+      </button>
+    </div>
+  </div>
+
+  {% if not config_ok %}
+  <div class="alert alert-danger">
+    <strong>Falta configurar Microsoft en Railway.</strong>
+    Variables pendientes: <code>{{ falta_config|join(', ') }}</code>
+  </div>
+  {% endif %}
+
+  {% if config_ok and not cuenta %}
+  <div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <strong>Correo no conectado.</strong>
+      Agente Lux necesita permiso de <em>solo lectura</em> sobre tu buzón para poder revisarlo.
+    </div>
+    <a href="{{ url_for('agente_lux.oauth_iniciar') }}" class="btn btn-warning btn-sm">
+      <i class="bi bi-microsoft me-1"></i>Conectar correo
+    </a>
+  </div>
+  {% endif %}
+
+  <div id="banner" class="d-none alert py-2 small"></div>
+
+  <ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-updates" type="button">
+        Actualizaciones <span id="badge-hallazgos" class="badge bg-secondary ms-1">0</span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-bitacora" type="button">
+        Bitácora de correos
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ============ TAB 1: actualizaciones propuestas ============ -->
+    <div class="tab-pane fade show active" id="tab-updates">
+      <div class="card al-card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="small text-muted" id="resumen-hallazgos">Sin cambios propuestos.</div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="marcarTodos(true)">Aprobar todo</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="marcarTodos(false)">Quitar selección</button>
+            <button id="btn-aplicar" class="btn btn-success btn-sm" disabled>
+              <i class="bi bi-check2-circle me-1"></i>Aplicar seleccionados
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0" id="tabla-hallazgos">
+            <thead class="table-light">
+              <tr>
+                <th style="width:34px;"></th>
+                <th>Qué cambia</th>
+                <th style="width:90px;" class="text-end">Hoy</th>
+                <th style="width:110px;" class="text-end">Propuesto</th>
+                <th style="width:80px;">Confianza</th>
+                <th>Origen / nota</th>
+              </tr>
+            </thead>
+            <tbody id="cuerpo-hallazgos"></tbody>
+          </table>
+        </div>
+        <div id="hallazgos-vacio" class="al-vacio">
+          <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+          No hay cambios propuestos.<br>
+          <span class="small">Dale a <strong>Refresh correos</strong> y luego corre el análisis local.</span>
+        </div>
+      </div>
+
+      <div class="mt-3 small text-muted">
+        <i class="bi bi-info-circle me-1"></i>
+        El análisis de los correos corre en tu PC con Claude Code (no gasta API).
+        Después de hacer refresh, ejecuta:
+        <code>python agente_lux_cli.py exportar</code> &rarr; pídele el análisis a Claude Code &rarr;
+        <code>python agente_lux_cli.py cargar</code>
+      </div>
+    </div>
+
+    <!-- ============ TAB 2: bitácora ============ -->
+    <div class="tab-pane fade" id="tab-bitacora">
+      <div id="bitacora-contenido"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const HALLAZGOS = new Map();
+
+function banner(msg, tipo) {
+  const el = document.getElementById('banner');
+  el.className = 'alert py-2 small alert-' + (tipo || 'info');
+  el.textContent = msg;
+  el.classList.remove('d-none');
+}
+function ocultarBanner() { document.getElementById('banner').classList.add('d-none'); }
+
+function escapar(txt) {
+  const d = document.createElement('div');
+  d.textContent = txt == null ? '' : txt;
+  return d.innerHTML;
+}
+
+// ---------------------------------------------------------------- estado
+async function cargarEstado() {
+  const r = await fetch('{{ url_for("agente_lux.estado") }}');
+  const d = await r.json();
+  const el = document.getElementById('estado-cuenta');
+  if (d.cuenta) {
+    el.innerHTML = '<i class="bi bi-envelope-check text-success me-1"></i>'
+      + escapar(d.cuenta.email)
+      + (d.cuenta.ultimo_scan ? ' · último refresh ' + escapar(d.cuenta.ultimo_scan) : ' · sin refresh aún');
+  } else {
+    el.innerHTML = '<i class="bi bi-envelope-slash text-danger me-1"></i>Sin correo conectado';
+  }
+  if (d.pendientes_de_analisis > 0) {
+    banner(d.pendientes_de_analisis + ' correo(s) descargados esperando análisis local. '
+      + 'Corre: python agente_lux_cli.py exportar', 'warning');
+  }
+}
+
+// ---------------------------------------------------------------- refresh
+document.getElementById('btn-refresh').addEventListener('click', async (ev) => {
+  const btn = ev.currentTarget;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Revisando correo…';
+  ocultarBanner();
+  try {
+    const r = await fetch('{{ url_for("agente_lux.refresh") }}', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+    });
+    const d = await r.json();
+    if (!r.ok) { banner(d.error || 'Error al revisar el correo.', 'danger'); }
+    else if (d.correos_nuevos === 0) {
+      banner('Sin correos nuevos desde el último refresh (' + d.correos_revisados + ' revisados).', 'success');
+    } else {
+      banner(d.correos_nuevos + ' correo(s) nuevos descargados. '
+        + 'Ahora corre el análisis local: python agente_lux_cli.py exportar', 'warning');
+    }
+  } catch (e) {
+    banner('Error de red: ' + e.message, 'danger');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Refresh correos';
+  cargarEstado(); cargarHallazgos(); cargarBitacora();
+});
+
+// ---------------------------------------------------------------- hallazgos
+const ETIQUETA_TIPO = {
+  tarifa: ['Tarifa neta', 'bg-primary'],
+  fsc:    ['FSC',         'bg-info text-dark'],
+  cargo:  ['Cargo',       'bg-secondary'],
+  dias:   ['Días salida', 'bg-dark'],
+  info:   ['Info',        'bg-light text-dark border']
+};
+
+function filaHallazgo(h) {
+  const [etiqueta, color] = ETIQUETA_TIPO[h.tipo] || ['Otro', 'bg-secondary'];
+  const alcance = h.tipo === 'fsc'
+      ? (h.detalle.destinos && h.detalle.destinos.length
+          ? h.detalle.destinos.join(', ')
+          : 'TODOS los destinos')
+      : (h.destino || '—');
+  const soloInfo = (h.tipo === 'dias' || h.tipo === 'info');
+
+  return `
+  <tr data-id="${h.id}">
+    <td>
+      ${soloInfo ? '' : `<input class="form-check-input chk-hallazgo" type="checkbox"
+         ${h.estado === 'aprobado' ? 'checked' : ''}>`}
+    </td>
+    <td>
+      <span class="badge ${color} me-1">${etiqueta}</span>
+      <strong>${escapar(h.aerolinea || '')}</strong>
+      <span class="text-muted">· ${escapar(alcance)}</span>
+      ${h.detalle.kg ? `<span class="badge bg-light text-dark border ms-1">${escapar(h.detalle.kg)}</span>` : ''}
+      <div class="small text-muted">${escapar(h.descripcion || '')}</div>
+      ${h.alerta ? `<div class="al-alerta mt-1"><i class="bi bi-exclamation-triangle me-1"></i>${escapar(h.alerta)}</div>` : ''}
+      ${h.error ? `<div class="text-danger small mt-1">${escapar(h.error)}</div>` : ''}
+    </td>
+    <td class="text-end text-muted">${escapar(h.valor_actual || '—')}</td>
+    <td class="text-end">
+      ${soloInfo ? '—' : `<input type="number" step="0.01"
+        class="form-control form-control-sm text-end al-val-nuevo inp-valor"
+        value="${escapar(h.valor_nuevo || '')}">`}
+    </td>
+    <td><span class="small text-uppercase">${escapar(h.confianza || '')}</span></td>
+    <td>
+      <div class="small">${escapar(h.mail_asunto || '')}</div>
+      <div class="small text-muted">${escapar(h.mail_remitente || '')} · ${escapar(h.mail_fecha || '')}</div>
+      ${h.cita ? `<div class="al-cita mt-1">“${escapar(h.cita)}”</div>` : ''}
+    </td>
+  </tr>`;
+}
+
+async function cargarHallazgos() {
+  const r = await fetch('{{ url_for("agente_lux.hallazgos") }}?estado=pendiente,aprobado');
+  const d = await r.json();
+  const filas = d.hallazgos || [];
+
+  HALLAZGOS.clear();
+  filas.forEach(h => HALLAZGOS.set(h.id, h));
+
+  document.getElementById('badge-hallazgos').textContent = filas.length;
+  document.getElementById('cuerpo-hallazgos').innerHTML = filas.map(filaHallazgo).join('');
+  document.getElementById('hallazgos-vacio').style.display = filas.length ? 'none' : 'block';
+
+  const porTipo = {};
+  filas.forEach(h => { porTipo[h.tipo] = (porTipo[h.tipo] || 0) + 1; });
+  document.getElementById('resumen-hallazgos').textContent = filas.length
+    ? Object.entries(porTipo).map(([t, n]) => `${n} ${ETIQUETA_TIPO[t] ? ETIQUETA_TIPO[t][0] : t}`).join(' · ')
+    : 'Sin cambios propuestos.';
+
+  document.querySelectorAll('.chk-hallazgo').forEach(c => c.addEventListener('change', actualizarBotonAplicar));
+  document.querySelectorAll('.inp-valor').forEach(i => i.addEventListener('change', guardarValor));
+  actualizarBotonAplicar();
+}
+
+function idsSeleccionados() {
+  return [...document.querySelectorAll('#cuerpo-hallazgos tr')]
+    .filter(tr => tr.querySelector('.chk-hallazgo')?.checked)
+    .map(tr => parseInt(tr.dataset.id, 10));
+}
+
+function actualizarBotonAplicar() {
+  const n = idsSeleccionados().length;
+  const btn = document.getElementById('btn-aplicar');
+  btn.disabled = n === 0;
+  btn.innerHTML = `<i class="bi bi-check2-circle me-1"></i>Aplicar seleccionados${n ? ' (' + n + ')' : ''}`;
+}
+
+function marcarTodos(valor) {
+  document.querySelectorAll('.chk-hallazgo').forEach(c => { c.checked = valor; });
+  actualizarBotonAplicar();
+}
+
+async function guardarValor(ev) {
+  const tr = ev.currentTarget.closest('tr');
+  const id = parseInt(tr.dataset.id, 10);
+  const r = await fetch('{{ url_for("agente_lux.editar") }}', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id: id, valor_nuevo: ev.currentTarget.value})
+  });
+  if (r.ok) { cargarHallazgos(); }
+}
+
+document.getElementById('btn-aplicar').addEventListener('click', async (ev) => {
+  const ids = idsSeleccionados();
+  if (!ids.length) return;
+  if (!confirm(`Se van a aplicar ${ids.length} cambio(s) sobre las cotizaciones y las reglas de FSC. ¿Continuar?`)) return;
+
+  const btn = ev.currentTarget;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Aplicando…';
+
+  await fetch('{{ url_for("agente_lux.decidir") }}', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ids: ids, decision: 'aprobado'})
+  });
+  const r = await fetch('{{ url_for("agente_lux.aplicar") }}', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ids: ids})
+  });
+  const d = await r.json();
+
+  if (d.fallidos) {
+    banner(`${d.aplicados} aplicados, ${d.fallidos} con error. Revisa el detalle en rojo.`, 'warning');
+  } else {
+    banner(`${d.aplicados} cambio(s) aplicados correctamente.`, 'success');
+  }
+  cargarHallazgos();
+});
+
+// ---------------------------------------------------------------- bitácora
+async function cargarBitacora() {
+  const r = await fetch('{{ url_for("agente_lux.bitacora") }}?dias=14');
+  const d = await r.json();
+  const cont = document.getElementById('bitacora-contenido');
+
+  if (!d.dias || !d.dias.length) {
+    cont.innerHTML = `<div class="card al-card"><div class="al-vacio">
+      <i class="bi bi-calendar3 fs-3 d-block mb-2"></i>Todavía no hay correos registrados.</div></div>`;
+    return;
+  }
+
+  cont.innerHTML = d.dias.map(dia => `
+    <div class="card al-card shadow-sm mb-3">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span class="al-dia"><i class="bi bi-calendar3 me-1"></i>${escapar(dia.dia)}</span>
+        <span class="small text-muted">
+          ${dia.correos.length} correo(s)
+          ${dia.con_accion ? `· <span class="text-danger fw-semibold">${dia.con_accion} por atender</span>` : ''}
+        </span>
+      </div>
+      <ul class="list-group list-group-flush">
+        ${dia.correos.map(c => `
+          <li class="list-group-item">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div class="flex-grow-1">
+                <div class="fw-semibold small">
+                  ${c.requiere_accion ? '<i class="bi bi-flag-fill text-danger me-1"></i>' : ''}
+                  ${escapar(c.asunto)}
+                </div>
+                <div class="small text-muted">${escapar(c.remitente_nombre)} · ${escapar(c.fecha)}</div>
+                ${c.resumen
+                  ? `<div class="small mt-1">${escapar(c.resumen)}</div>`
+                  : '<div class="small text-muted fst-italic mt-1">Sin analizar todavía.</div>'}
+                ${(c.temas || []).length
+                  ? `<ul class="small mb-0 mt-1">${c.temas.map(t => `<li>${escapar(t)}</li>`).join('')}</ul>`
+                  : ''}
+              </div>
+              <div class="text-end" style="min-width:110px;">
+                ${c.categoria ? `<span class="badge bg-light text-dark border">${escapar(c.categoria)}</span>` : ''}
+                ${c.n_adjuntos ? `<div class="small text-muted mt-1"><i class="bi bi-paperclip"></i> ${c.n_adjuntos}</div>` : ''}
+                ${c.web_link ? `<a class="small" href="${escapar(c.web_link)}" target="_blank" rel="noopener">Abrir</a>` : ''}
+              </div>
+            </div>
+          </li>`).join('')}
+      </ul>
+    </div>`).join('');
+}
+
+cargarEstado();
+cargarHallazgos();
+cargarBitacora();
+</script>
+{% endblock %}

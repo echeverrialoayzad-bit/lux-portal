@@ -750,6 +750,12 @@
                             <i class="bi bi-robot"></i> Act. Tarifas
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'agente_lux.index' %}active{% endif %}"
+                           href="{{ url_for('agente_lux.index') }}">
+                            <i class="bi bi-stars"></i> Agente Lux
+                        </a>
+                    </li>
                 </ul>
                 <ul class="navbar-nav align-items-center">
                     <li class="nav-item me-3">

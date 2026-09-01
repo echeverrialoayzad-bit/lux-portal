@@ -30,6 +30,7 @@ def create_app(config_name='default'):
     from lux_portal.proformas import proformas_bp
     from lux_portal.tarifas import tarifas_bp
     from lux_portal.documentacion import documentacion_bp
+    from lux_portal.agente_lux import agente_lux_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -42,6 +43,7 @@ def create_app(config_name='default'):
     app.register_blueprint(proformas_bp, url_prefix='/proformas')
     app.register_blueprint(tarifas_bp, url_prefix='/tarifas')
     app.register_blueprint(documentacion_bp, url_prefix='/documentacion')
+    app.register_blueprint(agente_lux_bp, url_prefix='/agente-lux')
 
     # Crear tablas de base de datos y migrar columnas faltantes
     with app.app_context():

@@ -31,3 +31,10 @@ Thumbs.db
 # Temp files
 *.tmp
 *.bak
+
+# Agente Lux: contenido real de correos y adjuntos exportados para el
+# analisis local. Nunca debe subirse al repositorio.
+_agente_lux/
+
+# Claude Code: configuracion local de la maquina
+.claude/settings.local.json

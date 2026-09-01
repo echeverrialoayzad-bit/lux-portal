@@ -1,0 +1,33 @@
+{
+  "model": "sonnet",
+  "permissions": {
+    "allow": [
+      "PowerShell(\\(Get-Command railway -ErrorAction SilentlyContinue\\) | Out-Null; if \\($?\\) { railway --version } else { \"railway CLI not found\" })",
+      "PowerShell(git ls-remote origin HEAD)",
+      "PowerShell(Get-Process | Where-Object { $_.ProcessName -match 'git' } | Select-Object Id, ProcessName, StartTime, CPU)",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\railway-cli\\\\railway.exe\" link -p inspiring-nourishment 2>&1)",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\railway-cli\\\\railway.exe\" deployment list --help 2>&1)",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\railway-cli\\\\railway.exe\" deployment list --limit 5 --json 2>&1)",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\railway-cli\\\\railway.exe\" deployment list --limit 1 --json 2>&1 | Select-String -Pattern \"commitHash|status|createdAt\")",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\railway-cli\\\\railway.exe\" up --help 2>&1)",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\railway-cli\\\\railway.exe\" up --ci -y -m \"Deploy Excel Online module\" 2>&1)",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\railway-cli\\\\railway.exe\" service --help 2>&1 | Select-String -Pattern \"source\")",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\railway-cli\\\\railway.exe\" service source connect --repo echeverrialoayzad-bit/lux-portal --branch main --service web 2>&1)",
+      "PowerShell(python -c \"import playwright\" 2>&1)",
+      "PowerShell(python -m pip show playwright 2>&1)",
+      "PowerShell(python -m pip install playwright --quiet --disable-pip-version-check)",
+      "PowerShell(python -m playwright install chromium --with-deps 2>&1)",
+      "PowerShell(Invoke-WebRequest -Uri \"http://127.0.0.1:5055/health\" -UseBasicParsing)",
+      "PowerShell(python \"_pw_test_excel_online.py\")",
+      "PowerShell(python \"_check_db.py\")",
+      "PowerShell(Get-Process python -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force -Confirm:$false)",
+      "Read(//c/Users/**)",
+      "PowerShell(git add lux_portal/excel_online/templates/excel_online/index.html)",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\railway-cli\\\\railway.exe\" up --ci -y -m \"Deploy Excel Online ribbon\" 2>&1 | Select-Object -Last 15)",
+      "PowerShell(python \"_pw_test_cotizaciones.py\")",
+      "PowerShell(python \"_pw_test_cotiz_edit.py\")",
+      "PowerShell(& \"$env:LOCALAPPDATA\\\\railway-cli\\\\railway.exe\" variable list --service Postgres --kv 2>&1 | Select-String -Pattern \"DATABASE_URL|DATABASE_PUBLIC_URL\")"
+    ]
+  }
+}
