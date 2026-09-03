@@ -64,9 +64,20 @@
 </div>
 
 <div class="card fade-in">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Historial de Cotizaciones</h5>
-        <span class="badge bg-light text-dark">{{ cotizaciones|length }} cotizaciones</span>
+        <div class="d-flex align-items-center gap-2">
+            <div class="input-group input-group-sm" style="width: 250px;">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input type="text" id="buscarDestino" class="form-control" autocomplete="off"
+                       placeholder="Buscar destino (ej: ICN)" oninput="filtrarCotizaciones()">
+                <button type="button" class="btn btn-outline-secondary" id="btnLimpiarBusqueda"
+                        onclick="limpiarBusqueda()" style="display:none;" title="Limpiar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <span class="badge bg-light text-dark" id="contadorCotizaciones">{{ cotizaciones|length }} cotizaciones</span>
+        </div>
     </div>
     <div class="card-body p-0">
         {% if cotizaciones %}
@@ -85,7 +96,8 @@
                 </thead>
                 <tbody>
                     {% for cotizacion in cotizaciones %}
-                    <tr class="cotizacion-item">
+                    <tr class="cotizacion-item"
+                        data-busqueda="{{ cotizacion.ruta }} {{ cotizacion.destino or '' }} {{ cotizacion.customer or '' }} {{ cotizacion.mercancia or '' }}">
                         <td><strong>{{ cotizacion.id }}</strong></td>
                         <td>
                             <small class="text-muted">
@@ -159,6 +171,11 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <div id="sinResultados" class="empty-state" style="display:none;">
+                <i class="bi bi-search"></i>
+                <h5>Ningun destino coincide</h5>
+                <p class="text-muted mb-0">Prueba con otro codigo, por ejemplo ICN o AMS.</p>
+            </div>
         </div>
         {% else %}
         <div class="empty-state">
@@ -251,6 +268,35 @@
 
 {% block extra_js %}
 <script>
+// Busca en el historial por destino (tambien sirve para ruta, cliente o
+// mercancia). Filtra lo que ya esta en pantalla, sin recargar.
+function filtrarCotizaciones() {
+    const input = document.getElementById('buscarDestino');
+    const q = (input.value || '').trim().toUpperCase();
+    let visibles = 0;
+
+    document.querySelectorAll('tr.cotizacion-item').forEach(fila => {
+        const texto = (fila.dataset.busqueda || '').toUpperCase();
+        const coincide = !q || texto.includes(q);
+        fila.style.display = coincide ? '' : 'none';
+        if (coincide) visibles++;
+    });
+
+    document.getElementById('contadorCotizaciones').textContent =
+        visibles + (visibles === 1 ? ' cotizacion' : ' cotizaciones');
+    document.getElementById('btnLimpiarBusqueda').style.display = q ? '' : 'none';
+
+    const vacio = document.getElementById('sinResultados');
+    if (vacio) vacio.style.display = (q && visibles === 0) ? '' : 'none';
+}
+
+function limpiarBusqueda() {
+    const input = document.getElementById('buscarDestino');
+    input.value = '';
+    filtrarCotizaciones();
+    input.focus();
+}
+
 let _urlPendienteDescarga = null;
 
 async function descargarConValidacion(id, url) {
