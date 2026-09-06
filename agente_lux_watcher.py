@@ -189,11 +189,37 @@ def escribir_lanzador():
     if not python.isascii():
         python = 'python'   # el de PATH, que es con el que se instalo todo
     os.makedirs(os.path.dirname(lanzador), exist_ok=True)
+    # Al iniciar sesion, la carpeta de OneDrive y la red pueden tardar en
+    # estar listas: se espera hasta dos minutos antes de rendirse, y si algo
+    # falla la ventana se queda abierta con el error a la vista en vez de
+    # cerrarse en silencio (asi paso el 2026-09-06: reinicio y nada arranco).
+    lineas = [
+        '@echo off',
+        'title Agente Lux - vigia',
+        'set INTENTOS=0',
+        ':espera',
+        'if exist "%~dp0..\\agente_lux_watcher.py" goto listo',
+        'set /a INTENTOS+=1',
+        'if %INTENTOS% GEQ 24 goto falta',
+        'timeout /t 5 /nobreak >nul',
+        'goto espera',
+        ':listo',
+        'cd /d "%~dp0.."',
+        f'"{python}" agente_lux_watcher.py',
+        'if errorlevel 1 (',
+        '  echo.',
+        '  echo El vigia termino con error. Revisa _agente_lux\\vigia.log',
+        '  pause',
+        ')',
+        'goto fin',
+        ':falta',
+        'echo No encuentro la carpeta del proyecto. Esta OneDrive sincronizando?',
+        'pause',
+        ':fin',
+    ]
     # newline='' para que Python no convierta el \r\n en \r\r\n.
     with open(lanzador, 'w', encoding='ascii', newline='') as fh:
-        fh.write('@echo off\r\n'
-                 'cd /d "%~dp0.."\r\n'
-                 f'"{python}" agente_lux_watcher.py\r\n')
+        fh.write('\r\n'.join(lineas) + '\r\n')
     return lanzador
 
 
@@ -567,6 +593,10 @@ def main():
     if args.instalar_tarea:
         instalar_tarea()
         return
+
+    # Primera linea del log antes de cualquier cosa que pueda fallar, para
+    # poder distinguir "no arranco" de "arranco y se cayo".
+    log('Vigia iniciando...')
 
     app = crear_app(resolver_db(args))
     from lux_portal.extensions import db
