@@ -76,9 +76,15 @@ def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
     truncado = len(correos) >= limite
 
     nuevos, adjuntos = 0, 0
+    vistos = set()
     for datos in correos:
-        if AgenteMail.query.filter_by(graph_id=datos['id_unico']).first():
+        # Lo ya guardado se filtro en leer() con `omitir`; aca solo se evita
+        # el mismo correo dos veces en una lectura (por ejemplo, en dos
+        # carpetas). Sin consulta por correo a proposito: la base esta a
+        # 350 ms de ida y vuelta, y 300 consultas eran casi dos minutos.
+        if datos['id_unico'] in conocidos or datos['id_unico'] in vistos:
             continue
+        vistos.add(datos['id_unico'])
 
         correo = AgenteMail(
             graph_id=datos['id_unico'],
@@ -94,21 +100,20 @@ def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
             cuerpo=limpiar_banners(datos['cuerpo']),
             estado='pendiente',
         )
-        db.session.add(correo)
-        db.session.flush()
-
+        # Los adjuntos van colgados del correo y se insertan todos juntos en
+        # el commit, en vez de un flush por correo (otro viaje a la base).
         for adj in datos['adjuntos']:
             contenido_b64 = None
             if adj['contenido']:
                 contenido_b64 = base64.b64encode(adj['contenido']).decode('ascii')
                 adjuntos += 1
-            db.session.add(AgenteAdjunto(
-                mail_id=correo.id,
+            correo.adjuntos.append(AgenteAdjunto(
                 nombre=(adj['nombre'] or 'adjunto')[:400],
                 mime=(adj['mime'] or '')[:150],
                 size=adj['size'],
                 contenido_b64=contenido_b64,
             ))
+        db.session.add(correo)
         nuevos += 1
 
     # Si se llego al tope quedaron correos dentro del rango sin leer: mover la

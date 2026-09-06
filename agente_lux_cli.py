@@ -223,21 +223,26 @@ def cmd_exportar(args):
         }
         archivados = 0
         if args.solo_tarifas:
-            # El resto no pasa por Claude: se clasifica por el asunto y queda
-            # en la bitacora con su primer parrafo. Es lo que hace que el
-            # analisis tarde una fraccion, porque en un mes tipico dos de
-            # cada tres correos son reservas y temas operativos.
+            # El resto no pasa por el analisis de tarifas: queda en cola para
+            # el resumen rapido (exportar-resumen), porque Daniela quiere
+            # saber de que es cada correo sin tener que abrirlo. Es lo que
+            # hace que el analisis tarde una fraccion: en un mes tipico dos
+            # de cada tres correos son reservas y temas operativos.
+            #
+            # En dos UPDATE masivos y no fila por fila: la base esta a 350 ms
+            # de ida y vuelta, y marcar 224 correos uno por uno tomaba minuto
+            # y medio.
             from lux_portal.extensions import db
-            for c in pendientes:
-                if c.id in relevantes:
-                    continue
-                # Quedan en cola para el resumen rapido (exportar-resumen):
-                # no pasan por el analisis de tarifas, pero Daniela quiere
-                # saber de que es cada correo sin tener que abrirlo.
-                c.estado = 'por_resumir'
-                c.categoria = 'operativo' if c.operativo else 'otro'
-                c.resumen = ''
-                archivados += 1
+            ids_operativos = [c.id for c in pendientes
+                              if c.id not in relevantes and c.operativo]
+            ids_otros = [c.id for c in pendientes
+                         if c.id not in relevantes and not c.operativo]
+            for ids, categoria in ((ids_operativos, 'operativo'), (ids_otros, 'otro')):
+                if ids:
+                    (AgenteMail.query.filter(AgenteMail.id.in_(ids))
+                     .update({'estado': 'por_resumir', 'categoria': categoria,
+                              'resumen': ''}, synchronize_session=False))
+            archivados = len(ids_operativos) + len(ids_otros)
             db.session.commit()
             pendientes = [c for c in pendientes if c.id in relevantes]
 
@@ -687,7 +692,8 @@ def cmd_exportar_resumen(args):
 
     Mas nuevos primero: lo del dia es lo que Daniela esta mirando."""
     app = crear_app(resolver_db(args))
-    from lux_portal.agente_lux.models import AgenteMail
+    from lux_portal.extensions import db
+    from lux_portal.agente_lux.models import AgenteMail, AgenteAdjunto
     from lux_portal.agente_lux.texto import limpiar_banners, sin_enlaces
 
     with app.app_context():
@@ -699,6 +705,16 @@ def cmd_exportar_resumen(args):
         if args.max_correos and len(cola) > args.max_correos:
             quedan = len(cola) - args.max_correos
             cola = cola[:args.max_correos]
+
+        # Solo los nombres de los adjuntos, en una consulta para toda la
+        # tanda: cargarlos correo por correo eran 40 viajes a la base, y
+        # traerlos completos arrastraria las imagenes que aca no se usan.
+        nombres_adj = {}
+        if cola:
+            filas = (db.session.query(AgenteAdjunto.mail_id, AgenteAdjunto.nombre)
+                     .filter(AgenteAdjunto.mail_id.in_([c.id for c in cola])).all())
+            for mail_id, nombre in filas:
+                nombres_adj.setdefault(mail_id, []).append(nombre)
 
         correos = []
         for c in cola:
@@ -714,7 +730,7 @@ def cmd_exportar_resumen(args):
                 # Suficiente para saber de que es; el resto suele ser firma
                 # y el hilo citado.
                 'cuerpo': cuerpo[:2500],
-                'adjuntos': [a.nombre for a in c.adjuntos],
+                'adjuntos': nombres_adj.get(c.id, []),
             })
 
     os.makedirs(CARPETA, exist_ok=True)
