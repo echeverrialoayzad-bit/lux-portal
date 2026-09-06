@@ -26,9 +26,13 @@ Dejalo abierto en una ventana, o programalo para que arranque con Windows:
     python agente_lux_watcher.py --instalar-tarea
 
 Para que pare: Ctrl+C.
+
+Todo lo que dice queda tambien en _agente_lux/vigia.log, para poder ver que
+paso cuando corre como tarea programada y nadie mira la ventana.
 """
 
 import argparse
+import os
 import sys
 import threading
 import time
@@ -36,9 +40,15 @@ import traceback
 from datetime import datetime, timedelta
 
 # Reutiliza la conexion y el arranque de la app del CLI.
-from agente_lux_cli import crear_app, resolver_db
+from agente_lux_cli import ARCHIVO_HALLAZGOS, crear_app, resolver_db
 
 LATIDO_SEGUNDOS = 15
+
+# Bitacora en disco ademas de la consola: cuando el vigia corre como tarea
+# programada nadie ve la ventana, y un "tu PC no esta escuchando" sin un log
+# atras es imposible de diagnosticar.
+RUTA_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        '_agente_lux', 'vigia.log')
 
 
 def _ahora():
@@ -46,7 +56,14 @@ def _ahora():
 
 
 def log(mensaje):
-    print(f'[{_ahora()}] {mensaje}', flush=True)
+    linea = f'[{_ahora()}] {mensaje}'
+    print(linea, flush=True)
+    try:
+        os.makedirs(os.path.dirname(RUTA_LOG), exist_ok=True)
+        with open(RUTA_LOG, 'a', encoding='utf-8') as fh:
+            fh.write(datetime.now().strftime('%Y-%m-%d ') + linea + '\n')
+    except OSError:
+        pass
 
 
 def instalar_tarea():
@@ -66,6 +83,7 @@ def instalar_tarea():
     if resultado.returncode == 0:
         print('Tarea creada: el vigia va a arrancar solo cada vez que inicies '
               'sesion en Windows.')
+        print(f'Lo que vaya haciendo queda en {RUTA_LOG}')
         print('Para quitarla:  schtasks /Delete /TN "Agente Lux - vigia" /F')
     else:
         print('No se pudo crear la tarea:')
@@ -77,7 +95,10 @@ PROMPT_ANALISIS = (
     'Usa el skill agente-lux. Lee _agente_lux/pendientes.json y los adjuntos '
     'que referencia, comparalos contra estado_actual, y escribe '
     '_agente_lux/hallazgos.json con el formato del docstring de '
-    'agente_lux_cli.py. Recuerda: de cada tarifa o FSC solo vale el correo mas '
+    'agente_lux_cli.py. Reglas clave: las tarifas netas solo salen de correos '
+    'con respuesta_a_mi_solicitud true que no sean reserva ni guia; un aviso '
+    'de tarifa que la aerolinea mando por su cuenta va como tipo info. El FSC '
+    'si puede venir directo. De cada tarifa o FSC solo vale el correo mas '
     'reciente, y en los hallazgos de FSC el campo destinos es obligatorio. '
     'No corras ningun comando ni modifiques nada mas: tu unica salida es ese '
     'archivo.'
@@ -153,6 +174,7 @@ def _analizar(app, args, carpeta_proyecto):
 
     py = _sys.executable
     cli = os.path.join(carpeta_proyecto, 'agente_lux_cli.py')
+    hallazgos = os.path.join(carpeta_proyecto, ARCHIVO_HALLAZGOS)
     resumenes = []
 
     for tanda in range(1, args.max_tandas + 1):
@@ -172,6 +194,12 @@ def _analizar(app, args, carpeta_proyecto):
 
         quedan = 'para la siguiente tanda' in salida_exp
 
+        # Un hallazgos.json viejo es peligroso: si Claude Code terminara sin
+        # escribir el suyo, cargar subiria propuestas de otra tanda y daria
+        # por revisados correos que nadie miro.
+        if os.path.exists(hallazgos):
+            os.remove(hallazgos)
+
         log(f'Analizando {etiqueta} con Claude Code...')
         _marcar(app, 'analizando',
                 f'Claude Code esta revisando {etiqueta}'
@@ -185,6 +213,10 @@ def _analizar(app, args, carpeta_proyecto):
             carpeta_proyecto, args.timeout_analisis)
         if not ok:
             raise RuntimeError(f'Fallo el analisis: {salida[-400:]}')
+        if not os.path.exists(hallazgos):
+            raise RuntimeError(
+                'Claude Code termino sin escribir _agente_lux/hallazgos.json. '
+                f'Lo ultimo que dijo: {salida[-300:]}')
 
         _marcar(app, 'analizando', f'Guardando los hallazgos de {etiqueta}...')
         ok, salida_car = _correr([py, cli, 'cargar'], carpeta_proyecto, 300)
@@ -301,15 +333,15 @@ def main():
     hilo.join(timeout=60)
 
     if hilo.is_alive():
-        sys.exit(
-            'Outlook no responde: la llamada se quedo colgada mas de un minuto.\n'
+        log('Outlook no responde: la llamada se quedo colgada mas de un minuto.\n'
             'Suele pasar cuando quedo una instancia trabada. Prueba:\n'
             '  1. Cerrar Outlook y volver a abrirlo.\n'
             '  2. Si sigue igual, reiniciar la PC.\n'
-            'Despues vuelve a arrancar el vigia.'
-        )
+            'Despues vuelve a arrancar el vigia.')
+        sys.exit(1)
     if 'error' in resultado:
-        sys.exit(resultado['error'])
+        log(resultado['error'])
+        sys.exit(1)
 
     correo = resultado.get('correo') or '(cuenta sin identificar)'
 
@@ -364,8 +396,7 @@ def main():
             except Exception:
                 # Un fallo de red no puede tumbar el vigia: se reintenta en el
                 # siguiente latido.
-                log('Fallo el latido, reintentando:')
-                traceback.print_exc()
+                log('Fallo el latido, reintentando:\n' + traceback.format_exc())
 
             time.sleep(LATIDO_SEGUNDOS)
 

@@ -86,6 +86,12 @@ Notas importantes para quien genere ese JSON:
     aerolinea. Si el correo solo menciona algunos trayectos, hay que listarlos
     explicitamente. Es el error mas caro que se puede cometer aca.
   - tipo "dias" y tipo "info" nunca se aplican solos: quedan como aviso.
+  - tipo "tarifa" solo vale si el correo es respuesta a una solicitud de
+    Daniela (respuesta_a_mi_solicitud: true) y no es reserva ni guia. Ella
+    pide la tarifa por correo y la aerolinea le contesta en el mismo hilo;
+    esa respuesta es la unica fuente. Si no se cumple, `cargar` lo guarda
+    como tipo "info" con alerta: se ve en el portal, pero no se aplica.
+  - El FSC es la excepcion: las aerolineas lo mandan directo, sin solicitud.
   - cot_id y kg se sacan de estado_actual.cotizaciones en pendientes.json.
 """
 
@@ -306,20 +312,6 @@ def _validar_hallazgo(h, indice, correos):
     if mail_id is not None and mail_id not in correos:
         errores.append(f'{prefijo}: mail_id {mail_id} no esta entre los correos pendientes.')
 
-    # Las tarifas netas solo salen de respuestas a las solicitudes de Daniela.
-    # Una reserva o una guia aerea esta llena de cifras por kilo que no son la
-    # tarifa vigente, y confundirlas es el error mas caro de este flujo.
-    # Solo se rechaza cuando consta que NO es respuesta suya: si el dato no se
-    # pudo determinar (correos leidos antes de que existiera este campo) se
-    # deja pasar y el hallazgo queda con su alerta.
-    if tipo == 'tarifa':
-        correo = correos.get(mail_id)
-        if correo is not None and correo.operativo:
-            errores.append(
-                f'{prefijo}: el correo {mail_id} ("{(correo.asunto or "")[:50]}") '
-                f'es una reserva o guia. Las cifras por kilo que trae son el '
-                f'precio de ese embarque, no la tarifa vigente.')
-
     if h.get('confianza') and h['confianza'] not in CONFIANZAS_VALIDAS:
         errores.append(f'{prefijo}: confianza "{h["confianza"]}" invalida.')
 
@@ -349,6 +341,50 @@ def _validar_hallazgo(h, indice, correos):
             errores.append(f'{prefijo}: falta detalle.monto_nuevo.')
 
     return errores
+
+
+def _motivo_no_aplicable(h, correos):
+    """Por que un hallazgo de tarifa NO puede aplicarse, o None si puede.
+
+    Las tarifas netas se toman unicamente de las respuestas de la aerolinea a
+    una solicitud de Daniela: ella pide ("Tarifa Flor") y le contestan sobre
+    el mismo hilo. Un comunicado que la aerolinea mando por su cuenta no se
+    aplica aunque traiga una tabla, y una reserva o guia menos todavia: sus
+    cifras por kilo son el precio de ese embarque, no la tarifa vigente.
+    El FSC es la excepcion y si llega directo, por eso aca solo entra tarifa.
+
+    Esto se hace cumplir aca y no solo en el skill porque se aplica sobre
+    datos de produccion: la instruccion sola no basta."""
+    if h.get('tipo') != 'tarifa':
+        return None
+    correo = correos.get(h.get('mail_id'))
+    if correo is None:
+        return None
+    asunto = (correo.asunto or '')[:50]
+    if correo.operativo:
+        return (f'No se aplica: el correo "{asunto}" es una reserva o guia, y '
+                f'las cifras por kilo son el precio de ese embarque, no la '
+                f'tarifa vigente.')
+    if not correo.respuesta_mia:
+        return (f'No se aplica: el correo "{asunto}" no es respuesta a una '
+                f'solicitud tuya de tarifas. Si te interesa, pidele la tarifa '
+                f'a la aerolinea y se actualiza con su respuesta.')
+    return None
+
+
+def _dejar_como_aviso(h, motivo):
+    """Convierte un hallazgo en tipo "info": se ve en el portal, no se aplica.
+
+    La cifra se conserva en la descripcion para que Daniela sepa que numero
+    llego, aunque no se pueda aplicar desde aca."""
+    detalle = h.get('detalle') or {}
+    valor = str(h.get('valor_nuevo') or detalle.get('tarifa_nueva') or '').strip()
+    descripcion = (h.get('descripcion') or '').strip()
+    if valor and valor not in descripcion:
+        descripcion = f'{descripcion} Cifra del correo: {valor}.'.strip()
+    h['tipo'] = 'info'
+    h['descripcion'] = descripcion
+    h['_aviso'] = motivo
 
 
 def _norm_kg(kg):
@@ -435,10 +471,22 @@ def cmd_cargar(args):
 
     with app.app_context():
         pendientes = {m.id: m for m in AgenteMail.query.filter_by(estado='pendiente').all()}
+        hallazgos_entrada = datos.get('hallazgos') or []
+
+        # Primero la regla de negocio y despues el formato: una tarifa que no
+        # puede aplicarse pasa a ser aviso, y a un aviso no se le exige cot_id.
+        # Va antes de la deduplicacion a proposito: si no, un comunicado mas
+        # nuevo le ganaria a la respuesta valida que si se puede aplicar.
+        no_aplicables = 0
+        for h in hallazgos_entrada:
+            motivo = _motivo_no_aplicable(h, pendientes)
+            if motivo:
+                _dejar_como_aviso(h, motivo)
+                no_aplicables += 1
 
         # Validar todo antes de escribir nada.
         errores = []
-        for i, h in enumerate(datos.get('hallazgos') or []):
+        for i, h in enumerate(hallazgos_entrada):
             errores.extend(_validar_hallazgo(h, i, pendientes))
 
         if errores:
@@ -467,7 +515,7 @@ def cmd_cargar(args):
             return correo.fecha if correo else None
 
         entrantes, descartados_por_viejos = _quedarse_con_lo_mas_nuevo(
-            datos.get('hallazgos') or [], fecha_de_mail
+            hallazgos_entrada, fecha_de_mail
         )
 
         # Un hallazgo nuevo tambien reemplaza a uno pendiente de una corrida
@@ -502,6 +550,10 @@ def cmd_cargar(args):
                 'destino': destino,
                 'detalle': detalle,
             })
+            if h.get('_aviso'):
+                # La razon por la que no se aplica va primero: es lo que
+                # Daniela tiene que leer antes que cualquier otra alerta.
+                alerta = h['_aviso'] + (' ' + alerta if alerta else '')
             if alerta:
                 con_alerta += 1
 
@@ -546,6 +598,9 @@ def cmd_cargar(args):
         db.session.commit()
 
     print(f'{n_hallazgos} hallazgo(s) cargados, {n_correos} correo(s) resumidos.')
+    if no_aplicables:
+        print(f'{no_aplicables} tarifa(s) quedaron solo como aviso: no vienen de '
+              f'una respuesta a tu solicitud, o salen de una reserva o guia.')
     if descartados_por_viejos:
         print(f'{descartados_por_viejos} hallazgo(s) ignorados por venir de un '
               f'correo mas viejo que otro que habla de lo mismo.')

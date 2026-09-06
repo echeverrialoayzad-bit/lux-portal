@@ -1,6 +1,6 @@
 ---
 name: agente-lux
-description: Analiza los correos que Agente Lux descargó del buzón de Microsoft 365 y genera las actualizaciones de tarifas netas, FSC y cargos para que Daniela las apruebe en el portal. Úsalo cuando pida "revisa mis correos", "actualiza las tarifas", "qué llegó por correo", "corre el agente" o invoque /agente-lux.
+description: Analiza los correos que Agente Lux descargó del Outlook de Daniela y genera las actualizaciones de tarifas netas, FSC y cargos para que ella las apruebe en el portal. Úsalo cuando pida "revisa mis correos", "actualiza las tarifas", "qué llegó por correo", "corre el agente" o invoque /agente-lux.
 ---
 
 # Agente Lux — análisis local de correos
@@ -38,6 +38,10 @@ Si `exportar` dice que no hay correos pendientes, avísale que primero le dé
   `Inbox/AEROLINEAS/<AEROLÍNEA>`. Si un correo viene de `Inbox/AEROLINEAS/AVIANCA`,
   la aerolínea es AVIANCA — no la deduzcas del texto ni del remitente. Usa el
   texto solo cuando la carpeta no lo diga (por ejemplo un correo en `Inbox` suelto).
+- `respuesta_a_mi_solicitud` es el campo que manda para las tarifas netas:
+  **solo de los `true` puede salir un hallazgo `tarifa`**. `es_reserva_o_guia`
+  marca reservas, cierres y guías, de donde nunca sale una tarifa. Empieza por
+  los `true`: son los que valen.
 - `estado_actual` — la foto de lo que hay hoy en producción:
   - `cotizaciones[]` con `cot_id`, `destino` y los `kg_rates` vigentes por aerolínea
   - `fsc_reglas[]` con `regla_id`, `aerolinea`, `destinos` y `fsc`
@@ -48,31 +52,38 @@ sirve: Daniela necesita ver "de 3.00 a 2.85", no solo "2.85".
 
 ## Reglas que no se negocian
 
-**Nunca saques una tarifa neta de una reserva o una guía.** Es el error más
-caro de este flujo. Una reserva confirmada trae cifras por kilo que son el
-precio de *ese* embarque, no la tarifa vigente del trayecto. El campo
-`es_reserva_o_guia` marca esos correos, y `cargar` rechaza cualquier hallazgo
-`tarifa` que venga de uno — la instrucción sola no basta para algo que se
-aplica sobre datos de producción.
+**Las tarifas netas salen únicamente de las respuestas a una solicitud de
+Daniela.** Así trabaja ella: manda un correo pidiendo tarifa (asunto "Tarifa
+Flor", cuerpo "Solicito su ayuda con tarifa para: - BNE") y la aerolínea
+contesta sobre ese mismo hilo. Esa respuesta es la tarifa que se actualiza.
+El campo `respuesta_a_mi_solicitud` te dice cuándo pasa eso.
 
-**Las tarifas buenas llegan como respuesta a una solicitud de Daniela.** Ella
-manda un correo pidiendo tarifas (asunto tipo "Tarifa Flor", "Tarifas
-actualizadas") y la aerolínea contesta sobre ese mismo hilo. El campo
-`respuesta_a_mi_solicitud` te dice cuándo pasa eso, y es la fuente más
-confiable: úsala para poner `confianza: "alta"`.
+- `respuesta_a_mi_solicitud: true` → puedes proponer `tipo: "tarifa"`, con
+  `confianza: "alta"` si el número está explícito.
+- `respuesta_a_mi_solicitud: false` → **no propongas `tarifa`**, aunque el
+  correo traiga una tabla de tarifas. Un comunicado que la aerolínea manda por
+  su cuenta ("INCREMENTO TARIFA AMS", "Actualización tarifaria") no se aplica:
+  repórtalo como `tipo: "info"` con la cifra en la `descripcion`, y en el
+  correo pon `requiere_accion: true` con un tema tipo "Pedir tarifa
+  actualizada a LUFTHANSA para AMS". Así Daniela lo ve y hace su solicitud.
 
-Pero **no es la única fuente válida**, y esto está medido sobre el buzón real:
-solo el 59% de los correos de tarifas son respuestas. El resto son comunicados
-que la aerolínea manda por su cuenta, y son igual de reales:
+`cargar` hace cumplir esto por su cuenta: un `tarifa` que venga de un correo
+que no es respuesta suya se guarda como `info` con una alerta, y nunca se
+aplica. No cuentes con eso para saltarte la regla: si lo mandas como `info`
+desde el principio, la descripción le queda mejor explicada a ella.
 
-- Avisos de fuel surcharge — "Fuel Surcharge update", "ACTUALIZACION FSC"
-- Anuncios de subida de tarifa — "INCREMENTO TARIFA AMS", "Actualización tarifaria"
+**El FSC es la excepción: sí llega directo.** Los avisos de fuel surcharge
+("Fuel Surcharge update", "ACTUALIZACION FSC") los manda la aerolínea sin que
+nadie los pida, y valen igual. Propón `tipo: "fsc"` venga o no de una
+solicitud. Los cargos (security, handling) suelen venir junto con la
+respuesta de tarifas o con el aviso de FSC; si aparecen en un comunicado
+suelto, propónlos con `confianza: "baja"`.
 
-Esos valen. Lo que no vale es un precio sacado de una reserva.
-
-Cuando `respuesta_a_mi_solicitud` venga `false` y el correo no sea claramente
-un comunicado de tarifas o recargo, baja la confianza y dilo en la
-`descripcion` para que ella lo verifique.
+**Nunca saques una tarifa neta de una reserva o una guía.** Una reserva
+confirmada trae cifras por kilo que son el precio de *ese* embarque, no la
+tarifa vigente del trayecto. El campo `es_reserva_o_guia` marca esos correos,
+y aplica incluso cuando el hilo lo abrió Daniela: "RE: RESERVA CONFIRMADA"
+sigue siendo una reserva. `cargar` también los deja como `info`.
 
 **Solo vale lo más reciente.** Una tarifa o un FSC de hace un mes no le sirve
 de nada a Daniela. Si dos correos hablan de la misma aerolínea + destino + tier,

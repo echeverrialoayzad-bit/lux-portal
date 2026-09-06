@@ -175,9 +175,9 @@ async function cargarEstado() {
       btn.disabled = false;
       btn.title = '';
     } else {
-      elVigia.innerHTML = '<span class="al-punto al-punto-off me-1"></span>Tu PC no está escuchando';
+      elVigia.innerHTML = '<span class="al-punto al-punto-off me-1"></span>Tu PC no está escuchando · el vigía no está corriendo';
       btn.disabled = true;
-      btn.title = 'Corre python agente_lux_watcher.py en tu PC';
+      btn.title = 'Para encender este botón, corre python agente_lux_watcher.py en tu PC';
     }
   } else {
     elCuenta.innerHTML = '<i class="bi bi-envelope-slash text-danger me-1"></i>Sin correo leído';
@@ -188,8 +188,18 @@ async function cargarEstado() {
   document.getElementById('badge-hoy').textContent = d.correos_hoy || 0;
 
   if (d.pendientes_de_analisis > 0 && d.cuenta && d.cuenta.refresh_estado !== 'analizando') {
-    banner(d.pendientes_de_analisis + ' correo(s) todavía sin analizar. '
-      + 'Dale a <strong>Refresh y analizar</strong> para que Agente Lux los revise.', 'warning');
+    if (d.cuenta.vigia_activo) {
+      banner(d.pendientes_de_analisis + ' correo(s) todavía sin analizar. '
+        + 'Dale a <strong>Refresh y analizar</strong> para que Agente Lux los revise.', 'warning');
+    } else {
+      // Decirle "dale al botón" con el botón apagado era mandarla a un
+      // callejón: lo que hace falta es levantar el vigía en la PC.
+      banner(d.pendientes_de_analisis + ' correo(s) todavía sin analizar, pero el botón está apagado '
+        + 'porque el vigía no está corriendo en tu PC. Abre una terminal en la carpeta del proyecto y corre '
+        + '<code>python agente_lux_watcher.py</code>: en cuanto arranque, el botón se enciende solo. '
+        + 'Para que arranque con Windows sin que tengas que hacer nada: '
+        + '<code>python agente_lux_watcher.py --instalar-tarea</code>.', 'warning');
+    }
   }
   return d;
 }
@@ -280,7 +290,7 @@ async function cargarHoy(dias, boton) {
     cont.innerHTML = `<div class="al-vacio">
       <i class="bi bi-envelope fs-3 d-block mb-2"></i>
       No llegó nada en este rango.<br>
-      <span class="small">Dale a <strong>Refresh correos</strong> para volver a mirar.</span></div>`;
+      <span class="small">Dale a <strong>Refresh y analizar</strong> para volver a mirar.</span></div>`;
     return;
   }
 

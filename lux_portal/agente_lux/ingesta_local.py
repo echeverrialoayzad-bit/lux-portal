@@ -55,8 +55,14 @@ def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
     else:
         desde = datetime.now() - timedelta(days=DIAS_PRIMERA_LECTURA)
 
+    # La direccion de Daniela decide que correos cuentan como respuesta a una
+    # solicitud suya, y de eso depende que una tarifa pueda aplicarse. Va la
+    # guardada en la cuenta para no depender de que Outlook la resuelva bien
+    # en cada lectura; si la cuenta no tiene una direccion real, se deja que
+    # outlook_local la busque como siempre.
+    email = cuenta.email if '@' in (cuenta.email or '') else None
     correos = outlook_local.leer(desde, carpeta=carpeta, limite=limite,
-                                 recursivo=recursivo)
+                                 recursivo=recursivo, mi_correo=email)
     truncado = len(correos) >= limite
 
     nuevos, adjuntos = 0, 0
