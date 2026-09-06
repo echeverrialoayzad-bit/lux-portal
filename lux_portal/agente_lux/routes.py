@@ -3,11 +3,11 @@
 """
 Rutas del modulo Agente Lux.
 
-Dos pantallas en una:
-  1. Actualizaciones  -> lo que el agente encontro en el correo y propone
+Dos pestanas, las dos gobernadas por el rango de fechas de la pantalla
+(por defecto, hoy):
+  1. Correos          -> los correos de esos dias, con su resumen.
+  2. Actualizaciones  -> lo que el agente encontro en esos correos y propone
                          cambiar. Nada se aplica sin aprobacion explicita.
-  2. Bitacora         -> resumen dia a dia de los correos nuevos: de que se
-                         hablo y que quedo pendiente.
 """
 
 import base64
@@ -190,19 +190,19 @@ def _vistazo(correo, largo=220):
 @agente_lux_bp.route('/api/hoy')
 @login_required
 def hoy():
-    """Los correos que llegaron hoy, con un vistazo rapido de cada uno.
+    """Los correos del rango elegido (por defecto, hoy), con un vistazo rapido
+    de cada uno.
 
-    A diferencia de la bitacora, esto no espera al analisis: el vistazo sale
-    del cuerpo del correo, asi que sirve apenas el vigia los sube."""
-    dias = int(request.args.get('dias', 0))
-    ahora = ahora_ecuador()
-    if dias > 0:
-        desde = ahora - timedelta(days=dias)
-    else:
-        desde = datetime.combine(ahora.date(), datetime.min.time())
+    No espera al analisis: el vistazo sale del cuerpo del correo, asi que
+    sirve apenas el vigia los sube. El resumen aparece cuando esta."""
+    try:
+        desde, hasta = _rango_pedido(request.args)
+    except ValueError as exc:
+        return jsonify({'error': f'Fechas invalidas: {exc}'}), 400
+    inicio, fin = rango_del_dia(desde, hasta)
 
     correos = (AgenteMail.query
-               .filter(AgenteMail.fecha >= desde)
+               .filter(AgenteMail.fecha >= inicio, AgenteMail.fecha <= fin)
                .order_by(AgenteMail.fecha.desc())
                .all())
 
@@ -218,7 +218,8 @@ def hoy():
         salida.append(datos)
 
     return jsonify({
-        'desde': desde.strftime('%Y-%m-%d %H:%M'),
+        'desde': desde.isoformat(),
+        'hasta': hasta.isoformat(),
         'correos': salida,
         'total': len(salida),
         # Sin analizar o esperando el resumen rapido: ambos se ven "a medias".
@@ -234,15 +235,32 @@ def hoy():
 @login_required
 def hallazgos():
     estados = request.args.get('estado', 'pendiente,aprobado').split(',')
+    query = (AgenteHallazgo.query
+             .outerjoin(AgenteMail, AgenteHallazgo.mail_id == AgenteMail.id)
+             .filter(AgenteHallazgo.estado.in_([e.strip() for e in estados if e.strip()])))
+
+    # El rango de fechas de la pantalla manda tambien aca: solo las
+    # propuestas que salen de correos de esos dias. Las de otras fechas
+    # siguen guardadas y aparecen al ampliar el rango.
+    if request.args.get('desde') or request.args.get('hasta'):
+        try:
+            desde, hasta = _rango_pedido(request.args)
+        except ValueError as exc:
+            return jsonify({'error': f'Fechas invalidas: {exc}'}), 400
+        inicio, fin = rango_del_dia(desde, hasta)
+        query = query.filter(AgenteMail.fecha >= inicio, AgenteMail.fecha <= fin)
+
     # Lo mas reciente primero: si algo viene de un correo viejo, que se vea
     # abajo y no se confunda con lo que acaba de llegar.
-    filas = (AgenteHallazgo.query
-             .outerjoin(AgenteMail, AgenteHallazgo.mail_id == AgenteMail.id)
-             .filter(AgenteHallazgo.estado.in_([e.strip() for e in estados if e.strip()]))
-             .order_by(AgenteMail.fecha.desc().nullslast(),
-                       AgenteHallazgo.aerolinea, AgenteHallazgo.destino)
-             .all())
-    return jsonify({'hallazgos': [h.to_dict() for h in filas]})
+    filas = query.order_by(AgenteMail.fecha.desc().nullslast(),
+                           AgenteHallazgo.aerolinea, AgenteHallazgo.destino).all()
+    fuera = 0
+    if request.args.get('desde') or request.args.get('hasta'):
+        total = (AgenteHallazgo.query
+                 .filter(AgenteHallazgo.estado.in_([e.strip() for e in estados if e.strip()]))
+                 .count())
+        fuera = max(total - len(filas), 0)
+    return jsonify({'hallazgos': [h.to_dict() for h in filas], 'fuera_del_rango': fuera})
 
 
 @agente_lux_bp.route('/api/hallazgos/decidir', methods=['POST'])
@@ -350,43 +368,8 @@ def aplicar():
                     'fallidos': fallidos, 'detalle': detalle})
 
 
-# ---------------------------------------------------------------------------
-# Bitacora dia a dia
-# ---------------------------------------------------------------------------
-
-@agente_lux_bp.route('/api/bitacora')
-@login_required
-def bitacora():
-    """Correos analizados agrupados por dia, mas nuevos primero."""
-    dias = int(request.args.get('dias', 14))
-    desde = ahora_ecuador() - timedelta(days=dias)
-
-    correos = (AgenteMail.query
-               .filter(AgenteMail.fecha >= desde)
-               .order_by(AgenteMail.fecha.desc())
-               .all())
-
-    agrupado = {}
-    for correo in correos:
-        clave = correo.fecha.strftime('%Y-%m-%d') if correo.fecha else 'sin fecha'
-        datos = correo.to_dict()
-        # Las reservas y los correos operativos ya no pasan por Claude: se
-        # clasifican por el asunto y quedan sin resumen. El vistazo del
-        # cuerpo es lo que se muestra en su lugar.
-        datos['vistazo'] = _vistazo(correo)
-        agrupado.setdefault(clave, []).append(datos)
-
-    return jsonify({
-        'dias': [
-            {
-                'dia': dia,
-                'correos': items,
-                'con_accion': sum(1 for c in items if c['requiere_accion']),
-            }
-            for dia, items in sorted(agrupado.items(), reverse=True)
-        ],
-        'sin_analizar': AgenteMail.query.filter_by(estado='pendiente').count(),
-    })
+# La bitacora dia a dia se quito a pedido de Daniela: la pestana de correos
+# con el rango de fechas cubre lo mismo.
 
 
 @agente_lux_bp.route('/api/mail/<int:mail_id>')

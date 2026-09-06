@@ -45,18 +45,18 @@
     <div class="text-end">
       <div id="estado-cuenta" class="small text-muted mb-1">—</div>
       <div id="estado-vigia" class="small text-muted mb-2"></div>
-      <!-- El rango manda en todo el ciclo: solo esos dias se leen, analizan
-           y resumen. Por defecto, hoy. -->
-      <div class="d-flex justify-content-end align-items-center gap-1 mb-2 small">
-        <span class="text-muted">Del</span>
+      <!-- El rango de fechas manda en toda la pantalla y en el ciclo del
+           agente: correos, propuestas, lectura, analisis y resumenes. Por
+           defecto, hoy. -->
+      <div class="d-flex justify-content-end align-items-center gap-1 flex-wrap">
+        <span class="small text-muted">Del</span>
         <input type="date" id="f-desde" class="form-control form-control-sm" style="width:150px;">
-        <span class="text-muted">al</span>
+        <span class="small text-muted">al</span>
         <input type="date" id="f-hasta" class="form-control form-control-sm" style="width:150px;">
+        <button id="btn-refresh" class="btn btn-primary btn-sm ms-1">
+          <i class="bi bi-arrow-clockwise me-1"></i>Refresh y analizar
+        </button>
       </div>
-      <button id="btn-refresh" class="btn btn-primary btn-sm">
-        <i class="bi bi-arrow-clockwise me-1"></i>Refresh y analizar
-      </button>
-      <div class="small text-muted mt-1">Solo lee, analiza y resume los correos de esas fechas.</div>
     </div>
   </div>
 
@@ -78,7 +78,7 @@
   <ul class="nav nav-tabs mb-3" role="tablist">
     <li class="nav-item">
       <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-hoy" type="button">
-        Correos de hoy <span id="badge-hoy" class="badge bg-secondary ms-1">0</span>
+        <span id="titulo-correos">Correos de hoy</span> <span id="badge-hoy" class="badge bg-secondary ms-1">0</span>
       </button>
     </li>
     <li class="nav-item">
@@ -86,25 +86,15 @@
         Actualizaciones <span id="badge-hallazgos" class="badge bg-secondary ms-1">0</span>
       </button>
     </li>
-    <li class="nav-item">
-      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-bitacora" type="button">
-        Bitácora
-      </button>
-    </li>
   </ul>
 
   <div class="tab-content">
 
-    <!-- ============ TAB 1: correos de hoy ============ -->
+    <!-- ============ TAB 1: correos del rango ============ -->
     <div class="tab-pane fade show active" id="tab-hoy">
       <div class="card al-card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div class="small text-muted" id="resumen-hoy">—</div>
-          <div class="btn-group btn-group-sm" role="group">
-            <button class="btn btn-outline-secondary active" onclick="cargarHoy(0, this)">Hoy</button>
-            <button class="btn btn-outline-secondary" onclick="cargarHoy(2, this)">48 h</button>
-            <button class="btn btn-outline-secondary" onclick="cargarHoy(7, this)">7 días</button>
-          </div>
         </div>
         <div id="lista-hoy"></div>
       </div>
@@ -141,7 +131,7 @@
         </div>
         <div id="hallazgos-vacio" class="al-vacio">
           <i class="bi bi-inbox fs-3 d-block mb-2"></i>
-          No hay cambios propuestos.<br>
+          No hay cambios propuestos en estas fechas.<br>
           <span class="small">Cuando llegue una respuesta de tarifas o un aviso de FSC, aparece aquí.</span>
         </div>
       </div>
@@ -152,11 +142,6 @@
         le pide el análisis a Claude Code en tu PC (con tu suscripción, no gasta API)
         y deja acá los cambios propuestos.
       </div>
-    </div>
-
-    <!-- ============ TAB 3: bitácora ============ -->
-    <div class="tab-pane fade" id="tab-bitacora">
-      <div id="bitacora-contenido"></div>
     </div>
 
   </div>
@@ -263,10 +248,26 @@ function rango() {
   if (!hasta.value) hasta.value = desde.value;
   return { desde: desde.value, hasta: hasta.value };
 }
+function textoRango() {
+  const rg = rango();
+  const sinHora = f => fechaCorta(f).split(' ·')[0];
+  return rg.desde === rg.hasta ? sinHora(rg.desde) : `del ${sinHora(rg.desde)} al ${sinHora(rg.hasta)}`;
+}
+function esHoy() {
+  const rg = rango();
+  return rg.desde === hoyLocal() && rg.hasta === hoyLocal();
+}
+// Cambiar el rango recarga toda la pantalla: correos y propuestas.
+function rangoCambio() {
+  document.getElementById('titulo-correos').textContent = esHoy() ? 'Correos de hoy' : 'Correos ' + textoRango();
+  cargarEstado();
+  cargarHoy();
+  cargarHallazgos();
+}
 document.getElementById('f-desde').value = hoyLocal();
 document.getElementById('f-hasta').value = hoyLocal();
-document.getElementById('f-desde').addEventListener('change', () => { cargarEstado(); });
-document.getElementById('f-hasta').addEventListener('change', () => { cargarEstado(); });
+document.getElementById('f-desde').addEventListener('change', rangoCambio);
+document.getElementById('f-hasta').addEventListener('change', rangoCambio);
 
 // ---------------------------------------------------------------- estado
 async function cargarEstado() {
@@ -385,32 +386,25 @@ async function esperarLectura(btn) {
   btn.disabled = false;
   cargarHoy();
   cargarHallazgos();
-  cargarBitacora();
 }
 
-// ---------------------------------------------------------------- correos de hoy
-let rangoHoy = 0;
-
-async function cargarHoy(dias, boton) {
-  if (dias !== undefined) rangoHoy = dias;
-  if (boton) {
-    boton.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-    boton.classList.add('active');
-  }
-
-  const r = await fetch('{{ url_for("agente_lux.hoy") }}?dias=' + rangoHoy);
+// ---------------------------------------------------------------- correos del rango
+async function cargarHoy() {
+  const rg = rango();
+  const r = await fetch('{{ url_for("agente_lux.hoy") }}?desde=' + rg.desde + '&hasta=' + rg.hasta);
   const d = await r.json();
   const cont = document.getElementById('lista-hoy');
 
+  document.getElementById('badge-hoy').textContent = d.total || 0;
   document.getElementById('resumen-hoy').textContent = d.total
-    ? `${d.total} correo(s)` + (d.sin_analizar ? ` · ${d.sin_analizar} sin resumen todavía` : ' · todos resumidos')
-    : 'Sin correos en este rango.';
+    ? `${d.total} correo(s) · ${textoRango()}` + (d.sin_analizar ? ` · ${d.sin_analizar} sin resumen todavía` : ' · todos resumidos')
+    : `Sin correos ${esHoy() ? 'hoy' : textoRango()}.`;
 
   if (!d.total) {
     cont.innerHTML = `<div class="al-vacio">
       <i class="bi bi-envelope fs-3 d-block mb-2"></i>
-      No llegó nada en este rango.<br>
-      <span class="small">Dale a <strong>Refresh y analizar</strong> para volver a mirar.</span></div>`;
+      No hay correos ${esHoy() ? 'de hoy' : textoRango()}.<br>
+      <span class="small">Dale a <strong>Refresh y analizar</strong> para volver a mirar el buzón.</span></div>`;
     return;
   }
 
@@ -508,7 +502,8 @@ function filaHallazgo(h) {
 }
 
 async function cargarHallazgos() {
-  const r = await fetch('{{ url_for("agente_lux.hallazgos") }}?estado=pendiente,aprobado');
+  const rg = rango();
+  const r = await fetch('{{ url_for("agente_lux.hallazgos") }}?estado=pendiente,aprobado&desde=' + rg.desde + '&hasta=' + rg.hasta);
   const d = await r.json();
   const filas = d.hallazgos || [];
 
@@ -518,9 +513,10 @@ async function cargarHallazgos() {
 
   const porTipo = {};
   filas.forEach(h => { porTipo[h.tipo] = (porTipo[h.tipo] || 0) + 1; });
-  document.getElementById('resumen-hallazgos').textContent = filas.length
+  const fuera = d.fuera_del_rango ? ` · ${d.fuera_del_rango} más de otras fechas (amplía el rango para verlas)` : '';
+  document.getElementById('resumen-hallazgos').textContent = (filas.length
     ? Object.entries(porTipo).map(([t, n]) => `${n} ${ETIQUETA_TIPO[t] ? ETIQUETA_TIPO[t][0] : t}`).join(' · ')
-    : 'Sin cambios propuestos.';
+    : `Sin cambios propuestos ${esHoy() ? 'hoy' : textoRango()}`) + fuera;
 
   document.querySelectorAll('.chk-hallazgo').forEach(c => c.addEventListener('change', actualizarBotonAplicar));
   document.querySelectorAll('.inp-valor').forEach(i => i.addEventListener('change', guardarValor));
@@ -618,61 +614,9 @@ document.getElementById('btn-aplicar').addEventListener('click', async (ev) => {
   cargarHallazgos();
 });
 
-// ---------------------------------------------------------------- bitácora
-async function cargarBitacora() {
-  const r = await fetch('{{ url_for("agente_lux.bitacora") }}?dias=14');
-  const d = await r.json();
-  const cont = document.getElementById('bitacora-contenido');
-
-  if (!d.dias || !d.dias.length) {
-    cont.innerHTML = `<div class="card al-card"><div class="al-vacio">
-      <i class="bi bi-calendar3 fs-3 d-block mb-2"></i>Todavía no hay correos registrados.</div></div>`;
-    return;
-  }
-
-  cont.innerHTML = d.dias.map(dia => `
-    <div class="card al-card shadow-sm mb-3">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <span class="al-dia"><i class="bi bi-calendar3 me-1"></i>${fechaLarga(dia.dia)}</span>
-        <span class="small text-muted">
-          ${dia.correos.length} correo(s)
-          ${dia.con_accion ? `· <span class="text-danger fw-semibold">${dia.con_accion} por atender</span>` : ''}
-        </span>
-      </div>
-      <ul class="list-group list-group-flush">
-        ${dia.correos.map(c => `
-          <li class="list-group-item">
-            <div class="d-flex justify-content-between align-items-start gap-2">
-              <div class="flex-grow-1">
-                <div class="fw-semibold small al-abrir" onclick="verMail(${c.id})" title="Ver el correo completo">
-                  ${c.requiere_accion ? '<i class="bi bi-flag-fill text-danger me-1"></i>' : ''}
-                  ${escapar(c.asunto)}
-                  <i class="bi bi-box-arrow-up-right text-muted ms-1" style="font-size:.7rem;"></i>
-                </div>
-                <div class="small text-muted">${escapar(c.remitente_nombre)} · ${fechaCorta(c.fecha)}</div>
-                ${c.resumen
-                  ? `<div class="small mt-1">${escapar(c.resumen)}</div>`
-                  : (c.estado === 'analizado'
-                      ? `<div class="al-vistazo mt-1">${escapar(c.vistazo || '')}</div>`
-                      : `<div class="al-vistazo mt-1 text-muted"><span class="fst-italic">Resumen en camino…</span> ${escapar(c.vistazo || '')}</div>`)}
-                ${(c.temas || []).length
-                  ? `<ul class="small mb-0 mt-1">${c.temas.map(t => `<li>${escapar(t)}</li>`).join('')}</ul>`
-                  : ''}
-              </div>
-              <div class="text-end" style="min-width:110px;">
-                ${c.categoria ? `<span class="badge bg-light text-dark border">${escapar(c.categoria)}</span>` : ''}
-                ${c.n_adjuntos ? `<div class="small text-muted mt-1"><i class="bi bi-paperclip"></i> ${c.n_adjuntos}</div>` : ''}
-              </div>
-            </div>
-          </li>`).join('')}
-      </ul>
-    </div>`).join('');
-}
-
 cargarEstado();
-cargarHoy(0);
+cargarHoy();
 cargarHallazgos();
-cargarBitacora();
 
 // Mantiene vivo el indicador del vigía sin tener que recargar la página.
 setInterval(cargarEstado, 30000);
