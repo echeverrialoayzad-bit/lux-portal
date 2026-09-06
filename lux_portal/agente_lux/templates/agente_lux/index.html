@@ -93,7 +93,7 @@
     </li>
     <li class="nav-item">
       <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-prioritarios" type="button">
-        Prioritarios <span id="badge-prioritarios" class="badge bg-danger ms-1">0</span>
+        Prioritarios <span id="badge-prioritarios" class="badge bg-secondary ms-1">0</span>
       </button>
     </li>
   </ul>
@@ -176,7 +176,7 @@
     <div class="tab-pane fade" id="tab-prioritarios">
       <div class="card al-card shadow-sm mb-3">
         <div class="card-body py-2 small">
-          <div class="text-muted mb-1">Personas cuyos correos quieres ver aparte. Se muestran sus últimos correos, sin importar el rango de fechas.</div>
+          <div class="text-muted mb-1">Personas cuyos correos quieres ver aparte. Se muestran sus correos de las fechas elegidas arriba; "Refresh y analizar" los trae igual que los demás.</div>
           <div id="lista-personas" class="d-flex flex-wrap align-items-center gap-1"></div>
           <div class="d-flex flex-wrap align-items-center gap-1 mt-2">
             <input id="p-nombre" class="form-control form-control-sm" style="width:180px;" placeholder="Nombre">
@@ -311,6 +311,7 @@ function rangoCambio() {
   cargarEstado();
   cargarHoy();
   cargarHallazgos();
+  cargarPrioritarios();
 }
 document.getElementById('f-desde').value = hoyLocal();
 document.getElementById('f-hasta').value = hoyLocal();
@@ -497,7 +498,8 @@ function itemCorreo(c) {
 const PRIORITARIOS_URL = '{{ url_for("agente_lux.prioritarios") }}';
 
 async function cargarPrioritarios() {
-  const r = await fetch(PRIORITARIOS_URL);
+  const rg = rango();
+  const r = await fetch(PRIORITARIOS_URL + '?desde=' + rg.desde + '&hasta=' + rg.hasta);
   const d = await r.json();
   const personas = d.personas || [];
   const correos = d.correos || [];
@@ -510,13 +512,15 @@ async function cargarPrioritarios() {
         </span>`).join('')
     : '<span class="text-muted">Todavía no hay personas en la lista.</span>';
 
-  document.getElementById('badge-prioritarios').textContent = d.hoy || 0;
-  document.getElementById('resumen-prioritarios').textContent = correos.length
-    ? `${correos.length} correo(s) recientes de estas personas` + (d.hoy ? ` · ${d.hoy} de hoy` : ' · ninguno de hoy')
-    : 'Sin correos de estas personas todavía.';
+  const fuera = d.fuera_del_rango ? ` · ${d.fuera_del_rango} más de otras fechas (amplía el rango para verlos)` : '';
+  document.getElementById('badge-prioritarios').textContent = correos.length;
+  document.getElementById('resumen-prioritarios').textContent = (correos.length
+    ? `${correos.length} correo(s) de estas personas · ${textoRango()}`
+    : `Sin correos de estas personas ${esHoy() ? 'hoy' : textoRango()}`) + fuera;
   document.getElementById('lista-prioritarios').innerHTML = correos.length
     ? '<ul class="list-group list-group-flush">' + correos.map(itemCorreo).join('') + '</ul>'
-    : `<div class="al-vacio"><i class="bi bi-people fs-3 d-block mb-2"></i>No hay correos de estas personas en lo que se ha leído del buzón.</div>`;
+    : `<div class="al-vacio"><i class="bi bi-people fs-3 d-block mb-2"></i>No hay correos de estas personas ${esHoy() ? 'hoy' : textoRango()}.<br>
+       <span class="small">Dale a <strong>Refresh y analizar</strong> para volver a mirar el buzón, o amplía el rango.</span></div>`;
 }
 
 async function agregarPersona() {
@@ -727,7 +731,7 @@ function tarjetaMail(m) {
   // chiquita lo quita de la lista de la aerolinea (con confirmacion).
   const sel = new Set(m.seleccionados || []);
   const chips = (m.destinos || []).map(d => `
-    <span class="badge ${sel.has(d) ? 'bg-primary' : 'bg-light text-dark'} border me-1 mb-1 chip-destino"
+    <span class="badge ${sel.has(d) ? 'bg-success' : 'bg-light text-dark'} border me-1 mb-1 chip-destino"
           data-iata="${escapar(d)}" data-sel="${sel.has(d) ? 1 : 0}" style="cursor:pointer;"
           title="${sel.has(d) ? 'Marcado: va en el correo. Clic para desmarcar.' : 'Clic para pedir ' + escapar(d)}"
           onclick="alternarDestino(${m.id}, '${escapar(d)}')">${escapar(d)}

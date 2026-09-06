@@ -675,23 +675,29 @@ def _correo_a_item(correo):
 @agente_lux_bp.route('/api/prioritarios')
 @login_required
 def prioritarios():
-    """Las personas prioritarias y sus correos mas recientes (los ultimos 60,
-    sin importar el rango de la pantalla: aca lo que importa es no perderse
-    ninguno)."""
+    """Las personas prioritarias y sus correos dentro del rango de la
+    pantalla (por defecto, hoy). Mismo rango que las demas pestanas, para que
+    "Refresh y analizar" los traiga sin repasar historicos."""
     from sqlalchemy import func
+    try:
+        desde, hasta = _rango_pedido(request.args)
+    except ValueError as exc:
+        return jsonify({'error': f'Fechas invalidas: {exc}'}), 400
+    inicio, fin = rango_del_dia(desde, hasta)
+
     personas = AgentePrioritario.query.order_by(AgentePrioritario.nombre).all()
     emails = [p.email.lower() for p in personas]
-    correos, hoy_n = [], 0
+    correos, fuera = [], 0
     if emails:
-        filas = (AgenteMail.query
-                 .filter(func.lower(AgenteMail.remitente).in_(emails))
-                 .order_by(AgenteMail.fecha.desc())
-                 .limit(60).all())
+        base = AgenteMail.query.filter(func.lower(AgenteMail.remitente).in_(emails))
+        filas = (base.filter(AgenteMail.fecha >= inicio, AgenteMail.fecha <= fin)
+                 .order_by(AgenteMail.fecha.desc()).all())
         correos = [_correo_a_item(c) for c in filas]
-        inicio, fin = rango_del_dia(ahora_ecuador().date(), ahora_ecuador().date())
-        hoy_n = sum(1 for c in filas if c.fecha and inicio <= c.fecha <= fin)
+        fuera = max(base.count() - len(filas), 0)
     return jsonify({'personas': [p.to_dict() for p in personas],
-                    'correos': correos, 'hoy': hoy_n})
+                    'correos': correos, 'en_rango': len(correos),
+                    'fuera_del_rango': fuera,
+                    'rango': {'desde': desde.isoformat(), 'hasta': hasta.isoformat()}})
 
 
 @agente_lux_bp.route('/api/prioritarios', methods=['POST'])
