@@ -66,18 +66,41 @@ def log(mensaje):
         pass
 
 
+def _ruta_corta(ruta):
+    """Version 8.3 de una ruta (sin acentos ni espacios), si Windows la da."""
+    import ctypes
+    buf = ctypes.create_unicode_buffer(512)
+    if ctypes.windll.kernel32.GetShortPathNameW(ruta, buf, 512):
+        return buf.value
+    return ruta
+
+
 def instalar_tarea():
-    """Registra una tarea de Windows que arranca el vigia al iniciar sesion."""
-    import os
+    """Registra una tarea de Windows que arranca el vigia al iniciar sesion.
+
+    La tarea no llama a python directo: schtasks no acepta comandos de mas de
+    261 caracteres y la carpeta de OneDrive sola ya se come casi la mitad.
+    Deja un .cmd chico en _agente_lux/ y la tarea apunta a ese."""
     import subprocess
 
-    script = os.path.abspath(__file__)
-    carpeta = os.path.dirname(script)
-    comando = f'cmd /c cd /d "{carpeta}" && "{sys.executable}" "{script}"'
+    carpeta = os.path.dirname(os.path.abspath(__file__))
+    lanzador = os.path.join(carpeta, '_agente_lux', 'vigia.cmd')
+
+    # El .cmd va solo con ASCII a proposito: cmd.exe lo lee con la pagina de
+    # codigos de la consola y un acento en la ruta lo rompe. Por eso la
+    # carpeta sale de %~dp0 y python va en su ruta corta.
+    python = _ruta_corta(sys.executable)
+    if not python.isascii():
+        python = 'python'   # el de PATH, que es con el que se instalo todo
+    os.makedirs(os.path.dirname(lanzador), exist_ok=True)
+    with open(lanzador, 'w', encoding='ascii') as fh:
+        fh.write('@echo off\r\n'
+                 'cd /d "%~dp0.."\r\n'
+                 f'"{python}" agente_lux_watcher.py\r\n')
 
     resultado = subprocess.run(
         ['schtasks', '/Create', '/TN', 'Agente Lux - vigia',
-         '/TR', comando, '/SC', 'ONLOGON', '/RL', 'LIMITED', '/F'],
+         '/TR', f'"{lanzador}"', '/SC', 'ONLOGON', '/RL', 'LIMITED', '/F'],
         capture_output=True, text=True,
     )
     if resultado.returncode == 0:
