@@ -100,6 +100,7 @@
 
     <!-- ============ TAB 2: actualizaciones propuestas ============ -->
     <div class="tab-pane fade" id="tab-updates">
+      <div id="aviso-viejas" class="alert alert-warning py-2 small d-none"></div>
       <div class="card al-card shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div class="small text-muted" id="resumen-hallazgos">Sin cambios propuestos.</div>
@@ -129,7 +130,7 @@
         <div id="hallazgos-vacio" class="al-vacio">
           <i class="bi bi-inbox fs-3 d-block mb-2"></i>
           No hay cambios propuestos.<br>
-          <span class="small">Después del refresh, corre el análisis en tu PC.</span>
+          <span class="small">Cuando llegue una respuesta de tarifas o un aviso de FSC, aparece aquí.</span>
         </div>
       </div>
 
@@ -162,6 +163,30 @@ function escapar(txt) {
   const d = document.createElement('div');
   d.textContent = txt == null ? '' : txt;
   return d.innerHTML;
+}
+
+// Fechas con dia de la semana: "sáb 5 sep · 19:17". Solo la hora, como
+// estaba antes, confundia en la vista de 48 h y 7 días, y el asunto de un
+// correo ("VIERNES 5") se leia como si fuera la fecha.
+const DIAS_SEM = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const DIAS_LARGO = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const MESES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+                     'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+function partesFecha(f) {          // 'YYYY-MM-DD' o 'YYYY-MM-DD HH:MM'
+  if (!f || f.length < 10) return null;
+  const y = +f.slice(0, 4), m = +f.slice(5, 7), d = +f.slice(8, 10);
+  return { y, m, d, hora: f.slice(11, 16), dow: new Date(y, m - 1, d).getDay() };
+}
+function fechaCorta(f) {
+  const p = partesFecha(f);
+  if (!p) return escapar(f || '');
+  return `${DIAS_SEM[p.dow]} ${p.d} ${MESES[p.m - 1]}` + (p.hora ? ` · ${p.hora}` : '');
+}
+function fechaLarga(f) {
+  const p = partesFecha(f);
+  if (!p) return escapar(f || '');
+  return `${DIAS_LARGO[p.dow]} ${p.d} de ${MESES_LARGO[p.m - 1]} de ${p.y}`;
 }
 
 // ---------------------------------------------------------------- estado
@@ -307,7 +332,7 @@ async function cargarHoy(dias, boton) {
     + d.correos.map(c => `
       <li class="list-group-item">
         <div class="d-flex gap-3">
-          <div class="al-hora small text-nowrap">${escapar((c.fecha || '').slice(11))}</div>
+          <div class="al-hora small text-nowrap">${fechaCorta(c.fecha)}</div>
           <div class="flex-grow-1">
             <div class="fw-semibold small">
               ${c.requiere_accion ? '<i class="bi bi-flag-fill text-danger me-1"></i>' : ''}
@@ -383,7 +408,7 @@ function filaHallazgo(h) {
     <td>
       <div class="small">${escapar(h.mail_asunto || '')}</div>
       <div class="small text-muted">
-        ${escapar(h.mail_remitente || '')} · ${escapar(h.mail_fecha || '')}
+        ${escapar(h.mail_remitente || '')} · correo del ${fechaCorta(h.mail_fecha)}
         ${etiquetaAntiguedad(h.mail_dias)}
       </div>
       ${h.mail_carpeta ? `<div class="small text-muted"><i class="bi bi-folder2 me-1"></i>${escapar(h.mail_carpeta)}</div>` : ''}
@@ -410,6 +435,42 @@ async function cargarHallazgos() {
   document.querySelectorAll('.chk-hallazgo').forEach(c => c.addEventListener('change', actualizarBotonAplicar));
   document.querySelectorAll('.inp-valor').forEach(i => i.addEventListener('change', guardarValor));
   actualizarBotonAplicar();
+  avisarViejas(filas);
+}
+
+// Las propuestas que salen de correos viejos (el atraso de agosto que se
+// analizo en septiembre) llevan la fecha del correo original, y sin contexto
+// parecia que el agente estaba confundido de fecha. Se explica y se ofrece
+// rechazarlas de una.
+const DIAS_VIEJA = 15;
+function avisarViejas(filas) {
+  const el = document.getElementById('aviso-viejas');
+  const viejas = filas.filter(h => h.estado === 'pendiente' && h.mail_dias != null && h.mail_dias > DIAS_VIEJA);
+  if (!viejas.length) { el.classList.add('d-none'); return; }
+  const fechas = viejas.map(h => h.mail_fecha).filter(Boolean).sort();
+  const rango = fechas.length
+    ? ` (del ${fechaCorta(fechas[0]).split(' ·')[0]} al ${fechaCorta(fechas[fechas.length - 1]).split(' ·')[0]})`
+    : '';
+  el.innerHTML = `<i class="bi bi-clock-history me-1"></i>
+    <strong>${viejas.length} propuesta(s)</strong> salen de correos de hace más de ${DIAS_VIEJA} días${rango}.
+    Es correo atrasado que se analizó ahora: la fecha que ves es la del correo original, no la de hoy.
+    Si ya no te sirven, <button class="btn btn-outline-danger btn-sm py-0 ms-1" onclick="rechazarViejas()">
+    rechazar las ${viejas.length} antiguas</button>`;
+  el.classList.remove('d-none');
+  el.dataset.ids = JSON.stringify(viejas.map(h => h.id));
+}
+
+async function rechazarViejas() {
+  const el = document.getElementById('aviso-viejas');
+  const ids = JSON.parse(el.dataset.ids || '[]');
+  if (!ids.length) return;
+  if (!confirm(`Se van a rechazar ${ids.length} propuesta(s) de correos antiguos. No se toca ninguna tarifa. ¿Continuar?`)) return;
+  await fetch('{{ url_for("agente_lux.decidir") }}', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ids: ids, decision: 'rechazado'})
+  });
+  banner(`${ids.length} propuesta(s) antiguas rechazadas.`, 'success');
+  cargarHallazgos();
 }
 
 function idsSeleccionados() {
@@ -482,7 +543,7 @@ async function cargarBitacora() {
   cont.innerHTML = d.dias.map(dia => `
     <div class="card al-card shadow-sm mb-3">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <span class="al-dia"><i class="bi bi-calendar3 me-1"></i>${escapar(dia.dia)}</span>
+        <span class="al-dia"><i class="bi bi-calendar3 me-1"></i>${fechaLarga(dia.dia)}</span>
         <span class="small text-muted">
           ${dia.correos.length} correo(s)
           ${dia.con_accion ? `· <span class="text-danger fw-semibold">${dia.con_accion} por atender</span>` : ''}

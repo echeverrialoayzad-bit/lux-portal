@@ -20,6 +20,7 @@ from lux_portal.agente_lux.aplicar import aplicar_hallazgo
 from lux_portal.agente_lux.models import (
     AgenteCuenta, AgenteMail, AgenteHallazgo, ahora_ecuador,
 )
+from lux_portal.agente_lux.texto import limpiar_banners, sin_enlaces
 from lux_portal.extensions import db
 from lux_portal.auth.decorators import login_required
 
@@ -116,7 +117,10 @@ def estado():
 def _vistazo(correo, largo=220):
     """Primeras lineas utiles del cuerpo, para leer de un vistazo sin abrir
     el correo. Sirve incluso antes de que el analisis lo haya resumido."""
-    cuerpo = (correo.cuerpo or '').strip()
+    # Sin los avisos de Microsoft ni los <https://...>: el vistazo del correo
+    # de la fumigadora mostraba "Algunos contactos que recibieron este
+    # mensaje..." y nada del contenido.
+    cuerpo = sin_enlaces(limpiar_banners(correo.cuerpo)).strip()
     if not cuerpo:
         return ''
 

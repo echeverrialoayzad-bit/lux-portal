@@ -18,6 +18,7 @@ from lux_portal.extensions import db
 from lux_portal.agente_lux.models import (
     AgenteCuenta, AgenteMail, AgenteAdjunto, a_ecuador,
 )
+from lux_portal.agente_lux.texto import limpiar_banners
 
 DIAS_PRIMERA_LECTURA = 7
 HORAS_SOLAPE = 6
@@ -84,7 +85,9 @@ def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
             remitente=(datos['remitente'] or '')[:250],
             remitente_nombre=(datos['remitente_nombre'] or '')[:250],
             asunto=(datos['asunto'] or '(sin asunto)')[:500],
-            cuerpo=datos['cuerpo'],
+            # Sin los avisos que Microsoft pega arriba: no aportan al
+            # analisis y en el portal tapaban el contenido real.
+            cuerpo=limpiar_banners(datos['cuerpo']),
             estado='pendiente',
         )
         db.session.add(correo)
