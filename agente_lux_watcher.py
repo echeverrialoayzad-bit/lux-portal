@@ -69,6 +69,81 @@ def log(mensaje):
         pass
 
 
+def _contestar_dialogos_outlook():
+    """Contesta los cuadros con los que Outlook se queda esperando al abrir.
+
+    Despues de un cierre sucio, Outlook pregunta "no se inicio correctamente
+    la ultima vez, ¿modo a prueba de errores?" y luego "Elegir perfil", y no
+    atiende COM hasta que alguien responde. Aca se responde lo mismo que
+    responderia Daniela: No al modo a prueba de errores, Aceptar al perfil.
+    Devuelve cuantos cuadros contesto."""
+    import ctypes
+    import ctypes.wintypes as w
+    user32 = ctypes.windll.user32
+    BM_CLICK = 0x00F5
+
+    def texto(hwnd):
+        n = user32.GetWindowTextLengthW(hwnd)
+        b = ctypes.create_unicode_buffer(n + 1)
+        user32.GetWindowTextW(hwnd, b, n + 1)
+        return b.value
+
+    def clase(hwnd):
+        b = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, b, 256)
+        return b.value
+
+    dialogos = []
+
+    @ctypes.WINFUNCTYPE(ctypes.c_bool, w.HWND, w.LPARAM)
+    def arriba(hwnd, _):
+        if user32.IsWindowVisible(hwnd) and clase(hwnd) == '#32770':
+            dialogos.append(hwnd)
+        return True
+
+    user32.EnumWindows(arriba, 0)
+    contestados = 0
+
+    for d in dialogos:
+        hijos = []
+
+        @ctypes.WINFUNCTYPE(ctypes.c_bool, w.HWND, w.LPARAM)
+        def dentro(hc, _):
+            hijos.append((clase(hc), texto(hc)))
+            return True
+
+        user32.EnumChildWindows(d, dentro, 0)
+        estaticos = ' '.join(t for c, t in hijos if c == 'Static').lower()
+        titulo = texto(d).lower()
+
+        boton = None
+        if 'prueba de errores' in estaticos or 'safe mode' in estaticos:
+            boton = 'no'
+        elif titulo.startswith('elegir perfil') or titulo.startswith('choose profile'):
+            boton = 'aceptar'
+        if not boton:
+            continue
+
+        # Solo el boton de ese cuadro: no se toca nada mas de la pantalla.
+        objetivo = None
+
+        @ctypes.WINFUNCTYPE(ctypes.c_bool, w.HWND, w.LPARAM)
+        def buscar(hc, _):
+            nonlocal objetivo
+            if objetivo is None and clase(hc) == 'Button' and \
+                    texto(hc).replace('&', '').strip().lower() in (boton, 'ok'):
+                objetivo = hc
+            return True
+
+        user32.EnumChildWindows(d, buscar, 0)
+        if objetivo is not None:
+            user32.SendMessageW(objetivo, BM_CLICK, 0, 0)
+            log(f'Outlook preguntaba "{texto(d)}": le contesto {boton.upper()}.')
+            contestados += 1
+
+    return contestados
+
+
 def _abrir_outlook_si_hace_falta():
     """Arranca el Outlook de escritorio con ventana si no esta corriendo.
 
@@ -503,6 +578,10 @@ def main():
     if _abrir_outlook_si_hace_falta():
         log('Outlook estaba cerrado: lo abro y espero a que arranque...')
         time.sleep(20)
+    try:
+        _contestar_dialogos_outlook()
+    except Exception as exc:
+        log(f'No pude revisar los cuadros de Outlook: {exc}')
 
     # Verifica Outlook antes de entrar al bucle, para fallar con un mensaje
     # claro en vez de repetir el mismo error cada 15 segundos.
@@ -525,7 +604,7 @@ def main():
             # despues se rindio). Se reintenta un rato antes de darse por
             # vencido.
             ultimo = None
-            for _ in range(8):
+            for _ in range(40):          # hasta 10 minutos
                 try:
                     resultado['correo'] = outlook_local.cuenta_principal()
                     resultado['modo'] = outlook_local.modo_conexion()
@@ -539,17 +618,24 @@ def main():
 
     hilo = threading.Thread(target=comprobar, daemon=True)
     hilo.start()
-    # Cubre los reintentos (8 x 15 s) y deja margen: si sigue vivo despues
-    # de esto, Outlook esta colgado de verdad.
-    hilo.join(timeout=170)
+    hilo.join(timeout=90)
 
-    if hilo.is_alive():
-        log('Outlook no responde: la llamada se quedo colgada mas de un minuto.\n'
-            'Suele pasar cuando quedo una instancia trabada. Prueba:\n'
-            '  1. Cerrar Outlook y volver a abrirlo.\n'
-            '  2. Si sigue igual, reiniciar la PC.\n'
-            'Despues vuelve a arrancar el vigia.')
-        sys.exit(1)
+    # Si la llamada se queda colgada, NO se sale: salir con una llamada COM a
+    # medias deja a Outlook zombi (paso dos veces, y solo lo arregla un
+    # reinicio). Se espera a que Outlook termine de abrir, avisando cada
+    # minuto para que el log diga que esta pasando.
+    while hilo.is_alive():
+        try:
+            if _contestar_dialogos_outlook():
+                hilo.join(timeout=30)
+                continue
+        except Exception as exc:
+            log(f'No pude revisar los cuadros de Outlook: {exc}')
+        log('Outlook todavia no responde (suele estar abriendo o reparando el '
+            'buzon). Sigo esperando; si pasa de 10 minutos, cierra Outlook a '
+            'mano y vuelve a abrirlo.')
+        hilo.join(timeout=60)
+
     if 'error' in resultado:
         log(resultado['error'])
         sys.exit(1)
