@@ -52,6 +52,33 @@ _RE_SAFELINK = re.compile(
 _RE_MAILTO = re.compile(r'\s*<(?:mailto|tel):[^>]*>')
 
 
+_RE_BULLET_IATA = re.compile(r'^\s*([•\-\*·])\s*[A-Z]{3}\b')
+
+
+def sincronizar_destinos(cuerpo, destinos):
+    """Deja la lista de destinos del correo igual a `destinos`, conservando el
+    resto del texto que Daniela escribio a mano.
+
+    Busca el bloque de lineas con vineta y codigo IATA ("• AMS") y lo
+    reemplaza; si no hay bloque, mete la lista despues de la linea que
+    termina en ":" ("Solicito su ayuda con tarifas para:") o al final."""
+    lineas = (cuerpo or '').replace('\r\n', '\n').split('\n')
+    indices = [i for i, l in enumerate(lineas) if _RE_BULLET_IATA.match(l)]
+    vineta = '•'
+    if indices:
+        vineta = _RE_BULLET_IATA.match(lineas[indices[0]]).group(1)
+    bullets = [f'{vineta} {d}' for d in destinos] or [f'{vineta} (agrega un destino)']
+
+    if indices:
+        primero, ultimo = indices[0], indices[-1]
+        return '\n'.join(lineas[:primero] + bullets + lineas[ultimo + 1:])
+
+    for i, l in enumerate(lineas):
+        if l.strip().endswith(':'):
+            return '\n'.join(lineas[:i + 1] + [''] + bullets + lineas[i + 1:])
+    return (cuerpo or '').rstrip() + '\n\n' + '\n'.join(bullets)
+
+
 def limpiar_para_ver(texto):
     """El cuerpo como para leerlo en pantalla: sin avisos del sistema, con
     los enlaces reales en vez de los de safelinks, y sin los <mailto:...>

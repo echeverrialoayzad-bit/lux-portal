@@ -1121,7 +1121,12 @@ def actualizar_mail_request(id):
         if 'destinos' in data:
             destinos = sorted({(d or '').strip().upper() for d in (data.get('destinos') or []) if (d or '').strip()})
             registro.destinos = destinos
-            if not registro.cuerpo_editado:
+            if registro.cuerpo_editado and registro.cuerpo:
+                # Texto editado a mano: se conserva, pero la lista de
+                # destinos dentro del correo sigue a los destinos.
+                from lux_portal.agente_lux.texto import sincronizar_destinos
+                registro.cuerpo = sincronizar_destinos(registro.cuerpo, destinos)
+            else:
                 registro.cuerpo = None
         if 'asunto' in data:
             registro.asunto = (data.get('asunto') or '').strip() or None

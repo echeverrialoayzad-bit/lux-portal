@@ -20,7 +20,7 @@ from lux_portal.agente_lux import contexto, reglas
 from lux_portal.agente_lux.aplicar import aplicar_hallazgo
 from lux_portal.agente_lux.models import (
     AgenteCuenta, AgenteMail, AgenteHallazgo, AgenteAdjunto, AgenteEnvio,
-    ahora_ecuador, rango_del_dia,
+    AgentePrioritario, ahora_ecuador, rango_del_dia,
 )
 
 # Tope del rango que se puede pedir de una vez: un mes de correo son varias
@@ -535,7 +535,13 @@ def guardar_mail(id):
         destinos = sorted({(d or '').strip().upper()
                            for d in (data.get('destinos') or []) if (d or '').strip()})
         registro.destinos = destinos
-        if not registro.cuerpo_editado:
+        if registro.cuerpo_editado and registro.cuerpo:
+            # El texto es de Daniela, pero la lista de destinos dentro del
+            # correo tiene que seguir a los destinos: agrego SED y el correo
+            # tiene que pedir SED.
+            from lux_portal.agente_lux.texto import sincronizar_destinos
+            registro.cuerpo = sincronizar_destinos(registro.cuerpo, destinos)
+        else:
             registro.cuerpo = None
     if 'cuerpo' in data:
         texto = (data.get('cuerpo') or '').strip()
@@ -626,6 +632,70 @@ def descubrir_contactos():
                     'sin_contacto': sorted(
                         r.aerolinea for r in AirlineMailRequest.query.all()
                         if not r.destinatarios)})
+
+
+# ---------------------------------------------------------------------------
+# Prioritarios: los correos de las personas que Daniela quiere ver aparte
+# ---------------------------------------------------------------------------
+
+def _correo_a_item(correo):
+    datos = correo.to_dict()
+    datos['vistazo'] = _vistazo(correo)
+    datos['aerolinea'] = (
+        (correo.carpeta or '').split('/')[-1]
+        if (correo.carpeta or '').upper().startswith('INBOX/AEROLINEAS/')
+        else ''
+    )
+    return datos
+
+
+@agente_lux_bp.route('/api/prioritarios')
+@login_required
+def prioritarios():
+    """Las personas prioritarias y sus correos mas recientes (los ultimos 60,
+    sin importar el rango de la pantalla: aca lo que importa es no perderse
+    ninguno)."""
+    from sqlalchemy import func
+    personas = AgentePrioritario.query.order_by(AgentePrioritario.nombre).all()
+    emails = [p.email.lower() for p in personas]
+    correos, hoy_n = [], 0
+    if emails:
+        filas = (AgenteMail.query
+                 .filter(func.lower(AgenteMail.remitente).in_(emails))
+                 .order_by(AgenteMail.fecha.desc())
+                 .limit(60).all())
+        correos = [_correo_a_item(c) for c in filas]
+        inicio, fin = rango_del_dia(ahora_ecuador().date(), ahora_ecuador().date())
+        hoy_n = sum(1 for c in filas if c.fecha and inicio <= c.fecha <= fin)
+    return jsonify({'personas': [p.to_dict() for p in personas],
+                    'correos': correos, 'hoy': hoy_n})
+
+
+@agente_lux_bp.route('/api/prioritarios', methods=['POST'])
+@login_required
+def agregar_prioritario():
+    data = request.json or {}
+    email = (data.get('email') or '').strip().lower()
+    nombre = (data.get('nombre') or '').strip()[:150]
+    if not _RE_MAIL.fullmatch(email):
+        return jsonify({'error': 'Escribe una direccion de correo valida.'}), 400
+    if AgentePrioritario.query.filter(db.func.lower(AgentePrioritario.email) == email).first():
+        return jsonify({'error': 'Esa persona ya esta en la lista.'}), 400
+    persona = AgentePrioritario(nombre=nombre or email.split('@')[0], email=email)
+    db.session.add(persona)
+    db.session.commit()
+    return jsonify({'ok': True, 'persona': persona.to_dict()})
+
+
+@agente_lux_bp.route('/api/prioritarios/<int:id>', methods=['DELETE'])
+@login_required
+def quitar_prioritario(id):
+    persona = AgentePrioritario.query.get(id)
+    if not persona:
+        return jsonify({'error': 'No encontrada.'}), 404
+    db.session.delete(persona)
+    db.session.commit()
+    return jsonify({'ok': True})
 
 
 # ---------------------------------------------------------------------------

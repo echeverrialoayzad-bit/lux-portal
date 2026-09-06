@@ -91,6 +91,11 @@
         Mails <span id="badge-mails" class="badge bg-secondary ms-1">0</span>
       </button>
     </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-prioritarios" type="button">
+        Prioritarios <span id="badge-prioritarios" class="badge bg-danger ms-1">0</span>
+      </button>
+    </li>
   </ul>
 
   <div class="tab-content">
@@ -164,6 +169,26 @@
       <div class="card al-card shadow-sm mt-3">
         <div class="card-header bg-white small text-muted">Envíos recientes</div>
         <div id="lista-envios" class="small"></div>
+      </div>
+    </div>
+
+    <!-- ============ TAB 4: correos de las personas prioritarias ============ -->
+    <div class="tab-pane fade" id="tab-prioritarios">
+      <div class="card al-card shadow-sm mb-3">
+        <div class="card-body py-2 small">
+          <div class="text-muted mb-1">Personas cuyos correos quieres ver aparte. Se muestran sus últimos correos, sin importar el rango de fechas.</div>
+          <div id="lista-personas" class="d-flex flex-wrap align-items-center gap-1"></div>
+          <div class="d-flex flex-wrap align-items-center gap-1 mt-2">
+            <input id="p-nombre" class="form-control form-control-sm" style="width:180px;" placeholder="Nombre">
+            <input id="p-email" class="form-control form-control-sm" style="width:260px;" placeholder="correo@freight-wise.com"
+                   onkeydown="if (event.key === 'Enter') { agregarPersona(); return false; }">
+            <button class="btn btn-outline-secondary btn-sm" onclick="agregarPersona()"><i class="bi bi-person-plus me-1"></i>Agregar</button>
+          </div>
+        </div>
+      </div>
+      <div class="card al-card shadow-sm">
+        <div class="card-header bg-white small text-muted" id="resumen-prioritarios">—</div>
+        <div id="lista-prioritarios"></div>
       </div>
     </div>
 
@@ -412,6 +437,7 @@ async function esperarLectura(btn) {
   btn.disabled = false;
   cargarHoy();
   cargarHallazgos();
+  cargarPrioritarios();
 }
 
 // ---------------------------------------------------------------- correos del rango
@@ -434,8 +460,12 @@ async function cargarHoy() {
     return;
   }
 
-  cont.innerHTML = '<ul class="list-group list-group-flush">'
-    + d.correos.map(c => `
+  cont.innerHTML = '<ul class="list-group list-group-flush">' + d.correos.map(itemCorreo).join('') + '</ul>';
+}
+
+// Un correo en una lista: lo usan la pestana de correos y la de prioritarios.
+function itemCorreo(c) {
+  return `
       <li class="list-group-item">
         <div class="d-flex gap-3">
           <div class="al-hora small text-nowrap">${fechaCorta(c.fecha)}</div>
@@ -460,8 +490,53 @@ async function cargarHoy() {
               : ''}
           </div>
         </div>
-      </li>`).join('')
-    + '</ul>';
+      </li>`;
+}
+
+// ---------------------------------------------------------------- prioritarios
+const PRIORITARIOS_URL = '{{ url_for("agente_lux.prioritarios") }}';
+
+async function cargarPrioritarios() {
+  const r = await fetch(PRIORITARIOS_URL);
+  const d = await r.json();
+  const personas = d.personas || [];
+  const correos = d.correos || [];
+
+  document.getElementById('lista-personas').innerHTML = personas.length
+    ? personas.map(p => `
+        <span class="badge bg-light text-dark border">
+          ${escapar(p.nombre || p.email)} <span class="text-muted fw-normal">${escapar(p.email)}</span>
+          <a href="#" class="text-danger text-decoration-none ms-1" title="Quitar" onclick="quitarPersona(${p.id}, '${escapar(p.nombre || p.email)}'); return false;">&times;</a>
+        </span>`).join('')
+    : '<span class="text-muted">Todavía no hay personas en la lista.</span>';
+
+  document.getElementById('badge-prioritarios').textContent = d.hoy || 0;
+  document.getElementById('resumen-prioritarios').textContent = correos.length
+    ? `${correos.length} correo(s) recientes de estas personas` + (d.hoy ? ` · ${d.hoy} de hoy` : ' · ninguno de hoy')
+    : 'Sin correos de estas personas todavía.';
+  document.getElementById('lista-prioritarios').innerHTML = correos.length
+    ? '<ul class="list-group list-group-flush">' + correos.map(itemCorreo).join('') + '</ul>'
+    : `<div class="al-vacio"><i class="bi bi-people fs-3 d-block mb-2"></i>No hay correos de estas personas en lo que se ha leído del buzón.</div>`;
+}
+
+async function agregarPersona() {
+  const nombre = document.getElementById('p-nombre').value.trim();
+  const email = document.getElementById('p-email').value.trim();
+  const r = await fetch(PRIORITARIOS_URL, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({nombre, email})
+  });
+  const d = await r.json();
+  if (!r.ok) { banner(escapar(d.error || 'No se pudo agregar.'), 'danger'); return; }
+  document.getElementById('p-nombre').value = '';
+  document.getElementById('p-email').value = '';
+  cargarPrioritarios();
+}
+
+async function quitarPersona(id, nombre) {
+  if (!confirm(`¿Quitar a ${nombre} de los prioritarios?`)) return;
+  const r = await fetch(PRIORITARIOS_URL + '/' + id, { method: 'DELETE' });
+  if (!r.ok) { banner('No se pudo quitar.', 'danger'); return; }
+  cargarPrioritarios();
 }
 
 // ---------------------------------------------------------------- hallazgos
@@ -703,7 +778,7 @@ function tarjetaMail(m) {
                   style="white-space:pre-wrap;font-family:inherit;">${escapar(m.cuerpo)}</textarea>
         <div class="d-flex justify-content-between align-items-center mt-1 text-muted">
           <span>${m.cuerpo_editado
-            ? 'Texto editado a mano: no cambia solo cuando cambian los destinos.'
+            ? 'Texto editado a mano. La lista de destinos dentro del correo sí se actualiza al agregar o quitar.'
             : 'Texto automático a partir de los destinos. Si lo editas, se guarda al salir del cuadro.'}</span>
           ${m.cuerpo_editado
             ? `<a href="#" onclick="restablecerCuerpo(${m.id}); return false;">Volver al texto automático</a>`
@@ -819,6 +894,7 @@ cargarEstado();
 cargarHoy();
 cargarHallazgos();
 cargarMails();
+cargarPrioritarios();
 
 // Mantiene vivo el indicador del vigía sin tener que recargar la página.
 setInterval(cargarEstado, 30000);

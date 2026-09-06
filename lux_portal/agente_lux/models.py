@@ -319,6 +319,20 @@ class AgenteEnvio(db.Model):
         }
 
 
+class AgentePrioritario(db.Model):
+    """Personas cuyos correos Daniela quiere ver aparte (pestana Prioritarios):
+    sus jefes y companeros de FreightWise. Se compara por direccion."""
+    __tablename__ = 'agente_prioritarios'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(150))
+    email = db.Column(db.String(250), unique=True, nullable=False)
+    creado_en = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {'id': self.id, 'nombre': self.nombre, 'email': self.email}
+
+
 # La bitacora de escaneos (AgenteScan) se quito junto con la via de Microsoft
 # Graph: ahora el estado de la ultima lectura vive en la propia cuenta
 # (refresh_estado / refresh_mensaje), que es lo que muestra el portal.
