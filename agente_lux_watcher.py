@@ -369,6 +369,23 @@ def _hay_solicitud(app):
                 cuenta.refresh_desde, cuenta.refresh_hasta)
 
 
+def _hay_envios(app):
+    from lux_portal.agente_lux.models import AgenteEnvio
+
+    with app.app_context():
+        return AgenteEnvio.query.filter_by(estado='pendiente').count()
+
+
+def _enviar(app):
+    """Manda por Outlook lo que Daniela dejo en cola en la pestana Mails."""
+    from lux_portal.agente_lux import envio_local
+
+    with app.app_context():
+        enviados, fallidos = envio_local.enviar_pendientes()
+    log(f'Correos enviados por Outlook: {enviados}'
+        + (f' ({fallidos} con error, ver la pestana Mails)' if fallidos else ''))
+
+
 MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
          'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
@@ -764,6 +781,25 @@ def main():
     # diria "tu PC no esta escuchando" justo mientras esta trabajando.
     trabajando = threading.Event()
 
+    def en_hilo_com(fn):
+        """Corre fn en otro hilo con COM inicializado y el candado puesto.
+
+        COM hay que inicializarlo en cada hilo que lo use: sin esto, Outlook
+        falla con "No se ha llamado a CoInitialize" apenas el trabajo salio
+        del hilo principal."""
+        def tarea():
+            import pythoncom
+            pythoncom.CoInitialize()
+            try:
+                fn()
+            except Exception as exc:
+                log(f'ERROR: {exc}')
+            finally:
+                pythoncom.CoUninitialize()
+                trabajando.clear()
+
+        threading.Thread(target=tarea, daemon=True).start()
+
     def lanzar(motivo, desde=None, hasta=None):
         if trabajando.is_set():
             return
@@ -774,20 +810,13 @@ def main():
         hoy = ahora_ecuador().date()
         desde = desde or hoy
         hasta = hasta or hoy
+        en_hilo_com(lambda: _leer(app, args, motivo, desde, hasta))
 
-        def tarea():
-            # COM hay que inicializarlo en cada hilo que lo use: sin esto,
-            # Outlook falla con "No se ha llamado a CoInitialize" apenas el
-            # trabajo salio del hilo principal.
-            import pythoncom
-            pythoncom.CoInitialize()
-            try:
-                _leer(app, args, motivo, desde, hasta)
-            finally:
-                pythoncom.CoUninitialize()
-                trabajando.clear()
-
-        threading.Thread(target=tarea, daemon=True).start()
+    def lanzar_envios():
+        if trabajando.is_set():
+            return
+        trabajando.set()
+        en_hilo_com(lambda: _enviar(app))
 
     try:
         while True:
@@ -799,7 +828,12 @@ def main():
                 cuenta_id, solicitado, desde, hasta = _hay_solicitud(app)
                 _latir(app, cuenta_id)
 
-                if solicitado:
+                # Los envios de la pestana Mails van primero: son un clic de
+                # Daniela esperando, y tardan segundos.
+                if not trabajando.is_set() and _hay_envios(app):
+                    lanzar_envios()
+
+                elif solicitado:
                     lanzar('boton del portal', desde, hasta)
                     ultimo_auto = datetime.utcnow()
 

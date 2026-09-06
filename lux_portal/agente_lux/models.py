@@ -284,6 +284,41 @@ class AgenteHallazgo(db.Model):
         }
 
 
+class AgenteEnvio(db.Model):
+    """Un correo de solicitud de tarifas que Daniela pidio enviar desde la
+    pestana Mails de Agente Lux.
+
+    El portal no puede mandar correo (Railway no llega a su Outlook y Graph
+    esta bloqueado por el administrador), asi que deja el envio en cola y el
+    vigia de la PC lo manda por el Outlook de escritorio con su firma."""
+    __tablename__ = 'agente_envios'
+
+    id = db.Column(db.Integer, primary_key=True)
+    aerolinea = db.Column(db.String(100))
+    para = db.Column(db.Text)            # direcciones separadas por ;
+    cc = db.Column(db.Text)
+    asunto = db.Column(db.String(300))
+    cuerpo = db.Column(db.Text)
+    estado = db.Column(db.String(20), default='pendiente', index=True)
+    # pendiente | enviado | error
+    creado_en = db.Column(db.DateTime, default=datetime.utcnow)
+    enviado_en = db.Column(db.DateTime)
+    error = db.Column(db.Text)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'aerolinea': self.aerolinea,
+            'para': self.para,
+            'cc': self.cc,
+            'asunto': self.asunto,
+            'estado': self.estado,
+            'creado_en': _fmt(a_ecuador(self.creado_en)),
+            'enviado_en': _fmt(a_ecuador(self.enviado_en)),
+            'error': self.error,
+        }
+
+
 # La bitacora de escaneos (AgenteScan) se quito junto con la via de Microsoft
 # Graph: ahora el estado de la ultima lectura vive en la propia cuenta
 # (refresh_estado / refresh_mensaje), que es lo que muestra el portal.

@@ -86,6 +86,11 @@
         Actualizaciones <span id="badge-hallazgos" class="badge bg-secondary ms-1">0</span>
       </button>
     </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-mails" type="button">
+        Mails <span id="badge-mails" class="badge bg-secondary ms-1">0</span>
+      </button>
+    </li>
   </ul>
 
   <div class="tab-content">
@@ -141,6 +146,24 @@
         El botón <strong>Refresh y analizar</strong> hace todo el ciclo: lee tu Outlook,
         le pide el análisis a Claude Code en tu PC (con tu suscripción, no gasta API)
         y deja acá los cambios propuestos.
+      </div>
+    </div>
+
+    <!-- ============ TAB 3: mails de solicitud de tarifas ============ -->
+    <div class="tab-pane fade" id="tab-mails">
+      <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+        <div class="small text-muted">
+          Solicitudes de tarifas por aerolínea, con los destinos de la pestaña Mails del portal.
+          Se mandan por tu Outlook, con tu firma, a través del vigía de tu PC.
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" onclick="descubrirContactos()">
+          <i class="bi bi-search me-1"></i>Detectar contactos de mis correos
+        </button>
+      </div>
+      <div id="lista-mails"></div>
+      <div class="card al-card shadow-sm mt-3">
+        <div class="card-header bg-white small text-muted">Envíos recientes</div>
+        <div id="lista-envios" class="small"></div>
       </div>
     </div>
 
@@ -285,6 +308,9 @@ async function cargarEstado() {
 
     // El botón solo sirve si el vigía está vivo en la PC: si no, nadie
     // puede abrir el Outlook.
+    const antes = vigiaActivo;
+    vigiaActivo = !!d.cuenta.vigia_activo;
+    if (antes !== vigiaActivo && typeof cargarMails === 'function') cargarMails();
     if (d.cuenta.vigia_activo) {
       elVigia.innerHTML = '<span class="al-punto al-punto-on me-1"></span>Tu PC está escuchando';
       btn.disabled = false;
@@ -614,9 +640,134 @@ document.getElementById('btn-aplicar').addEventListener('click', async (ev) => {
   cargarHallazgos();
 });
 
+// ---------------------------------------------------------------- mails
+const MAILS_URL = '{{ url_for("agente_lux.mails") }}';
+const ENVIOS_URL = '{{ url_for("agente_lux.envios") }}';
+const DESCUBRIR_URL = '{{ url_for("agente_lux.descubrir_contactos") }}';
+const MAIL_GUARDAR_URL = '{{ url_for("agente_lux.guardar_mail", id=0) }}'.slice(0, -1);
+let vigiaActivo = false;
+
+function tarjetaMail(m) {
+  const chips = (m.destinos || []).map(d => `<span class="badge bg-light text-dark border me-1 mb-1">${escapar(d)}</span>`).join('')
+    || '<span class="text-muted">sin destinos en Mails</span>';
+  const ultimo = m.ultimo_envio
+    ? (m.ultimo_envio.estado === 'enviado'
+        ? `<span class="text-success"><i class="bi bi-check2-circle"></i> enviado ${fechaCorta(m.ultimo_envio.enviado_en)}</span>`
+        : m.ultimo_envio.estado === 'pendiente'
+          ? '<span class="text-primary"><span class="spinner-border spinner-border-sm me-1"></span>enviando…</span>'
+          : `<span class="text-danger" title="${escapar(m.ultimo_envio.error || '')}"><i class="bi bi-x-circle"></i> falló el envío</span>`)
+    : '<span class="text-muted">nunca enviado desde aquí</span>';
+  const resp = m.ultima_respuesta ? `última respuesta ${fechaCorta(m.ultima_respuesta)}` : 'sin respuestas registradas';
+  const puede = vigiaActivo && m.destinatarios && (m.destinos || []).length;
+  return `
+  <div class="card al-card shadow-sm mb-2" data-id="${m.id}">
+    <div class="card-body py-2">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+          <strong>${escapar(m.aerolinea)}</strong>
+          <div class="mt-1">${chips}</div>
+        </div>
+        <div class="text-end small">
+          <div>${ultimo}</div>
+          <div class="text-muted">${escapar(resp)}</div>
+        </div>
+      </div>
+      <div class="row g-2 mt-1 small">
+        <div class="col-md-5">
+          <label class="text-muted">Para</label>
+          <input class="form-control form-control-sm inp-mail" data-campo="destinatarios" value="${escapar(m.destinatarios)}" placeholder="correo@aerolinea.com; otro@...">
+        </div>
+        <div class="col-md-4">
+          <label class="text-muted">CC</label>
+          <input class="form-control form-control-sm inp-mail" data-campo="cc" value="${escapar(m.cc)}" placeholder="opcional">
+        </div>
+        <div class="col-md-3">
+          <label class="text-muted">Asunto</label>
+          <input class="form-control form-control-sm inp-mail" data-campo="asunto" value="${escapar(m.asunto)}">
+        </div>
+      </div>
+      <details class="mt-2 small">
+        <summary class="text-muted">Ver el texto del correo</summary>
+        <div class="al-cuerpo mt-1 p-2 border rounded bg-light">${escapar(m.cuerpo)}</div>
+      </details>
+      <div class="d-flex justify-content-end mt-2">
+        <button class="btn btn-primary btn-sm" onclick="enviarMail(${m.id}, '${escapar(m.aerolinea)}')" ${puede ? '' : 'disabled'}
+          title="${vigiaActivo ? '' : 'El vigía no está corriendo en tu PC'}">
+          <i class="bi bi-send me-1"></i>Enviar por Outlook
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function cargarMails() {
+  const r = await fetch(MAILS_URL);
+  const d = await r.json();
+  const lista = d.mails || [];
+  document.getElementById('badge-mails').textContent = lista.length;
+  document.getElementById('lista-mails').innerHTML = lista.length
+    ? lista.map(tarjetaMail).join('')
+    : '<div class="al-vacio">No hay aerolíneas en la pestaña Mails del portal.</div>';
+  document.querySelectorAll('#lista-mails .inp-mail').forEach(i => i.addEventListener('change', guardarMail));
+  cargarEnvios();
+}
+
+async function guardarMail(ev) {
+  const card = ev.currentTarget.closest('.card');
+  const id = card.dataset.id;
+  const datos = {};
+  card.querySelectorAll('.inp-mail').forEach(i => { datos[i.dataset.campo] = i.value; });
+  const r = await fetch(MAIL_GUARDAR_URL + id, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(datos)
+  });
+  if (r.ok) { cargarMails(); } else { banner('No se pudo guardar el contacto.', 'danger'); }
+}
+
+async function enviarMail(id, aerolinea) {
+  if (!confirm(`Se va a enviar la solicitud de tarifas a ${aerolinea} desde tu Outlook. ¿Continuar?`)) return;
+  const r = await fetch(MAIL_GUARDAR_URL + id + '/enviar', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+  });
+  const d = await r.json();
+  if (!r.ok) { banner(escapar(d.error || 'No se pudo enviar.'), 'danger'); return; }
+  banner(`Solicitud a ${escapar(aerolinea)} en cola: tu PC la manda en unos segundos.`, 'info');
+  cargarMails();
+  // El vigia la manda en el siguiente latido; se vuelve a mirar un rato.
+  let intentos = 0;
+  const t = setInterval(async () => { await cargarMails(); if (++intentos >= 8) clearInterval(t); }, 10000);
+}
+
+async function cargarEnvios() {
+  const r = await fetch(ENVIOS_URL);
+  const d = await r.json();
+  const filas = d.envios || [];
+  document.getElementById('lista-envios').innerHTML = filas.length
+    ? '<ul class="list-group list-group-flush">' + filas.map(e => `
+        <li class="list-group-item py-1 d-flex justify-content-between flex-wrap gap-2">
+          <span><strong>${escapar(e.aerolinea)}</strong> · ${escapar(e.asunto)} · <span class="text-muted">${escapar(e.para)}</span></span>
+          <span>${e.estado === 'enviado' ? '<span class="text-success">enviado ' + fechaCorta(e.enviado_en) + '</span>'
+                : e.estado === 'pendiente' ? '<span class="text-primary">en cola desde ' + fechaCorta(e.creado_en) + '</span>'
+                : '<span class="text-danger" title="' + escapar(e.error || '') + '">error: ' + escapar((e.error || '').slice(0, 80)) + '</span>'}</span>
+        </li>`).join('') + '</ul>'
+    : '<div class="al-vacio py-3">Todavía no se ha enviado nada desde aquí.</div>';
+}
+
+async function descubrirContactos() {
+  const r = await fetch(DESCUBRIR_URL, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+  const d = await r.json();
+  const n = Object.keys(d.llenados || {}).length;
+  banner(n
+    ? `Contactos detectados para ${n} aerolínea(s): ${Object.keys(d.llenados).join(', ')}.`
+      + (d.sin_contacto && d.sin_contacto.length ? ` Sin contacto todavía: ${d.sin_contacto.join(', ')}.` : '')
+    : 'No encontré contactos nuevos en los correos guardados.' + (d.sin_contacto && d.sin_contacto.length ? ` Sin contacto: ${d.sin_contacto.join(', ')}.` : ''),
+    'info');
+  cargarMails();
+}
+
 cargarEstado();
 cargarHoy();
 cargarHallazgos();
+cargarMails();
 
 // Mantiene vivo el indicador del vigía sin tener que recargar la página.
 setInterval(cargarEstado, 30000);

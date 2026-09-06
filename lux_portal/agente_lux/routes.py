@@ -19,8 +19,8 @@ from lux_portal.agente_lux import agente_lux_bp
 from lux_portal.agente_lux import contexto, reglas
 from lux_portal.agente_lux.aplicar import aplicar_hallazgo
 from lux_portal.agente_lux.models import (
-    AgenteCuenta, AgenteMail, AgenteHallazgo, AgenteAdjunto, ahora_ecuador,
-    rango_del_dia,
+    AgenteCuenta, AgenteMail, AgenteHallazgo, AgenteAdjunto, AgenteEnvio,
+    ahora_ecuador, rango_del_dia,
 )
 
 # Tope del rango que se puede pedir de una vez: un mes de correo son varias
@@ -406,6 +406,206 @@ def ver_adjunto(adj_id):
         mimetype=adj.mime or 'application/octet-stream',
         headers={'Content-Disposition': f'inline; filename="{nombre}"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Mails: solicitudes de tarifas por aerolinea, enviadas por su Outlook
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+# Nombre de la carpeta de Outlook (Inbox/AEROLINEAS/<X>) -> nombre en Mails,
+# cuando no coinciden letra por letra.
+_ALIAS_CARPETA = {'AERCARIBE': 'AIR CARIBE'}
+_RE_HDR = _re.compile(r'^(?:Para|To|CC|Cc):\s*(.+)$', _re.M)
+_RE_MAIL = _re.compile(r'[\w.+-]+@[\w.-]+\.\w+')
+ASUNTO_POR_DEFECTO = 'Tarifa Flor'
+
+
+def _aerolinea_de_carpeta(carpeta):
+    nombre = (carpeta or '').replace('Inbox/AEROLINEAS/', '').strip().upper()
+    return _ALIAS_CARPETA.get(nombre, nombre)
+
+
+def _descubrir_contactos(mi_correo):
+    """Por aerolinea, a quien le mando Daniela sus solicitudes de tarifas.
+
+    Sale de las respuestas guardadas: la aerolinea contesta sobre el correo
+    de ella, y abajo queda citado "De: Daniela ... Para: ...". Esas son las
+    direcciones que ella usa de verdad (los buzones de ventas). Si un hilo
+    no trae la cita, se usa la direccion de quien contesto.
+
+    Devuelve {aerolinea: [direcciones, la mas usada primero]}."""
+    citados, respondieron = {}, {}
+    mails = (AgenteMail.query
+             .filter(AgenteMail.carpeta.ilike('Inbox/AEROLINEAS/%'),
+                     AgenteMail.respuesta_mia.is_(True))
+             .all())
+    for m in mails:
+        aero = _aerolinea_de_carpeta(m.carpeta)
+        if m.remitente and mi_correo not in m.remitente.lower() \
+                and 'freight-wise.com' not in m.remitente.lower():
+            respondieron.setdefault(aero, {})
+            respondieron[aero][m.remitente.lower()] = respondieron[aero].get(m.remitente.lower(), 0) + 1
+        for bloque in _re.split(r'\n(?=(?:De|From):)', m.cuerpo or ''):
+            if mi_correo not in bloque.split('\n', 1)[0].lower():
+                continue
+            for linea in _RE_HDR.findall(bloque[:1500]):
+                for e in _RE_MAIL.findall(linea):
+                    e = e.lower()
+                    if 'freight-wise.com' in e:
+                        continue
+                    citados.setdefault(aero, {})
+                    citados[aero][e] = citados[aero].get(e, 0) + 1
+
+    salida = {}
+    for aero in set(citados) | set(respondieron):
+        fuente = citados.get(aero) or respondieron.get(aero) or {}
+        salida[aero] = [e for e, _ in sorted(fuente.items(), key=lambda x: -x[1])]
+    return salida
+
+
+def _ultimas_respuestas():
+    """{aerolinea: fecha de la ultima respuesta a una solicitud de Daniela}."""
+    from sqlalchemy import func
+    filas = (db.session.query(AgenteMail.carpeta, func.max(AgenteMail.fecha))
+             .filter(AgenteMail.carpeta.ilike('Inbox/AEROLINEAS/%'),
+                     AgenteMail.respuesta_mia.is_(True))
+             .group_by(AgenteMail.carpeta).all())
+    return {_aerolinea_de_carpeta(c): f for c, f in filas}
+
+
+def _cuerpo_solicitud(registro):
+    from lux_portal.cotizaciones.routes import _generar_cuerpo_mail
+    if registro.cuerpo_editado and registro.cuerpo:
+        return registro.cuerpo
+    return _generar_cuerpo_mail(registro.aerolinea, registro.destinos)
+
+
+@agente_lux_bp.route('/api/mails')
+@login_required
+def mails():
+    """Las solicitudes de tarifas por aerolinea, listas para enviar."""
+    from lux_portal.cotizaciones.models import AirlineMailRequest
+
+    respuestas = _ultimas_respuestas()
+    ultimos = {}
+    for e in AgenteEnvio.query.order_by(AgenteEnvio.id.desc()).all():
+        ultimos.setdefault(e.aerolinea, e)
+
+    salida = []
+    for r in AirlineMailRequest.query.order_by(AirlineMailRequest.aerolinea).all():
+        ultimo = ultimos.get(r.aerolinea)
+        resp = respuestas.get(r.aerolinea)
+        salida.append({
+            'id': r.id,
+            'aerolinea': r.aerolinea,
+            'destinos': r.destinos,
+            'asunto': r.asunto or ASUNTO_POR_DEFECTO,
+            'cuerpo': _cuerpo_solicitud(r),
+            'destinatarios': r.destinatarios or '',
+            'cc': r.cc or '',
+            'ultimo_envio': ultimo.to_dict() if ultimo else None,
+            'ultima_respuesta': resp.strftime('%Y-%m-%d %H:%M') if resp else None,
+        })
+    return jsonify({'mails': salida})
+
+
+@agente_lux_bp.route('/api/mails/<int:id>', methods=['POST'])
+@login_required
+def guardar_mail(id):
+    """Guarda a quien se manda y el asunto de una solicitud."""
+    from lux_portal.cotizaciones.models import AirlineMailRequest
+
+    registro = AirlineMailRequest.query.get(id)
+    if not registro:
+        return jsonify({'error': 'Aerolinea no encontrada.'}), 404
+    data = request.json or {}
+    if 'destinatarios' in data:
+        registro.destinatarios = _limpiar_direcciones(data.get('destinatarios'))
+    if 'cc' in data:
+        registro.cc = _limpiar_direcciones(data.get('cc'))
+    if 'asunto' in data:
+        registro.asunto = (data.get('asunto') or '').strip()[:200] or None
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+def _limpiar_direcciones(texto):
+    """'a@x.com, b@y.com; c@z.com' -> 'a@x.com; b@y.com; c@z.com'."""
+    direcciones = _RE_MAIL.findall(texto or '')
+    vistas = []
+    for d in direcciones:
+        if d.lower() not in [v.lower() for v in vistas]:
+            vistas.append(d)
+    return '; '.join(vistas)
+
+
+@agente_lux_bp.route('/api/mails/<int:id>/enviar', methods=['POST'])
+@login_required
+def enviar_mail(id):
+    """Deja el correo en cola: el vigia lo manda por el Outlook de la PC."""
+    from lux_portal.cotizaciones.models import AirlineMailRequest
+
+    registro = AirlineMailRequest.query.get(id)
+    if not registro:
+        return jsonify({'error': 'Aerolinea no encontrada.'}), 404
+    cuenta = _cuenta()
+    if not cuenta or not cuenta.vigia_activo():
+        return jsonify({'error': 'El vigia no esta corriendo en tu PC, y es el que '
+                                 'manda el correo por tu Outlook.'}), 409
+    if not registro.destinatarios:
+        return jsonify({'error': 'Esa aerolinea no tiene destinatario. Escribe la '
+                                 'direccion o usa "Detectar contactos".'}), 400
+    if not registro.destinos and not (registro.cuerpo_editado and registro.cuerpo):
+        return jsonify({'error': 'Esa aerolinea no tiene destinos en Mails.'}), 400
+
+    envio = AgenteEnvio(
+        aerolinea=registro.aerolinea,
+        para=registro.destinatarios,
+        cc=registro.cc or '',
+        asunto=(registro.asunto or ASUNTO_POR_DEFECTO)[:300],
+        cuerpo=_cuerpo_solicitud(registro),
+        estado='pendiente',
+    )
+    db.session.add(envio)
+    db.session.commit()
+    return jsonify({'ok': True, 'envio': envio.to_dict()})
+
+
+@agente_lux_bp.route('/api/mails/envios')
+@login_required
+def envios():
+    filas = AgenteEnvio.query.order_by(AgenteEnvio.id.desc()).limit(30).all()
+    return jsonify({'envios': [e.to_dict() for e in filas]})
+
+
+@agente_lux_bp.route('/api/mails/descubrir', methods=['POST'])
+@login_required
+def descubrir_contactos():
+    """Llena los destinatarios a partir de los correos ya guardados.
+
+    Solo rellena los que estan vacios, salvo que venga {"forzar": true}."""
+    from lux_portal.cotizaciones.models import AirlineMailRequest
+
+    cuenta = _cuenta()
+    mi_correo = (cuenta.email if cuenta else '').lower()
+    encontrados = _descubrir_contactos(mi_correo)
+    forzar = bool((request.json or {}).get('forzar'))
+    llenados = {}
+    for r in AirlineMailRequest.query.all():
+        direcciones = encontrados.get((r.aerolinea or '').upper())
+        if not direcciones:
+            continue
+        if r.destinatarios and not forzar:
+            continue
+        r.destinatarios = '; '.join(direcciones[:3])
+        llenados[r.aerolinea] = r.destinatarios
+    db.session.commit()
+    return jsonify({'ok': True, 'llenados': llenados,
+                    'sin_contacto': sorted(
+                        r.aerolinea for r in AirlineMailRequest.query.all()
+                        if not r.destinatarios)})
 
 
 # ---------------------------------------------------------------------------

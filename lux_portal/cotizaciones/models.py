@@ -197,6 +197,10 @@ class AirlineMailRequest(db.Model):
     asunto = db.Column(db.String(200))
     cuerpo = db.Column(db.Text)
     cuerpo_editado = db.Column(db.Boolean, default=False)
+    # A quien se manda (Agente Lux > Mails). Se llenan solos a partir de los
+    # correos que Daniela ya mando a cada aerolinea, y se pueden corregir.
+    destinatarios = db.Column(db.Text)   # direcciones separadas por ;
+    cc = db.Column(db.Text)
 
     @property
     def destinos(self):
@@ -214,4 +218,6 @@ class AirlineMailRequest(db.Model):
             'asunto': self.asunto,
             'cuerpo': self.cuerpo,
             'cuerpo_editado': self.cuerpo_editado,
+            'destinatarios': self.destinatarios,
+            'cc': self.cc,
         }

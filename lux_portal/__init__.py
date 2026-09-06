@@ -163,6 +163,9 @@ def _migrate_db(app):
         # leen, analizan y resumen; sin rango, el dia de hoy)
         ('agente_cuenta', 'refresh_desde', 'DATE'),
         ('agente_cuenta', 'refresh_hasta', 'DATE'),
+        # Mails: a quien se manda cada solicitud (Agente Lux > Mails)
+        ('cotizacion_mail_requests', 'destinatarios', 'TEXT'),
+        ('cotizacion_mail_requests', 'cc', 'TEXT'),
     ]
     for table, column, col_type in migrations:
         try:

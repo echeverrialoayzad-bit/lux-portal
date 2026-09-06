@@ -835,6 +835,25 @@ def cmd_cargar_resumen(args):
 
 
 # ---------------------------------------------------------------------------
+# enviar: manda por Outlook lo que quedo en cola en la pestana Mails
+# ---------------------------------------------------------------------------
+
+def cmd_enviar(args):
+    """Version a mano de lo que hace el vigia cuando hay envios en cola."""
+    app = crear_app(resolver_db(args))
+    from lux_portal.agente_lux import envio_local, outlook_local
+
+    with app.app_context():
+        try:
+            enviados, fallidos = envio_local.enviar_pendientes()
+        except outlook_local.OutlookNoDisponible as exc:
+            sys.exit(str(exc))
+    print(f'{enviados} correo(s) enviados por Outlook.')
+    if fallidos:
+        print(f'{fallidos} con error: revisa la pestana Mails del portal.')
+
+
+# ---------------------------------------------------------------------------
 # estado
 # ---------------------------------------------------------------------------
 
@@ -1022,6 +1041,8 @@ def main():
     _agregar_rango(p_res)
     sub.add_parser('cargar-resumen',
                    help='Sube _agente_lux/resumenes.json a la bitacora del portal.')
+    sub.add_parser('enviar',
+                   help='Manda por Outlook los correos en cola de la pestana Mails.')
     sub.add_parser('estado', help='Contadores rapidos.')
 
     args = parser.parse_args()
@@ -1033,6 +1054,7 @@ def main():
         'cargar': cmd_cargar,
         'exportar-resumen': cmd_exportar_resumen,
         'cargar-resumen': cmd_cargar_resumen,
+        'enviar': cmd_enviar,
         'estado': cmd_estado,
     }[args.comando](args)
 
