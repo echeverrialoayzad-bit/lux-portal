@@ -52,6 +52,47 @@ LATIDO_SEGUNDOS = 15
 # atras es imposible de diagnosticar.
 RUTA_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         '_agente_lux', 'vigia.log')
+# Un solo vigia a la vez: el acceso directo de Inicio y un arranque a mano
+# pueden coincidir, y dos vigias leen el mismo buzon y pisan los mismos
+# archivos de trabajo. El lock guarda el PID del que esta corriendo.
+RUTA_LOCK = os.path.join(os.path.dirname(RUTA_LOG), 'vigia.lock')
+# Si aparece este archivo, el vigia termina limpio apenas no este trabajando:
+# es la forma de pararlo sin matar el proceso a mitad de una llamada COM.
+RUTA_PARAR = os.path.join(os.path.dirname(RUTA_LOG), 'parar')
+
+
+def _proceso_vivo(pid):
+    import ctypes
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    h = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not h:
+        return False
+    ctypes.windll.kernel32.CloseHandle(h)
+    return True
+
+
+def _tomar_lock():
+    """True si este proceso queda como el unico vigia; False si ya hay otro."""
+    try:
+        with open(RUTA_LOCK, 'r', encoding='utf-8') as fh:
+            otro = int((fh.read() or '0').strip() or 0)
+    except (OSError, ValueError):
+        otro = 0
+    if otro and otro != os.getpid() and _proceso_vivo(otro):
+        return False
+    os.makedirs(os.path.dirname(RUTA_LOCK), exist_ok=True)
+    with open(RUTA_LOCK, 'w', encoding='utf-8') as fh:
+        fh.write(str(os.getpid()))
+    return True
+
+
+def _soltar_lock():
+    try:
+        with open(RUTA_LOCK, 'r', encoding='utf-8') as fh:
+            if (fh.read() or '').strip() == str(os.getpid()):
+                os.remove(RUTA_LOCK)
+    except OSError:
+        pass
 
 
 def _ahora():
@@ -598,6 +639,13 @@ def main():
     # poder distinguir "no arranco" de "arranco y se cayo".
     log('Vigia iniciando...')
 
+    if not _tomar_lock():
+        log('Ya hay otro vigia corriendo (ver _agente_lux/vigia.lock). '
+            'Este se cierra para no leer el buzon dos veces.')
+        return
+    if os.path.exists(RUTA_PARAR):
+        os.remove(RUTA_PARAR)
+
     app = crear_app(resolver_db(args))
     from lux_portal.extensions import db
     from lux_portal.agente_lux import ingesta_local
@@ -721,6 +769,10 @@ def main():
 
     try:
         while True:
+            if os.path.exists(RUTA_PARAR) and not trabajando.is_set():
+                log('Parado por pedido (archivo _agente_lux/parar).')
+                os.remove(RUTA_PARAR)
+                break
             try:
                 cuenta_id, solicitado = _hay_solicitud(app)
                 _latir(app, cuenta_id)
@@ -746,6 +798,8 @@ def main():
 
     except KeyboardInterrupt:
         log('Vigia detenido.')
+    finally:
+        _soltar_lock()
 
 
 if __name__ == '__main__':
