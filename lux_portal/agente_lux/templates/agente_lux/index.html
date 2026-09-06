@@ -18,6 +18,9 @@
   #tabla-hallazgos input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   #tabla-hallazgos input[type=number] { -moz-appearance:textfield; appearance:textfield; }
   .al-vacio { padding:2.5rem 1rem; text-align:center; color:#8a8a8a; }
+  .al-abrir { cursor:pointer; }
+  .al-abrir:hover { color: var(--fw-purple, #4535a8); text-decoration: underline; }
+  .al-cuerpo { white-space:pre-wrap; font-family:inherit; font-size:.85rem; }
   /* El base pinta .nav-link.active con letra blanca (es para la barra de
      arriba, que va morada). Bootstrap le pone fondo blanco a la pestana
      activa, y el resultado era letra blanca sobre blanco: invisible. */
@@ -150,6 +153,19 @@
   </div>
 </div>
 
+<!-- Ver un correo completo sin salir del portal -->
+<div class="modal fade" id="modal-mail" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="modal-mail-titulo"></h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modal-mail-cuerpo"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 function banner(msg, tipo) {
   const el = document.getElementById('banner');
@@ -187,6 +203,36 @@ function fechaLarga(f) {
   const p = partesFecha(f);
   if (!p) return escapar(f || '');
   return `${DIAS_LARGO[p.dow]} ${p.d} de ${MESES_LARGO[p.m - 1]} de ${p.y}`;
+}
+
+// ---------------------------------------------------------------- ver un correo
+const MAIL_URL = '{{ url_for("agente_lux.ver_mail", mail_id=0) }}'.slice(0, -1);
+const ADJ_URL = '{{ url_for("agente_lux.ver_adjunto", adj_id=0) }}'.slice(0, -1);
+
+async function verMail(id) {
+  const r = await fetch(MAIL_URL + id);
+  const m = await r.json();
+  if (!r.ok) { banner(escapar(m.error || 'No se pudo abrir el correo.'), 'danger'); return; }
+
+  document.getElementById('modal-mail-titulo').textContent = m.asunto || '(sin asunto)';
+  const adj = (m.adjuntos || []).map(a => a.tiene_contenido
+    ? `<a class="badge bg-light text-dark border text-decoration-none me-1 mb-1" target="_blank"
+          href="${ADJ_URL}${a.id}"><i class="bi bi-paperclip"></i> ${escapar(a.nombre)}</a>`
+    : `<span class="badge bg-light text-muted border me-1 mb-1" title="Este adjunto no se guardó (solo se guardan imágenes y PDF)">
+          <i class="bi bi-paperclip"></i> ${escapar(a.nombre)}</span>`).join('');
+
+  document.getElementById('modal-mail-cuerpo').innerHTML = `
+    <div class="small text-muted mb-2">
+      <strong>${escapar(m.remitente_nombre || m.remitente || '')}</strong>
+      ${m.remitente ? `&lt;${escapar(m.remitente)}&gt;` : ''} · ${fechaCorta(m.fecha)}
+      ${m.carpeta ? ` · <i class="bi bi-folder2"></i> ${escapar(m.carpeta)}` : ''}
+      ${m.outlook_link ? ` · <a href="${escapar(m.outlook_link)}">Abrir en Outlook</a>` : ''}
+    </div>
+    ${m.resumen ? `<div class="al-vistazo mb-2"><i class="bi bi-stars text-primary me-1"></i>${escapar(m.resumen)}</div>` : ''}
+    ${(m.temas || []).length ? `<ul class="small mb-2">${m.temas.map(t => `<li>${escapar(t)}</li>`).join('')}</ul>` : ''}
+    ${adj ? `<div class="mb-2">${adj}</div>` : ''}
+    <div class="al-cuerpo border-top pt-2">${escapar(m.cuerpo || '(sin texto)')}</div>`;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-mail')).show();
 }
 
 // ---------------------------------------------------------------- estado
@@ -317,7 +363,7 @@ async function cargarHoy(dias, boton) {
   const cont = document.getElementById('lista-hoy');
 
   document.getElementById('resumen-hoy').textContent = d.total
-    ? `${d.total} correo(s)` + (d.sin_analizar ? ` · ${d.sin_analizar} sin analizar` : ' · todos analizados')
+    ? `${d.total} correo(s)` + (d.sin_analizar ? ` · ${d.sin_analizar} sin resumen todavía` : ' · todos resumidos')
     : 'Sin correos en este rango.';
 
   if (!d.total) {
@@ -334,9 +380,10 @@ async function cargarHoy(dias, boton) {
         <div class="d-flex gap-3">
           <div class="al-hora small text-nowrap">${fechaCorta(c.fecha)}</div>
           <div class="flex-grow-1">
-            <div class="fw-semibold small">
+            <div class="fw-semibold small al-abrir" onclick="verMail(${c.id})" title="Ver el correo completo">
               ${c.requiere_accion ? '<i class="bi bi-flag-fill text-danger me-1"></i>' : ''}
               ${escapar(c.asunto)}
+              <i class="bi bi-box-arrow-up-right text-muted ms-1" style="font-size:.7rem;"></i>
             </div>
             <div class="small text-muted">
               ${escapar(c.remitente_nombre)}
@@ -345,7 +392,9 @@ async function cargarHoy(dias, boton) {
             </div>
             ${c.resumen
               ? `<div class="al-vistazo mt-1"><i class="bi bi-stars text-primary me-1"></i>${escapar(c.resumen)}</div>`
-              : `<div class="al-vistazo mt-1 text-muted">${escapar(c.vistazo)}</div>`}
+              : (c.estado !== 'analizado'
+                  ? `<div class="al-vistazo mt-1 text-muted"><span class="fst-italic">Resumen en camino…</span> ${escapar(c.vistazo)}</div>`
+                  : `<div class="al-vistazo mt-1 text-muted">${escapar(c.vistazo)}</div>`)}
             ${(c.temas || []).length
               ? `<ul class="small mb-0 mt-1">${c.temas.map(t => `<li>${escapar(t)}</li>`).join('')}</ul>`
               : ''}
@@ -406,7 +455,8 @@ function filaHallazgo(h) {
     </td>
     <td><span class="small text-uppercase">${escapar(h.confianza || '')}</span></td>
     <td>
-      <div class="small">${escapar(h.mail_asunto || '')}</div>
+      <div class="small al-abrir" onclick="verMail(${h.mail_id})" title="Ver el correo completo">${escapar(h.mail_asunto || '')}
+        <i class="bi bi-box-arrow-up-right text-muted ms-1" style="font-size:.7rem;"></i></div>
       <div class="small text-muted">
         ${escapar(h.mail_remitente || '')} · correo del ${fechaCorta(h.mail_fecha)}
         ${etiquetaAntiguedad(h.mail_dias)}
@@ -554,16 +604,17 @@ async function cargarBitacora() {
           <li class="list-group-item">
             <div class="d-flex justify-content-between align-items-start gap-2">
               <div class="flex-grow-1">
-                <div class="fw-semibold small">
+                <div class="fw-semibold small al-abrir" onclick="verMail(${c.id})" title="Ver el correo completo">
                   ${c.requiere_accion ? '<i class="bi bi-flag-fill text-danger me-1"></i>' : ''}
                   ${escapar(c.asunto)}
+                  <i class="bi bi-box-arrow-up-right text-muted ms-1" style="font-size:.7rem;"></i>
                 </div>
-                <div class="small text-muted">${escapar(c.remitente_nombre)} · ${escapar(c.fecha)}</div>
+                <div class="small text-muted">${escapar(c.remitente_nombre)} · ${fechaCorta(c.fecha)}</div>
                 ${c.resumen
                   ? `<div class="small mt-1">${escapar(c.resumen)}</div>`
                   : (c.estado === 'analizado'
                       ? `<div class="al-vistazo mt-1">${escapar(c.vistazo || '')}</div>`
-                      : '<div class="small text-muted fst-italic mt-1">Sin analizar todavía.</div>')}
+                      : `<div class="al-vistazo mt-1 text-muted"><span class="fst-italic">Resumen en camino…</span> ${escapar(c.vistazo || '')}</div>`)}
                 ${(c.temas || []).length
                   ? `<ul class="small mb-0 mt-1">${c.temas.map(t => `<li>${escapar(t)}</li>`).join('')}</ul>`
                   : ''}

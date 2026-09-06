@@ -33,6 +33,7 @@ paso cuando corre como tarea programada y nadie mira la ventana.
 
 import argparse
 import os
+import re
 import sys
 import threading
 import time
@@ -40,7 +41,9 @@ import traceback
 from datetime import datetime, timedelta
 
 # Reutiliza la conexion y el arranque de la app del CLI.
-from agente_lux_cli import ARCHIVO_HALLAZGOS, crear_app, resolver_db
+from agente_lux_cli import (
+    ARCHIVO_HALLAZGOS, ARCHIVO_RESUMENES, crear_app, resolver_db,
+)
 
 LATIDO_SEGUNDOS = 15
 
@@ -162,6 +165,23 @@ PROMPT_ANALISIS = (
     'reciente, y en los hallazgos de FSC el campo destinos es obligatorio. '
     'No corras ningun comando ni modifiques nada mas: tu unica salida es ese '
     'archivo.'
+)
+
+# Pasada liviana para la bitacora: solo texto, sin skill ni adjuntos.
+PROMPT_RESUMEN = (
+    'Lee _agente_lux/por_resumir.json. Son correos del buzon de Daniela '
+    '(FreightWise, carga aerea de flores desde Ecuador) que no traen tarifas. '
+    'Escribe _agente_lux/resumenes.json con este formato exacto: '
+    '{"correos": [{"mail_id": 12, "categoria": "operativo", "resumen": "...", '
+    '"temas": ["..."], "requiere_accion": false}]}. Un objeto por cada correo. '
+    'El resumen va en espanol, en una o dos frases, y tiene que decir QUE ES '
+    'el correo: quien lo manda, para que, y que informa o pide. Ejemplo: '
+    '"Fugran envia el certificado de fumigacion del contenedor de flores del '
+    'viernes 5". No copies firmas, avisos del sistema ni el hilo citado. '
+    'categoria es una de: tarifas, fsc, operativo, comercial, otro. temas son '
+    'los pendientes concretos que quedan, si los hay. requiere_accion es true '
+    'solo si Daniela tiene que hacer algo. No uses el skill agente-lux, no '
+    'leas adjuntos ni corras comandos: tu unica salida es ese archivo.'
 )
 
 
@@ -308,6 +328,64 @@ def _analizar(app, args, carpeta_proyecto):
     return f'{len(resumenes)} tandas analizadas. Ultima: {resumenes[-1]}'
 
 
+def _resumir(app, args, carpeta_proyecto):
+    """Resumen rapido de los correos que no pasaron por el analisis de tarifas.
+
+    Es una pasada aparte y mas liviana: solo texto, sin adjuntos, en tandas
+    grandes. Daniela quiere saber de que es cada correo del dia sin tener
+    que abrirlo, y meterlos todos en el analisis de tarifas lo hacia tres
+    veces mas lento. Devuelve cuantos correos se resumieron."""
+    import sys as _sys
+
+    py = _sys.executable
+    cli = os.path.join(carpeta_proyecto, 'agente_lux_cli.py')
+    resumenes = os.path.join(carpeta_proyecto, ARCHIVO_RESUMENES)
+    total = 0
+
+    for tanda in range(1, args.max_tandas + 1):
+        ok, salida_exp = _correr(
+            [py, cli, 'exportar-resumen', '--max-correos', str(args.tanda_resumen)],
+            carpeta_proyecto, 300)
+        if not ok:
+            raise RuntimeError(f'Fallo el exportar-resumen: {salida_exp[-400:]}')
+        if 'No hay nada por resumir' in salida_exp:
+            break
+
+        m = re.search(r'(\d+) correo\(s\) por resumir', salida_exp)
+        n = int(m.group(1)) if m else 0
+        quedan = 'para la siguiente tanda' in salida_exp
+        _marcar(app, 'analizando',
+                f'Resumiendo {n} correo(s) para la bitacora'
+                + (' (hay mas en cola)' if quedan else '') + '...')
+        log(f'Resumiendo {n} correo(s) con Claude Code...')
+
+        if os.path.exists(resumenes):
+            os.remove(resumenes)
+        ok, salida = _correr(
+            ['claude', '-p', PROMPT_RESUMEN,
+             '--model', args.modelo, '--effort', args.esfuerzo_resumen,
+             '--allowedTools', 'Read', 'Write',
+             '--permission-mode', 'acceptEdits'],
+            carpeta_proyecto, args.timeout_resumen)
+        if not ok:
+            raise RuntimeError(f'Fallo el resumen: {salida[-400:]}')
+        if not os.path.exists(resumenes):
+            raise RuntimeError(
+                'Claude Code termino sin escribir _agente_lux/resumenes.json. '
+                f'Lo ultimo que dijo: {salida[-300:]}')
+
+        ok, salida_car = _correr([py, cli, 'cargar-resumen'], carpeta_proyecto, 300)
+        if not ok:
+            raise RuntimeError(f'Fallo el cargar-resumen: {salida_car[-400:]}')
+        log(salida_car.splitlines()[0] if salida_car else 'Resumenes cargados.')
+        total += n
+
+        if not quedan:
+            break
+
+    return total
+
+
 def _leer(app, args, motivo):
     """Lee el buzon y, si corresponde, analiza. Deja todo visible en el portal."""
     import os
@@ -330,6 +408,20 @@ def _leer(app, args, motivo):
 
         if args.analizar and stats['pendientes']:
             resumen += ' ' + _analizar(app, args, carpeta_proyecto)
+
+        # La bitacora va despues de las tarifas, que son lo que importa. Y
+        # si falla no tumba el ciclo: las tarifas ya quedaron cargadas y los
+        # correos sin resumen se reintentan en la siguiente vuelta.
+        if args.analizar:
+            try:
+                resumidos = _resumir(app, args, carpeta_proyecto)
+            except Exception as exc:
+                log(f'Fallo el resumen rapido: {exc}')
+                resumen += (' El resumen de los otros correos fallo; se '
+                            'reintenta en el proximo ciclo.')
+            else:
+                if resumidos:
+                    resumen += f' {resumidos} correo(s) resumidos para la bitacora.'
 
         _marcar(app, 'ok', resumen, limpiar_solicitud=True)
         log(resumen)
@@ -378,6 +470,13 @@ def main():
     # pasarle las reservas a Claude, no de este ajuste.
     parser.add_argument('--esfuerzo', default='high',
                         help='Nivel de esfuerzo del modelo (por defecto high).')
+    parser.add_argument('--tanda-resumen', type=int, default=40, dest='tanda_resumen',
+                        help='Correos por tanda del resumen rapido (por defecto 40).')
+    parser.add_argument('--timeout-resumen', type=int, default=600, dest='timeout_resumen',
+                        help='Segundos maximos por tanda de resumen (por defecto 10 min).')
+    parser.add_argument('--esfuerzo-resumen', default='medium', dest='esfuerzo_resumen',
+                        help='Esfuerzo del modelo para los resumenes (por defecto medium: '
+                             'es solo texto, sin tablas que leer).')
     parser.add_argument('--instalar-tarea', action='store_true',
                         dest='instalar_tarea',
                         help='Programar el vigia para que arranque con Windows.')
@@ -413,16 +512,29 @@ def main():
         import pythoncom
         pythoncom.CoInitialize()
         try:
-            resultado['correo'] = outlook_local.cuenta_principal()
-            resultado['modo'] = outlook_local.modo_conexion()
-        except Exception as exc:
-            resultado['error'] = str(exc)
+            # Recien abierto, Outlook tarda en registrarse como servidor COM
+            # y la primera llamada falla con "Error en la ejecucion de
+            # servidor" (paso al arrancar con Windows: abrio Outlook y 50 s
+            # despues se rindio). Se reintenta un rato antes de darse por
+            # vencido.
+            ultimo = None
+            for _ in range(8):
+                try:
+                    resultado['correo'] = outlook_local.cuenta_principal()
+                    resultado['modo'] = outlook_local.modo_conexion()
+                    return
+                except Exception as exc:
+                    ultimo = exc
+                    time.sleep(15)
+            resultado['error'] = str(ultimo)
         finally:
             pythoncom.CoUninitialize()
 
     hilo = threading.Thread(target=comprobar, daemon=True)
     hilo.start()
-    hilo.join(timeout=60)
+    # Cubre los reintentos (8 x 15 s) y deja margen: si sigue vivo despues
+    # de esto, Outlook esta colgado de verdad.
+    hilo.join(timeout=170)
 
     if hilo.is_alive():
         log('Outlook no responde: la llamada se quedo colgada mas de un minuto.\n'

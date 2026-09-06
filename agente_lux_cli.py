@@ -13,7 +13,13 @@ USO
     python agente_lux_cli.py carpetas      # lista las carpetas de Outlook
     python agente_lux_cli.py exportar      # correos pendientes -> _agente_lux/
     python agente_lux_cli.py cargar        # _agente_lux/hallazgos.json -> portal
+    python agente_lux_cli.py exportar-resumen  # correos sin tarifas -> por_resumir.json
+    python agente_lux_cli.py cargar-resumen    # resumenes.json -> portal (bitacora)
     python agente_lux_cli.py estado        # contadores rapidos
+
+Los correos que no traen tarifas (reservas, fincas, avisos) no pasan por el
+analisis de tarifas: quedan en estado "por_resumir" y una pasada aparte, mas
+liviana y sin adjuntos, les escribe el resumen que Daniela ve en el portal.
 
 La conexion sale de DATABASE_URL (la de Railway) o de --db.
 
@@ -107,6 +113,11 @@ CARPETA = '_agente_lux'
 ARCHIVO_PENDIENTES = os.path.join(CARPETA, 'pendientes.json')
 ARCHIVO_HALLAZGOS = os.path.join(CARPETA, 'hallazgos.json')
 CARPETA_ADJUNTOS = os.path.join(CARPETA, 'adjuntos')
+# Resumen rapido de los correos que no pasan por el analisis de tarifas.
+ARCHIVO_POR_RESUMIR = os.path.join(CARPETA, 'por_resumir.json')
+ARCHIVO_RESUMENES = os.path.join(CARPETA, 'resumenes.json')
+
+CATEGORIAS_VALIDAS = {'tarifas', 'fsc', 'operativo', 'comercial', 'otro'}
 
 TIPOS_VALIDOS = {'tarifa', 'fsc', 'cargo', 'dias', 'info'}
 CONFIANZAS_VALIDAS = {'alta', 'media', 'baja'}
@@ -220,10 +231,12 @@ def cmd_exportar(args):
             for c in pendientes:
                 if c.id in relevantes:
                     continue
-                c.estado = 'analizado'
+                # Quedan en cola para el resumen rapido (exportar-resumen):
+                # no pasan por el analisis de tarifas, pero Daniela quiere
+                # saber de que es cada correo sin tener que abrirlo.
+                c.estado = 'por_resumir'
                 c.categoria = 'operativo' if c.operativo else 'otro'
                 c.resumen = ''
-                c.analizado_en = datetime.utcnow()
                 archivados += 1
             db.session.commit()
             pendientes = [c for c in pendientes if c.id in relevantes]
@@ -298,8 +311,8 @@ def cmd_exportar(args):
     print(f'{len(correos)} correo(s) pendientes exportados a {ARCHIVO_PENDIENTES}')
     print(f'  de esos, {n_relevantes} parecen traer tarifas o recargos')
     if archivados:
-        print(f'  {archivados} correo(s) de reservas u operativos quedaron '
-              f'clasificados sin pasar por Claude')
+        print(f'  {archivados} correo(s) sin tarifas quedaron en cola para el '
+              f'resumen rapido (exportar-resumen)')
     if quedan:
         print(f'  quedan {quedan} para la siguiente tanda')
     if n_adjuntos:
@@ -666,6 +679,118 @@ def cmd_cargar(args):
 
 
 # ---------------------------------------------------------------------------
+# exportar-resumen / cargar-resumen: la pasada liviana para la bitacora
+# ---------------------------------------------------------------------------
+
+def cmd_exportar_resumen(args):
+    """Vuelca los correos en cola de resumen, solo texto, sin adjuntos.
+
+    Mas nuevos primero: lo del dia es lo que Daniela esta mirando."""
+    app = crear_app(resolver_db(args))
+    from lux_portal.agente_lux.models import AgenteMail
+    from lux_portal.agente_lux.texto import limpiar_banners, sin_enlaces
+
+    with app.app_context():
+        cola = (AgenteMail.query
+                .filter_by(estado='por_resumir')
+                .order_by(AgenteMail.fecha.desc())
+                .all())
+        quedan = 0
+        if args.max_correos and len(cola) > args.max_correos:
+            quedan = len(cola) - args.max_correos
+            cola = cola[:args.max_correos]
+
+        correos = []
+        for c in cola:
+            cuerpo = sin_enlaces(limpiar_banners(c.cuerpo))
+            correos.append({
+                'mail_id': c.id,
+                'fecha': c.fecha.strftime('%Y-%m-%d %H:%M') if c.fecha else None,
+                'carpeta': c.carpeta or '',
+                'remitente': c.remitente,
+                'remitente_nombre': c.remitente_nombre,
+                'asunto': c.asunto,
+                'es_reserva_o_guia': bool(c.operativo),
+                # Suficiente para saber de que es; el resto suele ser firma
+                # y el hilo citado.
+                'cuerpo': cuerpo[:2500],
+                'adjuntos': [a.nombre for a in c.adjuntos],
+            })
+
+    os.makedirs(CARPETA, exist_ok=True)
+    with open(ARCHIVO_POR_RESUMIR, 'w', encoding='utf-8') as fh:
+        json.dump({'generado_en': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                   'correos': correos}, fh, ensure_ascii=False, indent=2)
+
+    if not correos:
+        print('No hay nada por resumir.')
+        return
+    print(f'{len(correos)} correo(s) por resumir exportados a {ARCHIVO_POR_RESUMIR}')
+    if quedan:
+        print(f'  quedan {quedan} para la siguiente tanda')
+
+
+def cmd_cargar_resumen(args):
+    """Sube _agente_lux/resumenes.json: categoria, resumen y temas por correo."""
+    if not os.path.exists(ARCHIVO_RESUMENES):
+        sys.exit(f'No existe {ARCHIVO_RESUMENES}.')
+    with open(ARCHIVO_RESUMENES, 'r', encoding='utf-8-sig') as fh:
+        try:
+            datos = json.load(fh)
+        except json.JSONDecodeError as exc:
+            sys.exit(f'{ARCHIVO_RESUMENES} no es JSON valido: {exc}')
+
+    try:
+        with open(ARCHIVO_POR_RESUMIR, 'r', encoding='utf-8-sig') as fh:
+            en_la_tanda = {c.get('mail_id') for c in json.load(fh).get('correos', [])}
+    except (OSError, ValueError):
+        en_la_tanda = set()
+
+    app = crear_app(resolver_db(args))
+    from lux_portal.extensions import db
+    from lux_portal.agente_lux.models import AgenteMail
+
+    with app.app_context():
+        cola = {m.id: m for m in AgenteMail.query.filter_by(estado='por_resumir').all()}
+        resumidos, sin_resumen = 0, 0
+        vistos = set()
+        for entrada in (datos.get('correos') or []):
+            correo = cola.get(entrada.get('mail_id'))
+            if not correo:
+                continue
+            resumen = (entrada.get('resumen') or '').strip()
+            if not resumen:
+                continue
+            categoria = (entrada.get('categoria') or '').strip().lower()
+            if categoria in CATEGORIAS_VALIDAS:
+                correo.categoria = categoria
+            correo.resumen = resumen
+            correo.temas = entrada.get('temas') or []
+            correo.requiere_accion = bool(entrada.get('requiere_accion'))
+            correo.estado = 'analizado'
+            correo.analizado_en = datetime.utcnow()
+            vistos.add(correo.id)
+            resumidos += 1
+
+        # Lo que estaba en la tanda y no volvio con resumen no se queda en
+        # la cola para siempre: pasa a analizado sin resumen y el portal
+        # muestra el primer parrafo en su lugar.
+        for mail_id, correo in cola.items():
+            if mail_id in vistos or mail_id not in en_la_tanda:
+                continue
+            correo.estado = 'analizado'
+            correo.analizado_en = datetime.utcnow()
+            sin_resumen += 1
+
+        db.session.commit()
+
+    print(f'{resumidos} correo(s) resumidos.')
+    if sin_resumen:
+        print(f'{sin_resumen} correo(s) de la tanda volvieron sin resumen; quedan '
+              f'con su primer parrafo.')
+
+
+# ---------------------------------------------------------------------------
 # estado
 # ---------------------------------------------------------------------------
 
@@ -683,6 +808,7 @@ def cmd_estado(args):
                   a_ecuador(cuenta.ultimo_scan).strftime('%Y-%m-%d %H:%M'),
                   '(hora Ecuador)')
         print('Correos por analizar:', AgenteMail.query.filter_by(estado='pendiente').count())
+        print('Correos por resumir :', AgenteMail.query.filter_by(estado='por_resumir').count())
         print('Hallazgos pendientes:', AgenteHallazgo.query.filter_by(estado='pendiente').count())
         print('Hallazgos aplicados :', AgenteHallazgo.query.filter_by(estado='aplicado').count())
 
@@ -838,6 +964,14 @@ def main():
     p_exp.add_argument('--max-correos', type=int, default=0, dest='max_correos',
                        help='Tope de correos por tanda. 0 = todos.')
     sub.add_parser('cargar', help='Sube _agente_lux/hallazgos.json al portal.')
+
+    p_res = sub.add_parser('exportar-resumen',
+                           help='Vuelca los correos sin tarifas que esperan resumen '
+                                '(solo texto, sin adjuntos).')
+    p_res.add_argument('--max-correos', type=int, default=40, dest='max_correos',
+                       help='Tope de correos por tanda (por defecto 40). 0 = todos.')
+    sub.add_parser('cargar-resumen',
+                   help='Sube _agente_lux/resumenes.json a la bitacora del portal.')
     sub.add_parser('estado', help='Contadores rapidos.')
 
     args = parser.parse_args()
@@ -847,6 +981,8 @@ def main():
         'clasificar': cmd_clasificar,
         'exportar': cmd_exportar,
         'cargar': cmd_cargar,
+        'exportar-resumen': cmd_exportar_resumen,
+        'cargar-resumen': cmd_cargar_resumen,
         'estado': cmd_estado,
     }[args.comando](args)
 

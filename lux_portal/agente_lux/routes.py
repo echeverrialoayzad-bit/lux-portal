@@ -10,15 +10,16 @@ Dos pantallas en una:
                          hablo y que quedo pendiente.
 """
 
+import base64
 from datetime import datetime, timedelta
 
-from flask import render_template, request, jsonify
+from flask import render_template, request, jsonify, Response
 
 from lux_portal.agente_lux import agente_lux_bp
 from lux_portal.agente_lux import contexto, reglas
 from lux_portal.agente_lux.aplicar import aplicar_hallazgo
 from lux_portal.agente_lux.models import (
-    AgenteCuenta, AgenteMail, AgenteHallazgo, ahora_ecuador,
+    AgenteCuenta, AgenteMail, AgenteHallazgo, AgenteAdjunto, ahora_ecuador,
 )
 from lux_portal.agente_lux.texto import limpiar_banners, sin_enlaces
 from lux_portal.extensions import db
@@ -102,6 +103,7 @@ def estado():
     return jsonify({
         'cuenta': cuenta.to_dict() if cuenta else None,
         'pendientes_de_analisis': AgenteMail.query.filter_by(estado='pendiente').count(),
+        'por_resumir': AgenteMail.query.filter_by(estado='por_resumir').count(),
         'hallazgos_pendientes': AgenteHallazgo.query.filter_by(estado='pendiente').count(),
         'hallazgos_aprobados': AgenteHallazgo.query.filter_by(estado='aprobado').count(),
         'correos_hoy': AgenteMail.query.filter(
@@ -178,7 +180,8 @@ def hoy():
         'desde': desde.strftime('%Y-%m-%d %H:%M'),
         'correos': salida,
         'total': len(salida),
-        'sin_analizar': sum(1 for c in salida if c['estado'] == 'pendiente'),
+        # Sin analizar o esperando el resumen rapido: ambos se ven "a medias".
+        'sin_analizar': sum(1 for c in salida if c['estado'] != 'analizado'),
     })
 
 
@@ -352,11 +355,32 @@ def ver_mail(mail_id):
     if not correo:
         return jsonify({'error': 'Correo no encontrado.'}), 404
     datos = correo.to_dict(con_adjuntos=True)
-    # No mandamos el base64 completo a la pantalla: solo la referencia.
+    # No mandamos el base64 completo a la pantalla: solo la referencia. El
+    # contenido se sirve aparte en /api/adjunto/<id>.
     for adj in datos.get('adjuntos', []):
         adj.pop('contenido_b64', None)
+    datos['cuerpo'] = limpiar_banners(datos.get('cuerpo'))
     datos['hallazgos'] = [h.to_dict() for h in correo.hallazgos]
+    # "outlook:<EntryID>" abre el correo en el Outlook clasico de la PC.
+    gid = correo.graph_id or ''
+    datos['outlook_link'] = gid if gid.startswith('outlook:') else None
     return jsonify(datos)
+
+
+@agente_lux_bp.route('/api/adjunto/<int:adj_id>')
+@login_required
+def ver_adjunto(adj_id):
+    """Sirve un adjunto guardado (imagen o PDF) para verlo en el navegador."""
+    adj = AgenteAdjunto.query.get(adj_id)
+    if not adj or not adj.contenido_b64:
+        return jsonify({'error': 'Ese adjunto no esta guardado.'}), 404
+    contenido = base64.b64decode(adj.contenido_b64)
+    nombre = (adj.nombre or 'adjunto').replace('"', '')
+    return Response(
+        contenido,
+        mimetype=adj.mime or 'application/octet-stream',
+        headers={'Content-Disposition': f'inline; filename="{nombre}"'},
+    )
 
 
 # ---------------------------------------------------------------------------
