@@ -334,14 +334,16 @@ def main():
     parser.add_argument('--sin-analisis', action='store_false', dest='analizar',
                         help='Solo bajar los correos, sin pedirle el analisis '
                              'a Claude Code.')
-    parser.add_argument('--tanda', type=int, default=25,
-                        help='Correos por tanda de analisis (por defecto 25).')
+    # 12 y no 25: como ya solo van a Claude los correos con tarifas, cada uno
+    # trae adjuntos que leer, y 25 de esos rozaban el tope de tiempo.
+    parser.add_argument('--tanda', type=int, default=12,
+                        help='Correos por tanda de analisis (por defecto 12).')
     parser.add_argument('--max-tandas', type=int, default=12, dest='max_tandas',
                         help='Tope de tandas por ciclo, para no quedarse toda '
                              'la noche vaciando una cola vieja.')
-    parser.add_argument('--timeout-analisis', type=int, default=900,
+    parser.add_argument('--timeout-analisis', type=int, default=1800,
                         dest='timeout_analisis',
-                        help='Segundos maximos por tanda (por defecto 15 min).')
+                        help='Segundos maximos por tanda (por defecto 30 min).')
     parser.add_argument('--resumir-todo', action='store_true', dest='resumir_todo',
                         help='Pasar tambien las reservas y los correos operativos '
                              'por Claude Code para que los resuma en la bitacora. '

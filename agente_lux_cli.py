@@ -397,6 +397,11 @@ def _motivo_no_aplicable(h, correos):
     return None
 
 
+def _sin_indice(error):
+    """'hallazgos[10]: falta detalle.concepto.' -> 'falta detalle.concepto.'"""
+    return re.sub(r'^hallazgos\[\d+\]:\s*', '', error)
+
+
 def _dejar_como_aviso(h, motivo):
     """Convierte un hallazgo en tipo "info": se ve en el portal, no se aplica.
 
@@ -509,16 +514,30 @@ def cmd_cargar(args):
                 _dejar_como_aviso(h, motivo)
                 no_aplicables += 1
 
-        # Validar todo antes de escribir nada.
-        errores = []
+        # Formato: lo que venga incompleto queda como aviso en vez de tumbar
+        # la carga entera. Tumbarla dejaba la tanda atascada para siempre: el
+        # vigia la volvia a exportar, Claude volvia a producir lo mismo y el
+        # portal repetia el error, con 15 minutos de analisis perdidos cada
+        # vez. Solo se descarta lo que no se puede ni ubicar: tipo desconocido
+        # o correo que no esta en la cola.
+        incompletos, descartados_formato = 0, 0
+        validos = []
         for i, h in enumerate(hallazgos_entrada):
-            errores.extend(_validar_hallazgo(h, i, pendientes))
-
-        if errores:
-            print('El archivo tiene problemas y no se cargo nada:\n')
-            for e in errores:
-                print('  - ' + e)
-            sys.exit(1)
+            errores = _validar_hallazgo(h, i, pendientes)
+            if not errores:
+                validos.append(h)
+                continue
+            mail_id = h.get('mail_id')
+            if (h.get('tipo') not in TIPOS_VALIDOS
+                    or (mail_id is not None and mail_id not in pendientes)):
+                descartados_formato += 1
+                print('  - descartado: ' + ' '.join(errores))
+                continue
+            _dejar_como_aviso(h, 'Propuesta incompleta, no se aplica sola: '
+                              + ' '.join(_sin_indice(e) for e in errores))
+            incompletos += 1
+            validos.append(h)
+        hallazgos_entrada = validos
 
         # Resumenes por correo
         n_correos = 0
@@ -623,6 +642,12 @@ def cmd_cargar(args):
         db.session.commit()
 
     print(f'{n_hallazgos} hallazgo(s) cargados, {n_correos} correo(s) resumidos.')
+    if incompletos:
+        print(f'{incompletos} propuesta(s) venian incompletas y quedaron solo '
+              f'como aviso.')
+    if descartados_formato:
+        print(f'{descartados_formato} propuesta(s) descartadas por no poder '
+              f'ubicarlas (tipo desconocido o correo fuera de la cola).')
     if no_aplicables:
         print(f'{no_aplicables} tarifa(s) quedaron solo como aviso: no vienen de '
               f'una respuesta a tu solicitud, o salen de una reserva o guia.')

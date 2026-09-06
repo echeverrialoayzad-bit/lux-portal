@@ -147,8 +147,12 @@ El formato completo, campo por campo, está en el docstring de
   no puede verificar rápido — ponla siempre que exista.
 - `confianza`: `alta` solo si el número está explícito y sin ambigüedad de alcance.
 
-`cargar` valida el archivo entero antes de escribir nada. Si te reporta errores,
-corrígelos y vuelve a correrlo — no hay carga parcial.
+`cargar` no se tumba por un hallazgo incompleto: lo guarda como aviso con lo
+que le faltó, y solo descarta lo que no puede ubicar (tipo desconocido o
+`mail_id` fuera de la cola). Pero en el flujo automático nadie corrige a mano,
+así que cuida el formato desde el principio: un `cargo` sin `concepto` y
+`monto_nuevo` le llega a Daniela como aviso, no como algo que pueda aplicar.
+Si un correo trae varios cargos, va un hallazgo `cargo` por cada uno.
 
 ## Al terminar
 
