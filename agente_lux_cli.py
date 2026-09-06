@@ -202,8 +202,30 @@ def cmd_exportar(args):
                       .order_by(AgenteMail.fecha.asc())
                       .all())
 
-        relevantes = {c.id for c in pendientes if parece_tarifas(c)}
+        # Lo que vale la pena que mire Claude: correos con pinta de tarifas o
+        # recargos, y todas las respuestas a las solicitudes de Daniela. Las
+        # reservas, cierres y guias quedan fuera aunque digan "tarifa": de
+        # ahi nunca sale una.
+        relevantes = {
+            c.id for c in pendientes
+            if not c.operativo and (parece_tarifas(c) or c.respuesta_mia)
+        }
+        archivados = 0
         if args.solo_tarifas:
+            # El resto no pasa por Claude: se clasifica por el asunto y queda
+            # en la bitacora con su primer parrafo. Es lo que hace que el
+            # analisis tarde una fraccion, porque en un mes tipico dos de
+            # cada tres correos son reservas y temas operativos.
+            from lux_portal.extensions import db
+            for c in pendientes:
+                if c.id in relevantes:
+                    continue
+                c.estado = 'analizado'
+                c.categoria = 'operativo' if c.operativo else 'otro'
+                c.resumen = ''
+                c.analizado_en = datetime.utcnow()
+                archivados += 1
+            db.session.commit()
             pendientes = [c for c in pendientes if c.id in relevantes]
 
         # Por tandas: un lote enorme (la primera corrida trae un mes entero)
@@ -275,6 +297,9 @@ def cmd_exportar(args):
     n_relevantes = sum(1 for c in correos if c['parece_tarifas'])
     print(f'{len(correos)} correo(s) pendientes exportados a {ARCHIVO_PENDIENTES}')
     print(f'  de esos, {n_relevantes} parecen traer tarifas o recargos')
+    if archivados:
+        print(f'  {archivados} correo(s) de reservas u operativos quedaron '
+              f'clasificados sin pasar por Claude')
     if quedan:
         print(f'  quedan {quedan} para la siguiente tanda')
     if n_adjuntos:
@@ -622,14 +647,16 @@ def cmd_cargar(args):
 def cmd_estado(args):
     app = crear_app(resolver_db(args))
     from lux_portal.agente_lux.models import (
-        AgenteCuenta, AgenteMail, AgenteHallazgo,
+        AgenteCuenta, AgenteMail, AgenteHallazgo, a_ecuador,
     )
 
     with app.app_context():
         cuenta = AgenteCuenta.query.first()
         print('Cuenta conectada :', cuenta.email if cuenta else 'ninguna')
         if cuenta and cuenta.ultimo_scan:
-            print('Ultimo refresh   :', cuenta.ultimo_scan.strftime('%Y-%m-%d %H:%M'))
+            print('Ultimo refresh   :',
+                  a_ecuador(cuenta.ultimo_scan).strftime('%Y-%m-%d %H:%M'),
+                  '(hora Ecuador)')
         print('Correos por analizar:', AgenteMail.query.filter_by(estado='pendiente').count())
         print('Hallazgos pendientes:', AgenteHallazgo.query.filter_by(estado='pendiente').count())
         print('Hallazgos aplicados :', AgenteHallazgo.query.filter_by(estado='aplicado').count())
@@ -778,9 +805,11 @@ def main():
     p_exp = sub.add_parser('exportar',
                            help='Vuelca los correos pendientes a _agente_lux/.')
     p_exp.add_argument('--solo-tarifas', action='store_true', dest='solo_tarifas',
-                       help='Exportar unicamente los correos que parecen traer '
-                            'tarifas o recargos. Mas rapido, pero la bitacora '
-                            'queda sin el resto de los correos.')
+                       help='Mandar a Claude solo los correos que parecen traer '
+                            'tarifas o recargos y las respuestas a tus '
+                            'solicitudes. El resto se clasifica por el asunto '
+                            'y queda en la bitacora sin resumen. Mucho mas '
+                            'rapido.')
     p_exp.add_argument('--max-correos', type=int, default=0, dest='max_correos',
                        help='Tope de correos por tanda. 0 = todos.')
     sub.add_parser('cargar', help='Sube _agente_lux/hallazgos.json al portal.')

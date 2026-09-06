@@ -18,7 +18,7 @@ from lux_portal.agente_lux import agente_lux_bp
 from lux_portal.agente_lux import contexto, reglas
 from lux_portal.agente_lux.aplicar import aplicar_hallazgo
 from lux_portal.agente_lux.models import (
-    AgenteCuenta, AgenteMail, AgenteHallazgo,
+    AgenteCuenta, AgenteMail, AgenteHallazgo, ahora_ecuador,
 )
 from lux_portal.extensions import db
 from lux_portal.auth.decorators import login_required
@@ -95,7 +95,9 @@ def refresh():
 @login_required
 def estado():
     cuenta = _cuenta()
-    hoy = datetime.utcnow().date()
+    # "Hoy" es el de Daniela: a las 8 de la noche en Quito ya es manana en UTC
+    # y la pestana de hoy se quedaba en cero.
+    hoy = ahora_ecuador().date()
     return jsonify({
         'cuenta': cuenta.to_dict() if cuenta else None,
         'pendientes_de_analisis': AgenteMail.query.filter_by(estado='pendiente').count(),
@@ -146,10 +148,11 @@ def hoy():
     A diferencia de la bitacora, esto no espera al analisis: el vistazo sale
     del cuerpo del correo, asi que sirve apenas el vigia los sube."""
     dias = int(request.args.get('dias', 0))
+    ahora = ahora_ecuador()
     if dias > 0:
-        desde = datetime.utcnow() - timedelta(days=dias)
+        desde = ahora - timedelta(days=dias)
     else:
-        desde = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+        desde = datetime.combine(ahora.date(), datetime.min.time())
 
     correos = (AgenteMail.query
                .filter(AgenteMail.fecha >= desde)
@@ -308,7 +311,7 @@ def aplicar():
 def bitacora():
     """Correos analizados agrupados por dia, mas nuevos primero."""
     dias = int(request.args.get('dias', 14))
-    desde = datetime.utcnow() - timedelta(days=dias)
+    desde = ahora_ecuador() - timedelta(days=dias)
 
     correos = (AgenteMail.query
                .filter(AgenteMail.fecha >= desde)
@@ -318,7 +321,12 @@ def bitacora():
     agrupado = {}
     for correo in correos:
         clave = correo.fecha.strftime('%Y-%m-%d') if correo.fecha else 'sin fecha'
-        agrupado.setdefault(clave, []).append(correo.to_dict())
+        datos = correo.to_dict()
+        # Las reservas y los correos operativos ya no pasan por Claude: se
+        # clasifican por el asunto y quedan sin resumen. El vistazo del
+        # cuerpo es lo que se muestra en su lugar.
+        datos['vistazo'] = _vistazo(correo)
+        agrupado.setdefault(clave, []).append(datos)
 
     return jsonify({
         'dias': [
@@ -363,7 +371,7 @@ def exportar():
                   .order_by(AgenteMail.fecha.asc())
                   .all())
     return jsonify({
-        'generado_en': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+        'generado_en': ahora_ecuador().strftime('%Y-%m-%d %H:%M:%S'),
         'estado_actual': contexto.snapshot(),
         'correos': [c.to_dict(con_adjuntos=False) for c in pendientes],
     })

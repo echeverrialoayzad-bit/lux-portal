@@ -214,15 +214,19 @@ def _analizar(app, args, carpeta_proyecto):
     hallazgos = os.path.join(carpeta_proyecto, ARCHIVO_HALLAZGOS)
     resumenes = []
 
+    # Por defecto Claude solo mira los correos con pinta de tarifas y las
+    # respuestas a las solicitudes de Daniela; las reservas y lo operativo se
+    # clasifican por el asunto sin pasar por el. Es la diferencia entre 8
+    # tandas y 3 para un mes de correo. Con --resumir-todo vuelve a resumir
+    # todo, a costa de la espera.
+    exportar = [py, cli, 'exportar', '--max-correos', str(args.tanda)]
+    if not args.resumir_todo:
+        exportar.append('--solo-tarifas')
+
     for tanda in range(1, args.max_tandas + 1):
         etiqueta = f'tanda {tanda}' if tanda > 1 else 'los correos'
         _marcar(app, 'analizando', f'Preparando {etiqueta}...')
-        # Sin --solo-tarifas a proposito: la bitacora necesita el resumen de
-        # todos los correos, no solo los de tarifas. Los que no son de tarifas
-        # salen rapido igual, porque de esos no se vuelcan los adjuntos.
-        ok, salida_exp = _correr(
-            [py, cli, 'exportar', '--max-correos', str(args.tanda)],
-            carpeta_proyecto, 300)
+        ok, salida_exp = _correr(exportar, carpeta_proyecto, 300)
         if not ok:
             raise RuntimeError(f'Fallo el exportar: {salida_exp[-400:]}')
 
@@ -244,7 +248,12 @@ def _analizar(app, args, carpeta_proyecto):
         ok, salida = _correr(
             # Skill va en la lista porque el prompt le pide usar agente-lux;
             # sin eso no puede cargarlo y pierde las reglas de vigencia y FSC.
+            #
+            # Modelo y esfuerzo van explicitos: si no, manda la configuracion
+            # personal de Daniela, y con Fable a esfuerzo maximo una tanda
+            # tardaba el triple sin leer mejor una tabla de tarifas.
             ['claude', '-p', PROMPT_ANALISIS,
+             '--model', args.modelo, '--effort', args.esfuerzo,
              '--allowedTools', 'Skill', 'Read', 'Write', 'Glob', 'Grep',
              '--permission-mode', 'acceptEdits'],
             carpeta_proyecto, args.timeout_analisis)
@@ -331,6 +340,14 @@ def main():
     parser.add_argument('--timeout-analisis', type=int, default=900,
                         dest='timeout_analisis',
                         help='Segundos maximos por tanda (por defecto 15 min).')
+    parser.add_argument('--resumir-todo', action='store_true', dest='resumir_todo',
+                        help='Pasar tambien las reservas y los correos operativos '
+                             'por Claude Code para que los resuma en la bitacora. '
+                             'Mas completo, pero unas tres veces mas lento.')
+    parser.add_argument('--modelo', default='sonnet',
+                        help='Modelo de Claude Code para el analisis (por defecto sonnet).')
+    parser.add_argument('--esfuerzo', default='medium',
+                        help='Nivel de esfuerzo del modelo (por defecto medium).')
     parser.add_argument('--instalar-tarea', action='store_true',
                         dest='instalar_tarea',
                         help='Programar el vigia para que arranque con Windows.')

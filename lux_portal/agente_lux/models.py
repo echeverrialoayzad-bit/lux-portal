@@ -10,9 +10,33 @@ analisis local con Claude Code escribe los cambios propuestos
 o las reglas de FSC.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 from lux_portal.extensions import db
+
+# Todo lo que guarda el modulo va en UTC (Railway corre en UTC), pero Daniela
+# esta en Ecuador, que va cinco horas atras y no cambia con el verano. Las
+# fechas de los correos ya llegan en hora local desde su Outlook; lo que hay
+# que convertir al mostrar son las marcas de tiempo que pone el sistema.
+ECUADOR = timezone(timedelta(hours=-5))
+
+
+def a_ecuador(dt):
+    """UTC sin zona -> hora de Ecuador sin zona, para mostrar o comparar
+    contra las fechas de los correos."""
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=timezone.utc).astimezone(ECUADOR).replace(tzinfo=None)
+
+
+def ahora_ecuador():
+    """La hora que Daniela ve en su reloj. Sin tzinfo a proposito, para poder
+    compararla con las fechas de los correos, que vienen igual de Outlook."""
+    return datetime.now(ECUADOR).replace(tzinfo=None)
+
+
+def _fmt(dt):
+    return dt.strftime('%Y-%m-%d %H:%M') if dt else None
 
 
 class AgenteCuenta(db.Model):
@@ -58,8 +82,8 @@ class AgenteCuenta(db.Model):
             'id': self.id,
             'email': self.email,
             'modo': self.modo or 'local',
-            'conectada_en': self.conectada_en.strftime('%Y-%m-%d %H:%M') if self.conectada_en else None,
-            'ultimo_scan': self.ultimo_scan.strftime('%Y-%m-%d %H:%M') if self.ultimo_scan else None,
+            'conectada_en': _fmt(a_ecuador(self.conectada_en)),
+            'ultimo_scan': _fmt(a_ecuador(self.ultimo_scan)),
             'refresh_estado': self.refresh_estado or 'libre',
             'refresh_mensaje': self.refresh_mensaje,
             'vigia_activo': self.vigia_activo(),
@@ -217,7 +241,7 @@ class AgenteHallazgo(db.Model):
         # sirve de nada, asi que la pantalla lo tiene que dejar ver.
         dias = None
         if self.mail and self.mail.fecha:
-            dias = max((datetime.utcnow() - self.mail.fecha).days, 0)
+            dias = max((ahora_ecuador() - self.mail.fecha).days, 0)
 
         return {
             'id': self.id,
@@ -239,7 +263,7 @@ class AgenteHallazgo(db.Model):
             'alerta': self.alerta,
             'estado': self.estado,
             'error': self.error,
-            'creado_en': self.creado_en.strftime('%Y-%m-%d %H:%M') if self.creado_en else None,
+            'creado_en': _fmt(a_ecuador(self.creado_en)),
         }
 
 

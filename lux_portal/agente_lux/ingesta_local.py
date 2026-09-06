@@ -15,7 +15,9 @@ import base64
 from datetime import datetime, timedelta
 
 from lux_portal.extensions import db
-from lux_portal.agente_lux.models import AgenteCuenta, AgenteMail, AgenteAdjunto
+from lux_portal.agente_lux.models import (
+    AgenteCuenta, AgenteMail, AgenteAdjunto, a_ecuador,
+)
 
 DIAS_PRIMERA_LECTURA = 7
 HORAS_SOLAPE = 6
@@ -51,7 +53,10 @@ def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
     if dias:
         desde = datetime.now() - timedelta(days=dias)
     elif cuenta.ultimo_scan:
-        desde = cuenta.ultimo_scan - timedelta(hours=HORAS_SOLAPE)
+        # ultimo_scan va en UTC y las fechas de Outlook en la hora de la PC:
+        # hay que ponerlas en el mismo reloj antes de comparar, si no el
+        # solape de seis horas se quedaba en una.
+        desde = a_ecuador(cuenta.ultimo_scan) - timedelta(hours=HORAS_SOLAPE)
     else:
         desde = datetime.now() - timedelta(days=DIAS_PRIMERA_LECTURA)
 

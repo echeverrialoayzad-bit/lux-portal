@@ -18,6 +18,15 @@
   #tabla-hallazgos input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   #tabla-hallazgos input[type=number] { -moz-appearance:textfield; appearance:textfield; }
   .al-vacio { padding:2.5rem 1rem; text-align:center; color:#8a8a8a; }
+  /* El base pinta .nav-link.active con letra blanca (es para la barra de
+     arriba, que va morada). Bootstrap le pone fondo blanco a la pestana
+     activa, y el resultado era letra blanca sobre blanco: invisible. */
+  .nav-tabs .nav-link { color: var(--text-secondary, #5b5b7a) !important;
+                        border-radius: 10px 10px 0 0; }
+  .nav-tabs .nav-link:hover { background: rgba(69,53,168,0.08); }
+  .nav-tabs .nav-link.active { color: var(--fw-purple, #4535a8) !important;
+                               background: #fff; font-weight: 600;
+                               border-color: #dee2e6 #dee2e6 #fff; }
 </style>
 
 <div class="container-fluid py-4">
@@ -491,7 +500,9 @@ async function cargarBitacora() {
                 <div class="small text-muted">${escapar(c.remitente_nombre)} · ${escapar(c.fecha)}</div>
                 ${c.resumen
                   ? `<div class="small mt-1">${escapar(c.resumen)}</div>`
-                  : '<div class="small text-muted fst-italic mt-1">Sin analizar todavía.</div>'}
+                  : (c.estado === 'analizado'
+                      ? `<div class="al-vistazo mt-1">${escapar(c.vistazo || '')}</div>`
+                      : '<div class="small text-muted fst-italic mt-1">Sin analizar todavía.</div>')}
                 ${(c.temas || []).length
                   ? `<ul class="small mb-0 mt-1">${c.temas.map(t => `<li>${escapar(t)}</li>`).join('')}</ul>`
                   : ''}
