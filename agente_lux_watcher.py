@@ -66,6 +66,29 @@ def log(mensaje):
         pass
 
 
+def _abrir_outlook_si_hace_falta():
+    """Arranca el Outlook de escritorio con ventana si no esta corriendo.
+
+    Devuelve True si lo tuvo que abrir. Se usa el nombre corto porque el
+    ShellExecute de Windows lo resuelve por el registro (App Paths), sin
+    tener que adivinar donde esta instalado Office."""
+    import subprocess
+    try:
+        salida = subprocess.run(
+            ['tasklist', '/FI', 'IMAGENAME eq OUTLOOK.EXE'],
+            capture_output=True, text=True, timeout=30).stdout
+    except Exception:
+        salida = ''
+    if 'OUTLOOK.EXE' in salida.upper():
+        return False
+    try:
+        os.startfile('outlook.exe')
+        return True
+    except OSError as exc:
+        log(f'No pude abrir Outlook solo ({exc}); sigo con COM.')
+        return False
+
+
 def _ruta_corta(ruta):
     """Version 8.3 de una ruta (sin acentos ni espacios), si Windows la da."""
     import ctypes
@@ -368,6 +391,13 @@ def main():
     from lux_portal.extensions import db
     from lux_portal.agente_lux import ingesta_local
 
+    # Outlook tiene que estar abierto de verdad, con ventana. Si el vigia lo
+    # levanta por COM sin ventana, queda bajando solo encabezados y el buzon
+    # que ve no es el buzon real: asi estuvo ciego a 170 correos.
+    if _abrir_outlook_si_hace_falta():
+        log('Outlook estaba cerrado: lo abro y espero a que arranque...')
+        time.sleep(20)
+
     # Verifica Outlook antes de entrar al bucle, para fallar con un mensaje
     # claro en vez de repetir el mismo error cada 15 segundos.
     #
@@ -384,6 +414,7 @@ def main():
         pythoncom.CoInitialize()
         try:
             resultado['correo'] = outlook_local.cuenta_principal()
+            resultado['modo'] = outlook_local.modo_conexion()
         except Exception as exc:
             resultado['error'] = str(exc)
         finally:
@@ -407,6 +438,13 @@ def main():
     correo = resultado.get('correo') or '(cuenta sin identificar)'
 
     log(f'Vigia arrancado para {correo}')
+    codigo, texto_modo = resultado.get('modo') or (None, 'desconocido')
+    if codigo in outlook_local.MODOS_SANOS:
+        log(f'Outlook conectado: {texto_modo}')
+    else:
+        log(f'OJO: Outlook esta "{texto_modo}". Puede que el buzon no este '
+            f'completo hasta que termine de sincronizar; si dura, abre '
+            f'Outlook a mano y revisa que no este en "Trabajar sin conexion".')
     log(f'Carpeta: {args.carpeta}'
         + ('' if args.sin_subcarpetas else ' (con subcarpetas)'))
     log('Relectura automatica: '

@@ -15,13 +15,17 @@ import base64
 from datetime import datetime, timedelta
 
 from lux_portal.extensions import db
-from lux_portal.agente_lux.models import (
-    AgenteCuenta, AgenteMail, AgenteAdjunto, a_ecuador,
-)
+from lux_portal.agente_lux.models import AgenteCuenta, AgenteMail, AgenteAdjunto
 from lux_portal.agente_lux.texto import limpiar_banners
 
-DIAS_PRIMERA_LECTURA = 7
-HORAS_SOLAPE = 6
+# Cada lectura mira siempre estos dias hacia atras, no "desde la ultima
+# lectura". Outlook no baja el correo en orden: cuando estuvo cerrado varios
+# dias, al abrirlo sincroniza el atraso de a poco, y un correo del martes
+# puede aparecer recien el sabado. Con la marca de la ultima lectura ese
+# correo quedaba fuera para siempre: asi se perdieron 170 correos entre el
+# 19 de agosto y el 5 de septiembre. Lo ya guardado se salta por su id, asi
+# que releer la ventana cuesta poco.
+DIAS_VENTANA = 10
 
 
 def cuenta_local(crear=True):
@@ -51,15 +55,14 @@ def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
     poder mostrarlo tanto en la terminal como en el portal."""
     from lux_portal.agente_lux import outlook_local
 
-    if dias:
-        desde = datetime.now() - timedelta(days=dias)
-    elif cuenta.ultimo_scan:
-        # ultimo_scan va en UTC y las fechas de Outlook en la hora de la PC:
-        # hay que ponerlas en el mismo reloj antes de comparar, si no el
-        # solape de seis horas se quedaba en una.
-        desde = a_ecuador(cuenta.ultimo_scan) - timedelta(hours=HORAS_SOLAPE)
-    else:
-        desde = datetime.now() - timedelta(days=DIAS_PRIMERA_LECTURA)
+    desde = datetime.now() - timedelta(days=dias or DIAS_VENTANA)
+
+    # Lo que ya esta guardado se salta antes de bajar el cuerpo. El margen de
+    # un dia es por si la fecha del correo y la del corte no calzan exacto.
+    conocidos = {
+        g for (g,) in db.session.query(AgenteMail.graph_id)
+        .filter(AgenteMail.fecha >= desde - timedelta(days=1)).all()
+    }
 
     # La direccion de Daniela decide que correos cuentan como respuesta a una
     # solicitud suya, y de eso depende que una tarifa pueda aplicarse. Va la
@@ -67,8 +70,9 @@ def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
     # en cada lectura; si la cuenta no tiene una direccion real, se deja que
     # outlook_local la busque como siempre.
     email = cuenta.email if '@' in (cuenta.email or '') else None
-    correos = outlook_local.leer(desde, carpeta=carpeta, limite=limite,
-                                 recursivo=recursivo, mi_correo=email)
+    correos, omitidos = outlook_local.leer(
+        desde, carpeta=carpeta, limite=limite, recursivo=recursivo,
+        mi_correo=email, omitir=conocidos)
     truncado = len(correos) >= limite
 
     nuevos, adjuntos = 0, 0
@@ -114,7 +118,7 @@ def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
     db.session.commit()
 
     return {
-        'revisados': len(correos),
+        'revisados': len(correos) + omitidos,
         'nuevos': nuevos,
         'adjuntos': adjuntos,
         'truncado': truncado,

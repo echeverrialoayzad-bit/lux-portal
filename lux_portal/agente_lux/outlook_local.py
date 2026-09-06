@@ -78,6 +78,33 @@ def _conectar():
         )
 
 
+# ExchangeConnectionMode de Outlook. Importa porque un Outlook levantado por
+# COM sin ventana puede quedar bajando solo encabezados (400) o sin conexion,
+# y entonces el buzon que ve el vigia no es el buzon real.
+MODOS_CONEXION = {
+    0: 'sin Exchange',
+    100: 'sin conexion (Trabajar sin conexion)',
+    200: 'desconectado',
+    300: 'conectando, solo encabezados',
+    400: 'conectado, solo encabezados',
+    500: 'cache: conectando',
+    600: 'cache: desconectado',
+    700: 'cache: conectado completo',
+    800: 'en linea',
+}
+MODOS_SANOS = {700, 800}
+
+
+def modo_conexion():
+    """(codigo, texto) del estado de conexion de Outlook con Exchange."""
+    ns = _conectar()
+    try:
+        codigo = int(ns.ExchangeConnectionMode)
+    except Exception:
+        return None, 'desconocido'
+    return codigo, MODOS_CONEXION.get(codigo, f'codigo {codigo}')
+
+
 def cuenta_principal():
     """Correo de la cuenta por defecto de Outlook."""
     ns = _conectar()
@@ -277,12 +304,17 @@ def _expandir(carpeta, ruta):
     return salida
 
 
-def _leer_carpeta(carpeta, ruta, desde, limite, mi_correo=None):
-    """Correos de una sola carpeta, mas nuevos primero."""
+def _leer_carpeta(carpeta, ruta, desde, limite, mi_correo=None, omitir=None):
+    """Correos de una sola carpeta, mas nuevos primero.
+
+    `omitir` son los id_unico que ya estan guardados: de esos no se baja ni
+    el cuerpo ni los adjuntos, que es lo lento. Devuelve (correos, omitidos)."""
+    omitir = omitir or set()
+    omitidos = 0
     try:
         items = carpeta.Items
     except Exception:
-        return []
+        return [], 0
 
     try:
         # Descendente por fecha: asi se puede cortar apenas se pasa el corte.
@@ -315,6 +347,11 @@ def _leer_carpeta(carpeta, ruta, desde, limite, mi_correo=None):
         except Exception:
             continue
 
+        id_unico = f'outlook:{entry_id}'
+        if id_unico in omitir:
+            omitidos += 1
+            continue
+
         try:
             cuerpo = item.Body or ''
         except Exception:
@@ -323,7 +360,7 @@ def _leer_carpeta(carpeta, ruta, desde, limite, mi_correo=None):
         asunto = getattr(item, 'Subject', '') or '(sin asunto)'
 
         correos.append({
-            'id_unico': f'outlook:{entry_id}',
+            'id_unico': id_unico,
             'fecha': fecha,
             'carpeta': ruta,
             'respuesta_mia': es_respuesta_a_mi(asunto, cuerpo, mi_correo),
@@ -335,10 +372,11 @@ def _leer_carpeta(carpeta, ruta, desde, limite, mi_correo=None):
             'adjuntos': _adjuntos(item),
         })
 
-    return correos
+    return correos, omitidos
 
 
-def leer(desde, carpeta='Inbox', limite=200, recursivo=True, mi_correo=None):
+def leer(desde, carpeta='Inbox', limite=200, recursivo=True, mi_correo=None,
+         omitir=None):
     """Correos recibidos desde `desde` (datetime), mas nuevos primero.
 
     Con `recursivo` recorre tambien las subcarpetas, que es lo util aca:
@@ -346,8 +384,11 @@ def leer(desde, carpeta='Inbox', limite=200, recursivo=True, mi_correo=None):
     la ruta de la carpeta identifica la aerolinea sin tener que adivinarla
     del texto del correo.
 
-    Devuelve dicts listos para volcar en AgenteMail. No toca los mensajes:
-    ni los marca como leidos ni cambia nada en el buzon."""
+    `omitir` son los id_unico ya guardados: se saltan sin bajar el cuerpo.
+
+    Devuelve (correos, omitidos): dicts listos para volcar en AgenteMail y
+    cuantos se saltaron por ya estar guardados. No toca los mensajes: ni los
+    marca como leidos ni cambia nada en el buzon."""
     ns = _conectar()
     origen = _resolver_carpeta(ns, carpeta)
 
@@ -361,8 +402,11 @@ def leer(desde, carpeta='Inbox', limite=200, recursivo=True, mi_correo=None):
     objetivos = _expandir(origen, ruta_base) if recursivo else [(origen, ruta_base)]
 
     correos = []
+    omitidos = 0
     for sub, ruta in objetivos:
-        correos.extend(_leer_carpeta(sub, ruta, desde, limite, mi_correo))
+        nuevos, saltados = _leer_carpeta(sub, ruta, desde, limite, mi_correo, omitir)
+        correos.extend(nuevos)
+        omitidos += saltados
 
     correos.sort(key=lambda c: c['fecha'], reverse=True)
-    return correos[:limite]
+    return correos[:limite], omitidos
