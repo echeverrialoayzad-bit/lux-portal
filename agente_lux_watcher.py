@@ -386,19 +386,23 @@ def _resumir(app, args, carpeta_proyecto):
     return total
 
 
-def _leer(app, args, motivo):
-    """Lee el buzon y, si corresponde, analiza. Deja todo visible en el portal."""
+def _leer(app, args, motivo, dias=0):
+    """Lee el buzon y, si corresponde, analiza. Deja todo visible en el portal.
+
+    `dias` fuerza cuantos dias hacia atras mirar; 0 deja la ventana normal."""
     import os
     from lux_portal.agente_lux import ingesta_local
 
     carpeta_proyecto = os.path.dirname(os.path.abspath(__file__))
 
     try:
-        _marcar(app, 'corriendo', 'Leyendo tu Outlook...')
+        _marcar(app, 'corriendo', 'Leyendo tu Outlook...'
+                + (f' (ultimos {dias} dias)' if dias else ''))
         with app.app_context():
             cuenta = ingesta_local.cuenta_local()
             stats = ingesta_local.ingerir(
                 cuenta,
+                dias=dias,
                 carpeta=args.carpeta,
                 limite=args.limite,
                 recursivo=not args.sin_subcarpetas,
@@ -446,6 +450,9 @@ def main():
     parser.add_argument('--sin-subcarpetas', action='store_true',
                         dest='sin_subcarpetas')
     parser.add_argument('--limite', type=int, default=500)
+    parser.add_argument('--dias-arranque', type=int, default=20, dest='dias_arranque',
+                        help='Dias hacia atras que mira la primera lectura de cada '
+                             'arranque (por defecto 20). 0 = la ventana normal.')
     parser.add_argument('--sin-analisis', action='store_false', dest='analizar',
                         help='Solo bajar los correos, sin pedirle el analisis '
                              'a Claude Code.')
@@ -563,7 +570,13 @@ def main():
         + (f'cada {args.auto} min' if args.auto else 'desactivada'))
     log('Escuchando el boton del portal. Ctrl+C para parar.')
 
-    ultimo_auto = datetime.utcnow()
+    # La primera lectura de cada arranque mira mas atras (--dias-arranque):
+    # si Outlook estuvo cerrado varios dias, el atraso que sincroniza al
+    # abrirse queda fuera de la ventana normal. Lo ya guardado se salta por
+    # id, asi que mirar 20 dias cuesta poco.
+    primera = {'pendiente': bool(args.dias_arranque)}
+
+    ultimo_auto = datetime.utcnow() - timedelta(minutes=args.auto or 0)
     # El ciclo completo puede tardar media hora entre leer y analizar. Corre en
     # otro hilo para que el latido no se congele: si se congelara, el portal
     # diria "tu PC no esta escuchando" justo mientras esta trabajando.
@@ -573,6 +586,8 @@ def main():
         if trabajando.is_set():
             return
         trabajando.set()
+        dias = args.dias_arranque if primera['pendiente'] else 0
+        primera['pendiente'] = False
 
         def tarea():
             # COM hay que inicializarlo en cada hilo que lo use: sin esto,
@@ -581,7 +596,7 @@ def main():
             import pythoncom
             pythoncom.CoInitialize()
             try:
-                _leer(app, args, motivo)
+                _leer(app, args, motivo, dias=dias)
             finally:
                 pythoncom.CoUninitialize()
                 trabajando.clear()
@@ -601,6 +616,8 @@ def main():
                 elif args.auto and not trabajando.is_set() and (
                         datetime.utcnow() - ultimo_auto
                         >= timedelta(minutes=args.auto)):
+                    # Con ultimo_auto arrancando "vencido", la primera
+                    # lectura sale enseguida en vez de esperar 20 minutos.
                     lanzar('relectura automatica')
                     ultimo_auto = datetime.utcnow()
 
