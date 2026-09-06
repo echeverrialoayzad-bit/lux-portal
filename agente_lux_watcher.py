@@ -250,8 +250,10 @@ def _analizar(app, args, carpeta_proyecto):
             # sin eso no puede cargarlo y pierde las reglas de vigencia y FSC.
             #
             # Modelo y esfuerzo van explicitos: si no, manda la configuracion
-            # personal de Daniela, y con Fable a esfuerzo maximo una tanda
-            # tardaba el triple sin leer mejor una tabla de tarifas.
+            # personal de Daniela, que puede quedar en cualquier cosa despues
+            # de un /model. Sonnet es el mismo modelo con el que se hizo el
+            # primer analisis; el esfuerzo alto es el punto medio entre la
+            # espera y el cuidado al leer una tabla.
             ['claude', '-p', PROMPT_ANALISIS,
              '--model', args.modelo, '--effort', args.esfuerzo,
              '--allowedTools', 'Skill', 'Read', 'Write', 'Glob', 'Grep',
@@ -346,8 +348,11 @@ def main():
                              'Mas completo, pero unas tres veces mas lento.')
     parser.add_argument('--modelo', default='sonnet',
                         help='Modelo de Claude Code para el analisis (por defecto sonnet).')
-    parser.add_argument('--esfuerzo', default='medium',
-                        help='Nivel de esfuerzo del modelo (por defecto medium).')
+    # Alto y no medio: a Daniela le preocupa que una lectura ligera se coma un
+    # numero de una tabla, y la ganancia grande de tiempo ya viene de no
+    # pasarle las reservas a Claude, no de este ajuste.
+    parser.add_argument('--esfuerzo', default='high',
+                        help='Nivel de esfuerzo del modelo (por defecto high).')
     parser.add_argument('--instalar-tarea', action='store_true',
                         dest='instalar_tarea',
                         help='Programar el vigia para que arranque con Windows.')
