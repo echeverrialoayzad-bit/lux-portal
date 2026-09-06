@@ -376,6 +376,36 @@ def _hay_envios(app):
         return AgenteEnvio.query.filter_by(estado='pendiente').count()
 
 
+def _hay_netas(app):
+    from lux_portal.agente_lux.models import AgenteCuenta
+
+    with app.app_context():
+        cuenta = AgenteCuenta.query.first()
+        return bool(cuenta and cuenta.netas_solicitado)
+
+
+def _actualizar_netas(app, carpeta_proyecto):
+    """Regenera NETAS ACTUALES.xlsx en el OneDrive de Ignacio (lo pidio el
+    portal al aplicar propuestas, o Daniela con el boton)."""
+    import sys as _sys
+    from lux_portal.extensions import db
+    from lux_portal.agente_lux.models import AgenteCuenta
+
+    cli = os.path.join(carpeta_proyecto, 'agente_lux_cli.py')
+    ok, salida = _correr([_sys.executable, cli, 'netas'], carpeta_proyecto, 600)
+    if ok:
+        log(salida.splitlines()[0] if salida else 'NETAS ACTUALES.xlsx actualizado.')
+        return
+    log(f'Fallo NETAS ACTUALES.xlsx: {salida[-400:]}')
+    with app.app_context():
+        cuenta = AgenteCuenta.query.first()
+        if cuenta:
+            cuenta.netas_solicitado = None
+            cuenta.netas_mensaje = ('No se pudo actualizar NETAS ACTUALES.xlsx: '
+                                    + salida[-300:])[:500]
+            db.session.commit()
+
+
 def _enviar(app):
     """Manda por Outlook lo que Daniela dejo en cola en la pestana Mails."""
     from lux_portal.agente_lux import envio_local
@@ -818,6 +848,14 @@ def main():
         trabajando.set()
         en_hilo_com(lambda: _enviar(app))
 
+    carpeta_proyecto = os.path.dirname(os.path.abspath(__file__))
+
+    def lanzar_netas():
+        if trabajando.is_set():
+            return
+        trabajando.set()
+        en_hilo_com(lambda: _actualizar_netas(app, carpeta_proyecto))
+
     try:
         while True:
             if os.path.exists(RUTA_PARAR) and not trabajando.is_set():
@@ -832,6 +870,9 @@ def main():
                 # Daniela esperando, y tardan segundos.
                 if not trabajando.is_set() and _hay_envios(app):
                     lanzar_envios()
+
+                elif not trabajando.is_set() and _hay_netas(app):
+                    lanzar_netas()
 
                 elif solicitado:
                     lanzar('boton del portal', desde, hasta)

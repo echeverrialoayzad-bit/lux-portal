@@ -85,6 +85,13 @@ class AgenteCuenta(db.Model):
     # el ciclo.
     refresh_desde = db.Column(db.Date)
     refresh_hasta = db.Column(db.Date)
+    # NETAS ACTUALES.xlsx: el Excel de tarifas netas que Daniela reemplazaba
+    # a mano en el OneDrive de Ignacio. El portal pide la actualizacion
+    # (al aplicar propuestas o con el boton) y el vigia lo regenera y lo
+    # escribe en la carpeta sincronizada de la PC.
+    netas_solicitado = db.Column(db.DateTime)
+    netas_actualizado = db.Column(db.DateTime)
+    netas_mensaje = db.Column(db.Text)
 
     def vigia_activo(self, segundos=90):
         """True si el vigia dio senales de vida hace poco."""
@@ -104,6 +111,9 @@ class AgenteCuenta(db.Model):
             'refresh_desde': self.refresh_desde.isoformat() if self.refresh_desde else None,
             'refresh_hasta': self.refresh_hasta.isoformat() if self.refresh_hasta else None,
             'vigia_activo': self.vigia_activo(),
+            'netas_pendiente': bool(self.netas_solicitado),
+            'netas_actualizado': _fmt(a_ecuador(self.netas_actualizado)),
+            'netas_mensaje': self.netas_mensaje,
         }
 
 

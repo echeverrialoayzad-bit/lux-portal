@@ -44,7 +44,8 @@
     </div>
     <div class="text-end">
       <div id="estado-cuenta" class="small text-muted mb-1">—</div>
-      <div id="estado-vigia" class="small text-muted mb-2"></div>
+      <div id="estado-vigia" class="small text-muted mb-1"></div>
+      <div id="estado-netas" class="small text-muted mb-2"></div>
       <!-- El rango de fechas manda en toda la pantalla y en el ciclo del
            agente: correos, propuestas, lectura, analisis y resumenes. Por
            defecto, hoy. -->
@@ -352,7 +353,20 @@ async function cargarEstado() {
     btn.disabled = true;
   }
 
-  document.getElementById('badge-hoy').textContent = d.correos_hoy || 0;
+  // NETAS ACTUALES.xlsx: el Excel que antes se reemplazaba a mano.
+  const elNetas = document.getElementById('estado-netas');
+  if (d.cuenta) {
+    const c = d.cuenta;
+    const boton = vigiaActivo && !c.netas_pendiente
+      ? ' · <a href="#" onclick="pedirNetas(); return false;">Actualizar ahora</a>' : '';
+    elNetas.innerHTML = '<i class="bi bi-file-earmark-excel text-success me-1"></i>NETAS ACTUALES.xlsx: '
+      + (c.netas_pendiente
+          ? '<span class="spinner-border spinner-border-sm me-1"></span>actualizando…'
+          : (c.netas_actualizado
+              ? 'actualizado ' + fechaCorta(c.netas_actualizado) + (c.netas_mensaje ? ' (' + escapar(c.netas_mensaje) + ')' : '')
+              : 'sin actualizar desde aquí'))
+      + boton;
+  }
 
   const enRango = d.pendientes_en_rango || 0;
   const fuera = (d.pendientes_de_analisis || 0) - enRango;
@@ -718,6 +732,19 @@ document.getElementById('btn-aplicar').addEventListener('click', async (ev) => {
   }
   cargarHallazgos();
 });
+
+// ---------------------------------------------------------------- NETAS ACTUALES.xlsx
+async function pedirNetas() {
+  const r = await fetch('{{ url_for("agente_lux.pedir_netas") }}', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+  });
+  const d = await r.json();
+  if (!r.ok) { banner(escapar(d.error || 'No se pudo pedir la actualización.'), 'danger'); return; }
+  banner('Tu PC está regenerando NETAS ACTUALES.xlsx; OneDrive lo sube solo en unos segundos.', 'info');
+  cargarEstado();
+  let intentos = 0;
+  const t = setInterval(async () => { await cargarEstado(); if (++intentos >= 10) clearInterval(t); }, 6000);
+}
 
 // ---------------------------------------------------------------- mails
 const MAILS_URL = '{{ url_for("agente_lux.mails") }}';

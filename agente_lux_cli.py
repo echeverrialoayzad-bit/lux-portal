@@ -866,6 +866,96 @@ def cmd_contactos_enviados(args):
 
 
 # ---------------------------------------------------------------------------
+# netas: regenera NETAS ACTUALES.xlsx en el OneDrive de Ignacio
+# ---------------------------------------------------------------------------
+
+def _ruta_netas():
+    """Donde vive NETAS ACTUALES.xlsx en esta PC (carpeta de OneDrive de
+    Ignacio, sincronizada). Se puede cambiar con NETAS_ACTUALES_PATH en .env."""
+    ruta = os.environ.get('NETAS_ACTUALES_PATH', '').strip()
+    if ruta:
+        return ruta
+    return os.path.join(
+        os.path.expanduser('~'), 'OneDrive - FREIGHTWISE S.A.S',
+        'Archivos de Ignacio Patricio Vergara López - OPS-FREIGHTWISE ECUADOR',
+        'CUSTOMER SERVICES', 'COTIZACIONES', 'NETAS', 'NETAS ACTUALES.xlsx')
+
+
+def generar_netas(app):
+    """El mismo Excel que baja Continentes > Tarifas netas: una hoja por
+    destino con la cotizacion mas reciente, en ingles, mas la hoja Avisos.
+    Devuelve (bytes, destinos, errores)."""
+    from lux_portal.cotizaciones.models import Cotizacion
+    from lux_portal.cotizaciones.routes import _validar_cotizacion, _filas_desglose_de
+    from lux_portal.cotizaciones.utils.excel_generator import generar_reporte_netas_bytes
+
+    with app.app_context():
+        cotizaciones = Cotizacion.query.order_by(Cotizacion.fecha_modificacion.desc()).all()
+        mas_reciente = {}
+        for cot in cotizaciones:
+            destino = (cot.destino or '').strip().upper()
+            if destino and destino not in mas_reciente:
+                mas_reciente[destino] = cot
+        filas, errores = [], []
+        for destino in sorted(mas_reciente):
+            cot = mas_reciente[destino]
+            errs = _validar_cotizacion(cot)
+            if errs:
+                errores.append(f'{destino} (cotizacion {cot.id}): ' + ' | '.join(errs))
+                continue
+            filas.append((destino, _filas_desglose_de(cot)))
+        salida = generar_reporte_netas_bytes(filas, idioma='en', errores=errores,
+                                             con_fechas=False)
+    contenido = salida.getvalue() if hasattr(salida, 'getvalue') else salida
+    return contenido, len(filas), errores
+
+
+def cmd_netas(args):
+    """Regenera NETAS ACTUALES.xlsx y lo deja en la carpeta sincronizada.
+
+    OneDrive lo sube solo al SharePoint de Ignacio; asi ya no hay que bajar
+    el Excel de Continentes y reemplazarlo a mano."""
+    app = crear_app(resolver_db(args))
+    from lux_portal.extensions import db
+    from lux_portal.agente_lux.models import AgenteCuenta
+
+    ruta = args.ruta or _ruta_netas()
+    carpeta = os.path.dirname(ruta)
+
+    def marcar(mensaje, ok):
+        with app.app_context():
+            cuenta = AgenteCuenta.query.first()
+            if cuenta:
+                cuenta.netas_solicitado = None
+                if ok:
+                    cuenta.netas_actualizado = datetime.utcnow()
+                cuenta.netas_mensaje = mensaje[:500]
+                db.session.commit()
+
+    if not os.path.isdir(carpeta):
+        marcar(f'No existe la carpeta {carpeta}. Esta OneDrive sincronizando la carpeta de Ignacio?', False)
+        sys.exit(f'No existe la carpeta {carpeta}.')
+
+    contenido, n, errores = generar_netas(app)
+    try:
+        # Se escribe aparte y se reemplaza de un golpe: OneDrive no sube un
+        # archivo a medias, y si Excel lo tiene abierto el error es claro.
+        tmp = ruta + '.tmp'
+        with open(tmp, 'wb') as fh:
+            fh.write(contenido)
+        os.replace(tmp, ruta)
+    except PermissionError:
+        marcar('No se pudo escribir NETAS ACTUALES.xlsx: esta abierto en Excel. Cierralo y vuelve a pedirlo.', False)
+        sys.exit('NETAS ACTUALES.xlsx esta abierto en Excel: cierralo y vuelve a intentar.')
+
+    mensaje = f'{n} destinos' + (f', {len(errores)} con avisos' if errores else '')
+    marcar(mensaje, True)
+    print(f'NETAS ACTUALES.xlsx actualizado ({mensaje}) -> {ruta}')
+    for e in errores:
+        print('  aviso:', e)
+
+
+# ---------------------------------------------------------------------------
 # enviar: manda por Outlook lo que quedo en cola en la pestana Mails
 # ---------------------------------------------------------------------------
 
@@ -1080,6 +1170,11 @@ def main():
     p_env.add_argument('--dias', type=int, default=120)
     p_env.add_argument('--asunto', default='tarifa',
                        help='Palabra que debe tener el asunto (por defecto "tarifa").')
+    p_net = sub.add_parser('netas',
+                           help='Regenera NETAS ACTUALES.xlsx en la carpeta de OneDrive '
+                                'de Ignacio (se sube solo al SharePoint).')
+    p_net.add_argument('--ruta', help='Otra ruta de salida (por defecto la carpeta '
+                                      'sincronizada, o NETAS_ACTUALES_PATH del .env).')
     sub.add_parser('estado', help='Contadores rapidos.')
 
     args = parser.parse_args()
@@ -1093,6 +1188,7 @@ def main():
         'cargar-resumen': cmd_cargar_resumen,
         'enviar': cmd_enviar,
         'contactos-enviados': cmd_contactos_enviados,
+        'netas': cmd_netas,
         'estado': cmd_estado,
     }[args.comando](args)
 

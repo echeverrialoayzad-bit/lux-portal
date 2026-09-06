@@ -167,6 +167,10 @@ def _migrate_db(app):
         ('cotizacion_mail_requests', 'destinatarios', 'TEXT'),
         ('cotizacion_mail_requests', 'cc', 'TEXT'),
         ('cotizacion_mail_requests', 'seleccionados_json', "TEXT DEFAULT '[]'"),
+        # Agente Lux: NETAS ACTUALES.xlsx en el OneDrive de Ignacio
+        ('agente_cuenta', 'netas_solicitado', 'TIMESTAMP'),
+        ('agente_cuenta', 'netas_actualizado', 'TIMESTAMP'),
+        ('agente_cuenta', 'netas_mensaje', 'TEXT'),
     ]
     for table, column, col_type in migrations:
         try:

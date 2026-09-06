@@ -27,6 +27,9 @@ from lux_portal.agente_lux.models import (
 # horas de analisis, y mas que eso es casi seguro un error al elegir fechas.
 MAX_DIAS_RANGO = 62
 
+# Regenerar NETAS ACTUALES.xlsx solo al aplicar propuestas (ver aplicar()).
+NETAS_AUTO_TRAS_APLICAR = False
+
 
 def _rango_pedido(fuente):
     """(desde, hasta) como fechas, a partir de un dict con 'desde'/'hasta' en
@@ -363,9 +366,36 @@ def aplicar():
             fallidos += 1
         detalle.append({'id': h.id, 'ok': ok, 'mensaje': mensaje})
 
+    # Si cambio alguna tarifa, NETAS ACTUALES.xlsx tiene que reflejarlo: se
+    # le pide al vigia que lo regenere en el OneDrive de Ignacio.
+    #
+    # Apagado hasta que Daniela confirme que el portal y el archivo dicen lo
+    # mismo: el 2026-09-06 el archivo tenia margenes corregidos a mano (0.10
+    # en AMS) que el portal no tiene, y regenerarlo solo los habria pisado.
+    # Mientras tanto se actualiza con el boton "Actualizar ahora".
+    if aplicados and NETAS_AUTO_TRAS_APLICAR:
+        cuenta = _cuenta()
+        if cuenta:
+            cuenta.netas_solicitado = datetime.utcnow()
+            cuenta.netas_mensaje = 'Actualizando NETAS ACTUALES.xlsx...'
+
     db.session.commit()
     return jsonify({'ok': True, 'aplicados': aplicados,
                     'fallidos': fallidos, 'detalle': detalle})
+
+
+@agente_lux_bp.route('/api/netas/actualizar', methods=['POST'])
+@login_required
+def pedir_netas():
+    """Pide al vigia que regenere NETAS ACTUALES.xlsx ahora."""
+    cuenta = _cuenta()
+    if not cuenta or not cuenta.vigia_activo():
+        return jsonify({'error': 'El vigia no esta corriendo en tu PC, y es el que '
+                                 'escribe el archivo en la carpeta de OneDrive.'}), 409
+    cuenta.netas_solicitado = datetime.utcnow()
+    cuenta.netas_mensaje = 'Actualizando NETAS ACTUALES.xlsx...'
+    db.session.commit()
+    return jsonify({'ok': True})
 
 
 # La bitacora dia a dia se quito a pedido de Daniela: la pestana de correos
