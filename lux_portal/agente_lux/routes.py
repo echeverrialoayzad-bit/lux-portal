@@ -475,11 +475,30 @@ def _ultimas_respuestas():
     return {_aerolinea_de_carpeta(c): f for c, f in filas}
 
 
+CC_SIEMPRE = 'fwquito@freight-wise.com'
+
+
 def _cuerpo_solicitud(registro):
+    """El texto que se manda desde Agente Lux: con los destinos MARCADOS.
+
+    La lista completa de destinos vive en la pestana Mails del portal (y su
+    texto "para copiar" los lleva todos); aca Daniela marca cuales pide en
+    esta solicitud. Si el texto esta editado a mano, se conserva y solo se
+    reemplaza la lista de vinetas."""
     from lux_portal.cotizaciones.routes import _generar_cuerpo_mail
+    from lux_portal.agente_lux.texto import sincronizar_destinos
+    seleccion = registro.seleccionados
     if registro.cuerpo_editado and registro.cuerpo:
-        return registro.cuerpo
-    return _generar_cuerpo_mail(registro.aerolinea, registro.destinos)
+        return sincronizar_destinos(registro.cuerpo, seleccion)
+    return _generar_cuerpo_mail(registro.aerolinea, seleccion)
+
+
+def _con_cc_fijo(cc):
+    """fwquito va siempre en copia, lo haya escrito Daniela o no."""
+    direcciones = _RE_MAIL.findall(cc or '')
+    if CC_SIEMPRE.lower() not in [d.lower() for d in direcciones]:
+        direcciones.append(CC_SIEMPRE)
+    return '; '.join(direcciones)
 
 
 @agente_lux_bp.route('/api/mails')
@@ -501,10 +520,11 @@ def mails():
             'id': r.id,
             'aerolinea': r.aerolinea,
             'destinos': r.destinos,
+            'seleccionados': r.seleccionados,
             'asunto': r.asunto or ASUNTO_POR_DEFECTO,
             'cuerpo': _cuerpo_solicitud(r),
             'destinatarios': r.destinatarios or '',
-            'cc': r.cc or '',
+            'cc': _con_cc_fijo(r.cc),
             'cuerpo_editado': bool(r.cuerpo_editado),
             'ultimo_envio': ultimo.to_dict() if ultimo else None,
             'ultima_respuesta': resp.strftime('%Y-%m-%d %H:%M') if resp else None,
@@ -532,17 +552,19 @@ def guardar_mail(id):
     if 'asunto' in data:
         registro.asunto = (data.get('asunto') or '').strip()[:200] or None
     if 'destinos' in data:
+        # La lista completa que conoce la aerolinea (se agregan o quitan).
         destinos = sorted({(d or '').strip().upper()
                            for d in (data.get('destinos') or []) if (d or '').strip()})
+        nuevos = [d for d in destinos if d not in registro.destinos]
         registro.destinos = destinos
-        if registro.cuerpo_editado and registro.cuerpo:
-            # El texto es de Daniela, pero la lista de destinos dentro del
-            # correo tiene que seguir a los destinos: agrego SED y el correo
-            # tiene que pedir SED.
-            from lux_portal.agente_lux.texto import sincronizar_destinos
-            registro.cuerpo = sincronizar_destinos(registro.cuerpo, destinos)
-        else:
+        # Un destino recien agregado desde Agente Lux se marca solo: si lo
+        # escribio es porque lo quiere pedir.
+        registro.seleccionados = [d for d in registro.seleccionados if d in destinos] + nuevos
+        if not registro.cuerpo_editado:
             registro.cuerpo = None
+    if 'seleccionados' in data:
+        marcados = [(d or '').strip().upper() for d in (data.get('seleccionados') or [])]
+        registro.seleccionados = [d for d in registro.destinos if d in marcados]
     if 'cuerpo' in data:
         texto = (data.get('cuerpo') or '').strip()
         if texto:
@@ -553,6 +575,7 @@ def guardar_mail(id):
         registro.cuerpo_editado = False
     db.session.commit()
     return jsonify({'ok': True, 'destinos': registro.destinos,
+                    'seleccionados': registro.seleccionados,
                     'cuerpo': _cuerpo_solicitud(registro),
                     'cuerpo_editado': bool(registro.cuerpo_editado)})
 
@@ -583,13 +606,13 @@ def enviar_mail(id):
     if not registro.destinatarios:
         return jsonify({'error': 'Esa aerolinea no tiene destinatario. Escribe la '
                                  'direccion o usa "Detectar contactos".'}), 400
-    if not registro.destinos and not (registro.cuerpo_editado and registro.cuerpo):
-        return jsonify({'error': 'Esa aerolinea no tiene destinos en Mails.'}), 400
+    if not registro.seleccionados:
+        return jsonify({'error': 'Marca al menos un destino para pedir.'}), 400
 
     envio = AgenteEnvio(
         aerolinea=registro.aerolinea,
         para=registro.destinatarios,
-        cc=registro.cc or '',
+        cc=_con_cc_fijo(registro.cc),
         asunto=(registro.asunto or ASUNTO_POR_DEFECTO)[:300],
         cuerpo=_cuerpo_solicitud(registro),
         estado='pendiente',

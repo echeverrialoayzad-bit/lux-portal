@@ -166,6 +166,7 @@ def _migrate_db(app):
         # Mails: a quien se manda cada solicitud (Agente Lux > Mails)
         ('cotizacion_mail_requests', 'destinatarios', 'TEXT'),
         ('cotizacion_mail_requests', 'cc', 'TEXT'),
+        ('cotizacion_mail_requests', 'seleccionados_json', "TEXT DEFAULT '[]'"),
     ]
     for table, column, col_type in migrations:
         try:

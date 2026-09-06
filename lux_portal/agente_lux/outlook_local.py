@@ -380,6 +380,88 @@ def _leer_carpeta(carpeta, ruta, desde, limite, mi_correo=None, omitir=None,
     return correos, omitidos
 
 
+OL_FOLDER_SENT = 5
+
+
+def _smtp_de_recipient(rec):
+    """La direccion SMTP real de un destinatario (en Exchange viene como un
+    DN interno que no sirve)."""
+    try:
+        ae = rec.AddressEntry
+        if (ae.Type or '').upper() == 'EX':
+            try:
+                eu = ae.GetExchangeUser()
+                if eu and eu.PrimarySmtpAddress:
+                    return eu.PrimarySmtpAddress
+            except Exception:
+                pass
+            try:
+                return ae.PropertyAccessor.GetProperty(
+                    'http://schemas.microsoft.com/mapi/proptag/0x39FE001E') or ''
+            except Exception:
+                pass
+        return ae.Address or ''
+    except Exception:
+        return ''
+
+
+def leer_enviados(desde, filtro_asunto='tarifa', max_items=800):
+    """Los correos que Daniela mando desde `desde` con `filtro_asunto` en el
+    asunto: a quien (resuelto a SMTP), con copia a quien, y que codigos IATA
+    pidio en el cuerpo. Sirve para saber a que direccion le pide tarifas a
+    cada aerolinea."""
+    ns = _conectar()
+    items = ns.GetDefaultFolder(OL_FOLDER_SENT).Items
+    try:
+        items.Sort('[SentOn]', True)
+    except Exception:
+        pass
+
+    salida = []
+    recorridos = 0
+    for item in items:
+        recorridos += 1
+        if recorridos > max_items:
+            break
+        try:
+            if item.Class != OL_MAIL_ITEM:
+                continue
+            so = item.SentOn
+            fecha = datetime(so.year, so.month, so.day, so.hour, so.minute)
+        except Exception:
+            continue
+        if fecha < desde:
+            break
+        asunto = item.Subject or ''
+        if filtro_asunto and filtro_asunto.lower() not in asunto.lower():
+            continue
+
+        para, cc = [], []
+        try:
+            for i in range(1, item.Recipients.Count + 1):
+                r = item.Recipients.Item(i)
+                dest = {'nombre': r.Name or '', 'email': (_smtp_de_recipient(r) or '').lower()}
+                (para if r.Type == 1 else cc).append(dest)
+        except Exception:
+            pass
+        try:
+            cuerpo = item.Body or ''
+        except Exception:
+            cuerpo = ''
+        # Solo la parte que escribio ella, antes de cualquier hilo citado.
+        propio = re.split(r'\n(?:De|From):', cuerpo, maxsplit=1)[0]
+        iatas = re.findall(r'^\s*[-•*·]\s*([A-Z]{3})\b', propio, re.M)
+
+        salida.append({
+            'fecha': fecha.strftime('%Y-%m-%d %H:%M'),
+            'asunto': asunto,
+            'para': para,
+            'cc': cc,
+            'iatas': iatas,
+        })
+    return salida
+
+
 def leer(desde, carpeta='Inbox', limite=200, recursivo=True, mi_correo=None,
          omitir=None, hasta=None):
     """Correos recibidos desde `desde` (datetime) hasta `hasta` (datetime,

@@ -835,6 +835,37 @@ def cmd_cargar_resumen(args):
 
 
 # ---------------------------------------------------------------------------
+# contactos-enviados: a quien le pide tarifas Daniela, segun sus enviados
+# ---------------------------------------------------------------------------
+
+ARCHIVO_ENVIADOS = os.path.join(CARPETA, 'contactos_enviados.json')
+
+
+def cmd_contactos_enviados(args):
+    """Vuelca a _agente_lux/contactos_enviados.json los correos de solicitud
+    de tarifas que Daniela mando en los ultimos --dias, con destinatarios
+    reales y los IATA que pidio. Corre en la PC, con Outlook abierto."""
+    from lux_portal.agente_lux import outlook_local
+
+    desde = datetime.now() - timedelta(days=args.dias)
+    try:
+        enviados = outlook_local.leer_enviados(desde, filtro_asunto=args.asunto)
+    except outlook_local.OutlookNoDisponible as exc:
+        sys.exit(str(exc))
+
+    os.makedirs(CARPETA, exist_ok=True)
+    with open(ARCHIVO_ENVIADOS, 'w', encoding='utf-8') as fh:
+        json.dump({'generado_en': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                   'dias': args.dias, 'enviados': enviados},
+                  fh, ensure_ascii=False, indent=2)
+    print(f'{len(enviados)} correo(s) enviados con "{args.asunto}" en el asunto, '
+          f'guardados en {ARCHIVO_ENVIADOS}')
+    for e in enviados[:60]:
+        para = ', '.join(d['email'] or d['nombre'] for d in e['para'])
+        print(f"  {e['fecha']} | {e['asunto'][:28]:28} | {para[:60]:60} | {' '.join(e['iatas'])[:50]}")
+
+
+# ---------------------------------------------------------------------------
 # enviar: manda por Outlook lo que quedo en cola en la pestana Mails
 # ---------------------------------------------------------------------------
 
@@ -1043,6 +1074,12 @@ def main():
                    help='Sube _agente_lux/resumenes.json a la bitacora del portal.')
     sub.add_parser('enviar',
                    help='Manda por Outlook los correos en cola de la pestana Mails.')
+    p_env = sub.add_parser('contactos-enviados',
+                           help='Vuelca a quien le mando Daniela solicitudes de '
+                                'tarifas (Elementos enviados de Outlook).')
+    p_env.add_argument('--dias', type=int, default=120)
+    p_env.add_argument('--asunto', default='tarifa',
+                       help='Palabra que debe tener el asunto (por defecto "tarifa").')
     sub.add_parser('estado', help='Contadores rapidos.')
 
     args = parser.parse_args()
@@ -1055,6 +1092,7 @@ def main():
         'exportar-resumen': cmd_exportar_resumen,
         'cargar-resumen': cmd_cargar_resumen,
         'enviar': cmd_enviar,
+        'contactos-enviados': cmd_contactos_enviados,
         'estado': cmd_estado,
     }[args.comando](args)
 

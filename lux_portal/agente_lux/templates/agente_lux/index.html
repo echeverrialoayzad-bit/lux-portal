@@ -723,12 +723,18 @@ const MAIL_GUARDAR_URL = '{{ url_for("agente_lux.guardar_mail", id=0) }}'.slice(
 let vigiaActivo = false;
 
 function tarjetaMail(m) {
-  // Cada destino se puede quitar con la x, y abajo se agregan nuevos.
+  // Cada destino es un boton: marcado va al correo, sin marcar no. La x
+  // chiquita lo quita de la lista de la aerolinea (con confirmacion).
+  const sel = new Set(m.seleccionados || []);
   const chips = (m.destinos || []).map(d => `
-    <span class="badge bg-light text-dark border me-1 mb-1 chip-destino" data-iata="${escapar(d)}">${escapar(d)}
-      <a href="#" class="text-danger text-decoration-none ms-1" title="Quitar ${escapar(d)}"
-         onclick="quitarDestino(${m.id}, '${escapar(d)}'); return false;">&times;</a></span>`).join('')
+    <span class="badge ${sel.has(d) ? 'bg-primary' : 'bg-light text-dark'} border me-1 mb-1 chip-destino"
+          data-iata="${escapar(d)}" data-sel="${sel.has(d) ? 1 : 0}" style="cursor:pointer;"
+          title="${sel.has(d) ? 'Marcado: va en el correo. Clic para desmarcar.' : 'Clic para pedir ' + escapar(d)}"
+          onclick="alternarDestino(${m.id}, '${escapar(d)}')">${escapar(d)}
+      <a href="#" class="${sel.has(d) ? 'text-white-50' : 'text-muted'} text-decoration-none ms-1" title="Quitar ${escapar(d)} de la lista de la aerolínea"
+         onclick="event.stopPropagation(); quitarDestino(${m.id}, '${escapar(d)}'); return false;">&times;</a></span>`).join('')
     || '<span class="text-muted">sin destinos</span>';
+  const nSel = (m.seleccionados || []).length;
   const agregar = `
     <span class="d-inline-flex align-items-center gap-1 ms-1 mb-1">
       <input class="form-control form-control-sm inp-nuevo-destino" style="width:70px;" maxlength="3"
@@ -744,13 +750,14 @@ function tarjetaMail(m) {
           : `<span class="text-danger" title="${escapar(m.ultimo_envio.error || '')}"><i class="bi bi-x-circle"></i> falló el envío</span>`)
     : '<span class="text-muted">nunca enviado desde aquí</span>';
   const resp = m.ultima_respuesta ? `última respuesta ${fechaCorta(m.ultima_respuesta)}` : 'sin respuestas registradas';
-  const puede = vigiaActivo && m.destinatarios && (m.destinos || []).length;
+  const puede = vigiaActivo && m.destinatarios && nSel > 0;
   return `
   <div class="card al-card shadow-sm mb-2" data-id="${m.id}">
     <div class="card-body py-2">
       <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
         <div>
           <strong>${escapar(m.aerolinea)}</strong>
+          <span class="small text-muted ms-2">${nSel ? `${nSel} destino(s) marcados para pedir` : 'marca los destinos que quieres pedir'}</span>
           <div class="mt-1 d-flex flex-wrap align-items-center">${chips}${agregar}</div>
         </div>
         <div class="text-end small">
@@ -778,8 +785,8 @@ function tarjetaMail(m) {
                   style="white-space:pre-wrap;font-family:inherit;">${escapar(m.cuerpo)}</textarea>
         <div class="d-flex justify-content-between align-items-center mt-1 text-muted">
           <span>${m.cuerpo_editado
-            ? 'Texto editado a mano. La lista de destinos dentro del correo sí se actualiza al agregar o quitar.'
-            : 'Texto automático a partir de los destinos. Si lo editas, se guarda al salir del cuadro.'}</span>
+            ? 'Texto editado a mano. La lista de destinos dentro del correo sigue a los que marques.'
+            : 'Texto automático con los destinos marcados. Si lo editas, se guarda al salir del cuadro.'}</span>
           ${m.cuerpo_editado
             ? `<a href="#" onclick="restablecerCuerpo(${m.id}); return false;">Volver al texto automático</a>`
             : ''}
@@ -787,8 +794,8 @@ function tarjetaMail(m) {
       </details>
       <div class="d-flex justify-content-end mt-2">
         <button class="btn btn-primary btn-sm" onclick="enviarMail(${m.id}, '${escapar(m.aerolinea)}')" ${puede ? '' : 'disabled'}
-          title="${vigiaActivo ? '' : 'El vigía no está corriendo en tu PC'}">
-          <i class="bi bi-send me-1"></i>Enviar por Outlook
+          title="${!vigiaActivo ? 'El vigía no está corriendo en tu PC' : (!nSel ? 'Marca al menos un destino' : (!m.destinatarios ? 'Falta el destinatario' : ''))}">
+          <i class="bi bi-send me-1"></i>Enviar por Outlook${nSel ? ` (${nSel})` : ''}
         </button>
       </div>
     </div>
@@ -825,8 +832,19 @@ async function guardarMail(ev) {
 function destinosDe(card) {
   return [...card.querySelectorAll('.chip-destino')].map(c => c.dataset.iata);
 }
+function seleccionadosDe(card) {
+  return [...card.querySelectorAll('.chip-destino')].filter(c => c.dataset.sel === '1').map(c => c.dataset.iata);
+}
+
+function alternarDestino(id, iata) {
+  const card = document.querySelector(`#lista-mails .card[data-id="${id}"]`);
+  const actuales = seleccionadosDe(card);
+  const nuevos = actuales.includes(iata) ? actuales.filter(d => d !== iata) : [...actuales, iata];
+  guardarCambios(id, { seleccionados: nuevos }, 'No se pudo marcar el destino.');
+}
 
 function quitarDestino(id, iata) {
+  if (!confirm(`¿Quitar ${iata} de la lista de destinos de esta aerolínea?`)) return;
   const card = document.querySelector(`#lista-mails .card[data-id="${id}"]`);
   guardarCambios(id, { destinos: destinosDe(card).filter(d => d !== iata) }, 'No se pudo quitar el destino.');
 }

@@ -201,6 +201,10 @@ class AirlineMailRequest(db.Model):
     # correos que Daniela ya mando a cada aerolinea, y se pueden corregir.
     destinatarios = db.Column(db.Text)   # direcciones separadas por ;
     cc = db.Column(db.Text)
+    # Los destinos que Daniela marco para la proxima solicitud desde Agente
+    # Lux. `destinos` es la lista completa que conoce la aerolinea; al correo
+    # van solo estos. Arranca vacio: ella marca lo que quiere pedir.
+    seleccionados_json = db.Column(db.Text, default='[]')
 
     @property
     def destinos(self):
@@ -209,6 +213,19 @@ class AirlineMailRequest(db.Model):
     @destinos.setter
     def destinos(self, value):
         self.destinos_json = json.dumps(value, ensure_ascii=False)
+
+    @property
+    def seleccionados(self):
+        try:
+            lista = json.loads(self.seleccionados_json) if self.seleccionados_json else []
+        except (ValueError, TypeError):
+            lista = []
+        # Solo los que siguen en la lista de la aerolinea.
+        return [d for d in lista if d in self.destinos]
+
+    @seleccionados.setter
+    def seleccionados(self, value):
+        self.seleccionados_json = json.dumps(value or [], ensure_ascii=False)
 
     def to_dict(self):
         return {
