@@ -198,6 +198,36 @@ def nombre_seguro(texto):
     return limpio[:120] or 'adjunto'
 
 
+def _fechas_rango(args):
+    """(desde, hasta) como date a partir de --desde/--hasta, o (None, None)."""
+    from datetime import date as _date
+    desde = getattr(args, 'desde', None)
+    hasta = getattr(args, 'hasta', None)
+    if not desde and not hasta:
+        return None, None
+    d = _date.fromisoformat(desde or hasta)
+    h = _date.fromisoformat(hasta or desde)
+    return (d, h) if d <= h else (h, d)
+
+
+def _filtrar_rango(query, args):
+    """Limita una consulta de AgenteMail al rango --desde/--hasta, si lo hay.
+
+    El rango es lo que decide Daniela en el portal: solo esos dias se leen,
+    analizan y resumen. Lo demas espera a que ella lo pida."""
+    from lux_portal.agente_lux.models import AgenteMail, rango_del_dia
+    desde, hasta = _fechas_rango(args)
+    if desde is None:
+        return query
+    inicio, fin = rango_del_dia(desde, hasta)
+    return query.filter(AgenteMail.fecha >= inicio, AgenteMail.fecha <= fin)
+
+
+def _agregar_rango(parser):
+    parser.add_argument('--desde', help='Fecha inicial (AAAA-MM-DD) del rango.')
+    parser.add_argument('--hasta', help='Fecha final (AAAA-MM-DD) del rango.')
+
+
 # ---------------------------------------------------------------------------
 # exportar
 # ---------------------------------------------------------------------------
@@ -208,8 +238,7 @@ def cmd_exportar(args):
     from lux_portal.agente_lux import contexto
 
     with app.app_context():
-        pendientes = (AgenteMail.query
-                      .filter_by(estado='pendiente')
+        pendientes = (_filtrar_rango(AgenteMail.query.filter_by(estado='pendiente'), args)
                       .order_by(AgenteMail.fecha.asc())
                       .all())
 
@@ -697,8 +726,7 @@ def cmd_exportar_resumen(args):
     from lux_portal.agente_lux.texto import limpiar_banners, sin_enlaces
 
     with app.app_context():
-        cola = (AgenteMail.query
-                .filter_by(estado='por_resumir')
+        cola = (_filtrar_rango(AgenteMail.query.filter_by(estado='por_resumir'), args)
                 .order_by(AgenteMail.fecha.desc())
                 .all())
         quedan = 0
@@ -869,11 +897,14 @@ def cmd_leer_outlook(args):
             print(f'Cuenta local registrada: {cuenta.email}')
 
         alcance = args.carpeta + ('' if args.sin_subcarpetas else ' (con subcarpetas)')
+        desde, hasta = _fechas_rango(args)
         print(f'Leyendo "{alcance}" ...')
 
         try:
             stats = ingesta_local.ingerir(
                 cuenta,
+                desde=desde,
+                hasta=hasta,
                 dias=args.dias,
                 carpeta=args.carpeta,
                 limite=args.limite,
@@ -952,8 +983,9 @@ def main():
         'leer-outlook',
         help='Lee el buzon desde el Outlook de escritorio (sin Azure ni admin).')
     p_outlook.add_argument('--dias', type=int, default=0,
-                           help='Cuantos dias hacia atras leer (por defecto, desde '
-                                'la ultima lectura; 7 dias la primera vez).')
+                           help='Leer los ultimos N dias. Sin --dias ni '
+                                '--desde/--hasta se lee solo el dia de hoy.')
+    _agregar_rango(p_outlook)
     p_outlook.add_argument('--carpeta', default='Inbox',
                            help='Carpeta a leer. Por defecto Inbox con todas sus '
                                 'subcarpetas. Para solo tarifas: '
@@ -979,6 +1011,7 @@ def main():
                             'rapido.')
     p_exp.add_argument('--max-correos', type=int, default=0, dest='max_correos',
                        help='Tope de correos por tanda. 0 = todos.')
+    _agregar_rango(p_exp)
     sub.add_parser('cargar', help='Sube _agente_lux/hallazgos.json al portal.')
 
     p_res = sub.add_parser('exportar-resumen',
@@ -986,6 +1019,7 @@ def main():
                                 '(solo texto, sin adjuntos).')
     p_res.add_argument('--max-correos', type=int, default=40, dest='max_correos',
                        help='Tope de correos por tanda (por defecto 40). 0 = todos.')
+    _agregar_rango(p_res)
     sub.add_parser('cargar-resumen',
                    help='Sube _agente_lux/resumenes.json a la bitacora del portal.')
     sub.add_parser('estado', help='Contadores rapidos.')

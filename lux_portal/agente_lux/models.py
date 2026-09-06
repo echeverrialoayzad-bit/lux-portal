@@ -39,6 +39,15 @@ def _fmt(dt):
     return dt.strftime('%Y-%m-%d %H:%M') if dt else None
 
 
+def rango_del_dia(desde, hasta):
+    """(datetime inicio, datetime fin) que cubren los dias `desde`..`hasta`
+    completos, en la hora de los correos (local). Sirve para filtrar
+    AgenteMail.fecha por un rango de fechas elegido por Daniela."""
+    from datetime import time as _time
+    return (datetime.combine(desde, _time.min),
+            datetime.combine(hasta, _time.max))
+
+
 class AgenteCuenta(db.Model):
     """Cuenta de correo conectada. Se espera una sola fila.
 
@@ -70,6 +79,12 @@ class AgenteCuenta(db.Model):
     # libre | solicitado | corriendo | ok | error
     refresh_mensaje = db.Column(db.Text)
     vigia_visto = db.Column(db.DateTime)          # ultimo latido del vigia
+    # Rango de fechas que pidio Daniela con el boton. Solo los correos de
+    # esos dias se leen, analizan y resumen; lo demas espera a que ella elija
+    # ese rango. Sin rango, el vigia usa el dia de hoy: es lo que hace corto
+    # el ciclo.
+    refresh_desde = db.Column(db.Date)
+    refresh_hasta = db.Column(db.Date)
 
     def vigia_activo(self, segundos=90):
         """True si el vigia dio senales de vida hace poco."""
@@ -86,6 +101,8 @@ class AgenteCuenta(db.Model):
             'ultimo_scan': _fmt(a_ecuador(self.ultimo_scan)),
             'refresh_estado': self.refresh_estado or 'libre',
             'refresh_mensaje': self.refresh_mensaje,
+            'refresh_desde': self.refresh_desde.isoformat() if self.refresh_desde else None,
+            'refresh_hasta': self.refresh_hasta.isoformat() if self.refresh_hasta else None,
             'vigia_activo': self.vigia_activo(),
         }
 

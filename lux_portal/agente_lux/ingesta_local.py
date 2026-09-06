@@ -15,17 +15,19 @@ import base64
 from datetime import datetime, timedelta
 
 from lux_portal.extensions import db
-from lux_portal.agente_lux.models import AgenteCuenta, AgenteMail, AgenteAdjunto
+from lux_portal.agente_lux.models import (
+    AgenteCuenta, AgenteMail, AgenteAdjunto, ahora_ecuador, rango_del_dia,
+)
 from lux_portal.agente_lux.texto import limpiar_banners
 
-# Cada lectura mira siempre estos dias hacia atras, no "desde la ultima
-# lectura". Outlook no baja el correo en orden: cuando estuvo cerrado varios
-# dias, al abrirlo sincroniza el atraso de a poco, y un correo del martes
-# puede aparecer recien el sabado. Con la marca de la ultima lectura ese
-# correo quedaba fuera para siempre: asi se perdieron 170 correos entre el
-# 19 de agosto y el 5 de septiembre. Lo ya guardado se salta por su id, asi
-# que releer la ventana cuesta poco.
-DIAS_VENTANA = 10
+# Cada lectura cubre un rango de dias completo, no "desde la ultima lectura".
+# Outlook no baja el correo en orden: cuando estuvo cerrado varios dias, al
+# abrirlo sincroniza el atraso de a poco, y un correo del martes puede
+# aparecer recien el sabado. Con la marca de la ultima lectura ese correo
+# quedaba fuera para siempre: asi se perdieron 170 correos entre el 19 de
+# agosto y el 5 de septiembre. Lo ya guardado se salta por su id, asi que
+# releer el rango cuesta poco. El rango lo elige Daniela en el portal; sin
+# rango, el dia de hoy.
 
 
 def cuenta_local(crear=True):
@@ -48,20 +50,31 @@ def cuenta_local(crear=True):
     return cuenta
 
 
-def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
+def ingerir(cuenta, desde=None, hasta=None, dias=0, carpeta='Inbox',
+            limite=500, recursivo=True):
     """Lee el buzon y guarda los correos que todavia no estaban.
+
+    `desde` y `hasta` son fechas (date) de dias completos; `dias` es la
+    alternativa "los ultimos N dias". Sin nada, el dia de hoy.
 
     Se llama dentro de un app_context. Devuelve un dict con el resumen para
     poder mostrarlo tanto en la terminal como en el portal."""
     from lux_portal.agente_lux import outlook_local
 
-    desde = datetime.now() - timedelta(days=dias or DIAS_VENTANA)
+    hoy = ahora_ecuador().date()
+    if dias:
+        desde = hoy - timedelta(days=dias)
+        hasta = hoy
+    desde = desde or hoy
+    hasta = hasta or hoy
+    inicio, fin = rango_del_dia(desde, hasta)
 
     # Lo que ya esta guardado se salta antes de bajar el cuerpo. El margen de
     # un dia es por si la fecha del correo y la del corte no calzan exacto.
     conocidos = {
         g for (g,) in db.session.query(AgenteMail.graph_id)
-        .filter(AgenteMail.fecha >= desde - timedelta(days=1)).all()
+        .filter(AgenteMail.fecha >= inicio - timedelta(days=1),
+                AgenteMail.fecha <= fin + timedelta(days=1)).all()
     }
 
     # La direccion de Daniela decide que correos cuentan como respuesta a una
@@ -71,8 +84,8 @@ def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
     # outlook_local la busque como siempre.
     email = cuenta.email if '@' in (cuenta.email or '') else None
     correos, omitidos = outlook_local.leer(
-        desde, carpeta=carpeta, limite=limite, recursivo=recursivo,
-        mi_correo=email, omitir=conocidos)
+        inicio, carpeta=carpeta, limite=limite, recursivo=recursivo,
+        mi_correo=email, omitir=conocidos, hasta=fin)
     truncado = len(correos) >= limite
 
     nuevos, adjuntos = 0, 0
@@ -122,13 +135,19 @@ def ingerir(cuenta, dias=0, carpeta='Inbox', limite=500, recursivo=True):
         cuenta.ultimo_scan = datetime.utcnow()
     db.session.commit()
 
+    # Pendientes solo dentro del rango: lo de otras fechas no se toca hasta
+    # que Daniela elija ese rango.
+    pendientes = (AgenteMail.query.filter_by(estado='pendiente')
+                  .filter(AgenteMail.fecha >= inicio, AgenteMail.fecha <= fin)
+                  .count())
     return {
         'revisados': len(correos) + omitidos,
         'nuevos': nuevos,
         'adjuntos': adjuntos,
         'truncado': truncado,
         'desde': desde,
-        'pendientes': AgenteMail.query.filter_by(estado='pendiente').count(),
+        'hasta': hasta,
+        'pendientes': pendientes,
     }
 
 

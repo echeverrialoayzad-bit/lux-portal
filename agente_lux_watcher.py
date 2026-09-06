@@ -360,11 +360,28 @@ def _latir(app, cuenta_id):
 
 
 def _hay_solicitud(app):
+    """(id de la cuenta, hay solicitud del boton, desde, hasta)."""
     from lux_portal.agente_lux import ingesta_local
 
     with app.app_context():
         cuenta = ingesta_local.cuenta_local()
-        return cuenta.id, cuenta.refresh_estado == 'solicitado'
+        return (cuenta.id, cuenta.refresh_estado == 'solicitado',
+                cuenta.refresh_desde, cuenta.refresh_hasta)
+
+
+MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+         'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+
+def _texto_rango(desde, hasta):
+    """'6 sep' o 'del 17 ago al 5 sep', para los mensajes del portal."""
+    def f(d):
+        return f'{d.day} {MESES[d.month - 1]}'
+    return f(desde) if desde == hasta else f'del {f(desde)} al {f(hasta)}'
+
+
+def _args_rango(desde, hasta):
+    return ['--desde', desde.isoformat(), '--hasta', hasta.isoformat()]
 
 
 def _correr(comando, cwd, timeout):
@@ -382,8 +399,11 @@ def _correr(comando, cwd, timeout):
     return r.returncode == 0, salida.strip()
 
 
-def _analizar(app, args, carpeta_proyecto):
+def _analizar(app, args, carpeta_proyecto, rango):
     """Exporta, le pide el analisis a Claude Code sin ventana, y carga.
+
+    `rango` son los argumentos --desde/--hasta: solo se analizan los correos
+    de esos dias.
 
     Va por tandas chicas a proposito: la primera corrida puede traer un mes
     entero de correos, y un lote enorme que se cae a la mitad pierde todo el
@@ -404,7 +424,7 @@ def _analizar(app, args, carpeta_proyecto):
     # clasifican por el asunto sin pasar por el. Es la diferencia entre 8
     # tandas y 3 para un mes de correo. Con --resumir-todo vuelve a resumir
     # todo, a costa de la espera.
-    exportar = [py, cli, 'exportar', '--max-correos', str(args.tanda)]
+    exportar = [py, cli, 'exportar', '--max-correos', str(args.tanda)] + rango
     if not args.resumir_todo:
         exportar.append('--solo-tarifas')
 
@@ -470,7 +490,7 @@ def _analizar(app, args, carpeta_proyecto):
     return f'{len(resumenes)} tandas analizadas. Ultima: {resumenes[-1]}'
 
 
-def _resumir(app, args, carpeta_proyecto):
+def _resumir(app, args, carpeta_proyecto, rango):
     """Resumen rapido de los correos que no pasaron por el analisis de tarifas.
 
     Es una pasada aparte y mas liviana: solo texto, sin adjuntos, en tandas
@@ -486,7 +506,8 @@ def _resumir(app, args, carpeta_proyecto):
 
     for tanda in range(1, args.max_tandas + 1):
         ok, salida_exp = _correr(
-            [py, cli, 'exportar-resumen', '--max-correos', str(args.tanda_resumen)],
+            [py, cli, 'exportar-resumen', '--max-correos', str(args.tanda_resumen)]
+            + rango,
             carpeta_proyecto, 300)
         if not ok:
             raise RuntimeError(f'Fallo el exportar-resumen: {salida_exp[-400:]}')
@@ -528,39 +549,43 @@ def _resumir(app, args, carpeta_proyecto):
     return total
 
 
-def _leer(app, args, motivo, dias=0):
+def _leer(app, args, motivo, desde, hasta):
     """Lee el buzon y, si corresponde, analiza. Deja todo visible en el portal.
 
-    `dias` fuerza cuantos dias hacia atras mirar; 0 deja la ventana normal."""
+    `desde` y `hasta` son las fechas (date) del rango: solo esos dias se
+    leen, analizan y resumen."""
     import os
     from lux_portal.agente_lux import ingesta_local
 
     carpeta_proyecto = os.path.dirname(os.path.abspath(__file__))
+    rango = _args_rango(desde, hasta)
+    texto_rango = _texto_rango(desde, hasta)
 
     try:
-        _marcar(app, 'corriendo', 'Leyendo tu Outlook...'
-                + (f' (ultimos {dias} dias)' if dias else ''))
+        _marcar(app, 'corriendo', f'Leyendo tu Outlook ({texto_rango})...')
         with app.app_context():
             cuenta = ingesta_local.cuenta_local()
             stats = ingesta_local.ingerir(
                 cuenta,
-                dias=dias,
+                desde=desde,
+                hasta=hasta,
                 carpeta=args.carpeta,
                 limite=args.limite,
                 recursivo=not args.sin_subcarpetas,
             )
-        resumen = ingesta_local.resumen_texto(stats)
-        log(f'{motivo}: {resumen} ({stats["pendientes"]} por analizar)')
+        resumen = f'[{texto_rango}] ' + ingesta_local.resumen_texto(stats)
+        log(f'{motivo} ({texto_rango}): {ingesta_local.resumen_texto(stats)} '
+            f'({stats["pendientes"]} por analizar en el rango)')
 
         if args.analizar and stats['pendientes']:
-            resumen += ' ' + _analizar(app, args, carpeta_proyecto)
+            resumen += ' ' + _analizar(app, args, carpeta_proyecto, rango)
 
         # La bitacora va despues de las tarifas, que son lo que importa. Y
         # si falla no tumba el ciclo: las tarifas ya quedaron cargadas y los
         # correos sin resumen se reintentan en la siguiente vuelta.
         if args.analizar:
             try:
-                resumidos = _resumir(app, args, carpeta_proyecto)
+                resumidos = _resumir(app, args, carpeta_proyecto, rango)
             except Exception as exc:
                 log(f'Fallo el resumen rapido: {exc}')
                 resumen += (' El resumen de los otros correos fallo; se '
@@ -592,9 +617,6 @@ def main():
     parser.add_argument('--sin-subcarpetas', action='store_true',
                         dest='sin_subcarpetas')
     parser.add_argument('--limite', type=int, default=500)
-    parser.add_argument('--dias-arranque', type=int, default=20, dest='dias_arranque',
-                        help='Dias hacia atras que mira la primera lectura de cada '
-                             'arranque (por defecto 20). 0 = la ventana normal.')
     parser.add_argument('--sin-analisis', action='store_false', dest='analizar',
                         help='Solo bajar los correos, sin pedirle el analisis '
                              'a Claude Code.')
@@ -734,11 +756,7 @@ def main():
         + (f'cada {args.auto} min' if args.auto else 'desactivada'))
     log('Escuchando el boton del portal. Ctrl+C para parar.')
 
-    # La primera lectura de cada arranque mira mas atras (--dias-arranque):
-    # si Outlook estuvo cerrado varios dias, el atraso que sincroniza al
-    # abrirse queda fuera de la ventana normal. Lo ya guardado se salta por
-    # id, asi que mirar 20 dias cuesta poco.
-    primera = {'pendiente': bool(args.dias_arranque)}
+    from lux_portal.agente_lux.models import ahora_ecuador
 
     ultimo_auto = datetime.utcnow() - timedelta(minutes=args.auto or 0)
     # El ciclo completo puede tardar media hora entre leer y analizar. Corre en
@@ -746,12 +764,16 @@ def main():
     # diria "tu PC no esta escuchando" justo mientras esta trabajando.
     trabajando = threading.Event()
 
-    def lanzar(motivo):
+    def lanzar(motivo, desde=None, hasta=None):
         if trabajando.is_set():
             return
         trabajando.set()
-        dias = args.dias_arranque if primera['pendiente'] else 0
-        primera['pendiente'] = False
+        # Sin rango pedido, el dia de hoy: es lo que Daniela quiere ver y lo
+        # que hace corto el ciclo. Lo de otras fechas espera a que ella elija
+        # ese rango con el boton del portal.
+        hoy = ahora_ecuador().date()
+        desde = desde or hoy
+        hasta = hasta or hoy
 
         def tarea():
             # COM hay que inicializarlo en cada hilo que lo use: sin esto,
@@ -760,7 +782,7 @@ def main():
             import pythoncom
             pythoncom.CoInitialize()
             try:
-                _leer(app, args, motivo, dias=dias)
+                _leer(app, args, motivo, desde, hasta)
             finally:
                 pythoncom.CoUninitialize()
                 trabajando.clear()
@@ -774,11 +796,11 @@ def main():
                 os.remove(RUTA_PARAR)
                 break
             try:
-                cuenta_id, solicitado = _hay_solicitud(app)
+                cuenta_id, solicitado, desde, hasta = _hay_solicitud(app)
                 _latir(app, cuenta_id)
 
                 if solicitado:
-                    lanzar('boton del portal')
+                    lanzar('boton del portal', desde, hasta)
                     ultimo_auto = datetime.utcnow()
 
                 elif args.auto and not trabajando.is_set() and (

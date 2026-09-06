@@ -11,7 +11,7 @@ Dos pantallas en una:
 """
 
 import base64
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from flask import render_template, request, jsonify, Response
 
@@ -20,7 +20,25 @@ from lux_portal.agente_lux import contexto, reglas
 from lux_portal.agente_lux.aplicar import aplicar_hallazgo
 from lux_portal.agente_lux.models import (
     AgenteCuenta, AgenteMail, AgenteHallazgo, AgenteAdjunto, ahora_ecuador,
+    rango_del_dia,
 )
+
+# Tope del rango que se puede pedir de una vez: un mes de correo son varias
+# horas de analisis, y mas que eso es casi seguro un error al elegir fechas.
+MAX_DIAS_RANGO = 62
+
+
+def _rango_pedido(fuente):
+    """(desde, hasta) como fechas, a partir de un dict con 'desde'/'hasta' en
+    ISO. Sin datos, el dia de hoy. Lanza ValueError si vienen mal."""
+    hoy = ahora_ecuador().date()
+    desde = date.fromisoformat(fuente['desde']) if fuente.get('desde') else hoy
+    hasta = date.fromisoformat(fuente['hasta']) if fuente.get('hasta') else hoy
+    if desde > hasta:
+        desde, hasta = hasta, desde
+    if (hasta - desde).days > MAX_DIAS_RANGO:
+        raise ValueError(f'Maximo {MAX_DIAS_RANGO} dias por vez.')
+    return desde, hasta
 from lux_portal.agente_lux.texto import limpiar_banners, limpiar_para_ver, sin_enlaces
 from lux_portal.extensions import db
 from lux_portal.auth.decorators import login_required
@@ -81,12 +99,22 @@ def refresh():
             'aviso': 'Ya hay una revision en curso.',
         })
 
+    # El rango de fechas manda en todo el ciclo: solo se leen, analizan y
+    # resumen los correos de esos dias. Por defecto, hoy.
+    try:
+        desde, hasta = _rango_pedido(request.json or {})
+    except ValueError as exc:
+        return jsonify({'error': f'Fechas invalidas: {exc}'}), 400
+
     cuenta.refresh_solicitado = datetime.utcnow()
     cuenta.refresh_estado = 'solicitado'
     cuenta.refresh_mensaje = 'Esperando a tu PC...'
+    cuenta.refresh_desde = desde
+    cuenta.refresh_hasta = hasta
     db.session.commit()
 
-    return jsonify({'ok': True, 'estado': 'solicitado'})
+    return jsonify({'ok': True, 'estado': 'solicitado',
+                    'desde': desde.isoformat(), 'hasta': hasta.isoformat()})
 
 
 # ---------------------------------------------------------------------------
@@ -100,8 +128,21 @@ def estado():
     # "Hoy" es el de Daniela: a las 8 de la noche en Quito ya es manana en UTC
     # y la pestana de hoy se quedaba en cero.
     hoy = ahora_ecuador().date()
+
+    # Contadores dentro del rango elegido en la pantalla, ademas de los
+    # totales: lo de otras fechas no se procesa hasta que ella lo pida.
+    try:
+        desde, hasta = _rango_pedido(request.args)
+    except ValueError:
+        desde = hasta = hoy
+    inicio, fin = rango_del_dia(desde, hasta)
+    en_rango = AgenteMail.query.filter(AgenteMail.fecha >= inicio, AgenteMail.fecha <= fin)
+
     return jsonify({
         'cuenta': cuenta.to_dict() if cuenta else None,
+        'rango': {'desde': desde.isoformat(), 'hasta': hasta.isoformat()},
+        'pendientes_en_rango': en_rango.filter(AgenteMail.estado == 'pendiente').count(),
+        'por_resumir_en_rango': en_rango.filter(AgenteMail.estado == 'por_resumir').count(),
         'pendientes_de_analisis': AgenteMail.query.filter_by(estado='pendiente').count(),
         'por_resumir': AgenteMail.query.filter_by(estado='por_resumir').count(),
         'hallazgos_pendientes': AgenteHallazgo.query.filter_by(estado='pendiente').count(),

@@ -159,6 +159,10 @@ def _migrate_db(app):
         ('agente_cuenta', 'refresh_estado', "VARCHAR(20) DEFAULT 'libre'"),
         ('agente_cuenta', 'refresh_mensaje', 'TEXT'),
         ('agente_cuenta', 'vigia_visto', 'TIMESTAMP'),
+        # Agente Lux: rango de fechas pedido con el boton (solo esos dias se
+        # leen, analizan y resumen; sin rango, el dia de hoy)
+        ('agente_cuenta', 'refresh_desde', 'DATE'),
+        ('agente_cuenta', 'refresh_hasta', 'DATE'),
     ]
     for table, column, col_type in migrations:
         try:

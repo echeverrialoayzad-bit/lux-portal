@@ -304,11 +304,13 @@ def _expandir(carpeta, ruta):
     return salida
 
 
-def _leer_carpeta(carpeta, ruta, desde, limite, mi_correo=None, omitir=None):
+def _leer_carpeta(carpeta, ruta, desde, limite, mi_correo=None, omitir=None,
+                  hasta=None):
     """Correos de una sola carpeta, mas nuevos primero.
 
     `omitir` son los id_unico que ya estan guardados: de esos no se baja ni
-    el cuerpo ni los adjuntos, que es lo lento. Devuelve (correos, omitidos)."""
+    el cuerpo ni los adjuntos, que es lo lento. `hasta` corta por arriba, para
+    leer solo un rango de dias. Devuelve (correos, omitidos)."""
     omitir = omitir or set()
     omitidos = 0
     try:
@@ -341,6 +343,9 @@ def _leer_carpeta(carpeta, ruta, desde, limite, mi_correo=None, omitir=None):
             # Van de mas nuevo a mas viejo: de aca en adelante todos quedan
             # fuera del rango.
             break
+        if hasta is not None and fecha > hasta:
+            # Mas nuevo que el rango pedido: se salta sin bajar nada.
+            continue
 
         try:
             entry_id = item.EntryID
@@ -376,8 +381,9 @@ def _leer_carpeta(carpeta, ruta, desde, limite, mi_correo=None, omitir=None):
 
 
 def leer(desde, carpeta='Inbox', limite=200, recursivo=True, mi_correo=None,
-         omitir=None):
-    """Correos recibidos desde `desde` (datetime), mas nuevos primero.
+         omitir=None, hasta=None):
+    """Correos recibidos desde `desde` (datetime) hasta `hasta` (datetime,
+    opcional), mas nuevos primero.
 
     Con `recursivo` recorre tambien las subcarpetas, que es lo util aca:
     el buzon tiene una carpeta por aerolinea bajo Inbox/AEROLINEAS, asi que
@@ -404,7 +410,8 @@ def leer(desde, carpeta='Inbox', limite=200, recursivo=True, mi_correo=None,
     correos = []
     omitidos = 0
     for sub, ruta in objetivos:
-        nuevos, saltados = _leer_carpeta(sub, ruta, desde, limite, mi_correo, omitir)
+        nuevos, saltados = _leer_carpeta(sub, ruta, desde, limite, mi_correo,
+                                         omitir, hasta)
         correos.extend(nuevos)
         omitidos += saltados
 

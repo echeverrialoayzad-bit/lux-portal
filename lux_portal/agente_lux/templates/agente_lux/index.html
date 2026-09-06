@@ -45,9 +45,18 @@
     <div class="text-end">
       <div id="estado-cuenta" class="small text-muted mb-1">—</div>
       <div id="estado-vigia" class="small text-muted mb-2"></div>
+      <!-- El rango manda en todo el ciclo: solo esos dias se leen, analizan
+           y resumen. Por defecto, hoy. -->
+      <div class="d-flex justify-content-end align-items-center gap-1 mb-2 small">
+        <span class="text-muted">Del</span>
+        <input type="date" id="f-desde" class="form-control form-control-sm" style="width:150px;">
+        <span class="text-muted">al</span>
+        <input type="date" id="f-hasta" class="form-control form-control-sm" style="width:150px;">
+      </div>
       <button id="btn-refresh" class="btn btn-primary btn-sm">
         <i class="bi bi-arrow-clockwise me-1"></i>Refresh y analizar
       </button>
+      <div class="small text-muted mt-1">Solo lee, analiza y resume los correos de esas fechas.</div>
     </div>
   </div>
 
@@ -242,9 +251,27 @@ async function verMail(id) {
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-mail')).show();
 }
 
+// ---------------------------------------------------------------- rango de fechas
+function hoyLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function rango() {
+  const desde = document.getElementById('f-desde');
+  const hasta = document.getElementById('f-hasta');
+  if (!desde.value) desde.value = hoyLocal();
+  if (!hasta.value) hasta.value = desde.value;
+  return { desde: desde.value, hasta: hasta.value };
+}
+document.getElementById('f-desde').value = hoyLocal();
+document.getElementById('f-hasta').value = hoyLocal();
+document.getElementById('f-desde').addEventListener('change', () => { cargarEstado(); });
+document.getElementById('f-hasta').addEventListener('change', () => { cargarEstado(); });
+
 // ---------------------------------------------------------------- estado
 async function cargarEstado() {
-  const r = await fetch('{{ url_for("agente_lux.estado") }}');
+  const rg = rango();
+  const r = await fetch('{{ url_for("agente_lux.estado") }}?desde=' + rg.desde + '&hasta=' + rg.hasta);
   const d = await r.json();
   const elCuenta = document.getElementById('estado-cuenta');
   const elVigia = document.getElementById('estado-vigia');
@@ -274,10 +301,16 @@ async function cargarEstado() {
 
   document.getElementById('badge-hoy').textContent = d.correos_hoy || 0;
 
+  const enRango = d.pendientes_en_rango || 0;
+  const fuera = (d.pendientes_de_analisis || 0) - enRango;
+  const notaFuera = fuera > 0
+    ? ` Además hay ${fuera} correo(s) de otras fechas sin analizar: amplía el rango si quieres procesarlos.`
+    : '';
   if (d.pendientes_de_analisis > 0 && d.cuenta && d.cuenta.refresh_estado !== 'analizando') {
     if (d.cuenta.vigia_activo) {
-      banner(d.pendientes_de_analisis + ' correo(s) todavía sin analizar. '
-        + 'Dale a <strong>Refresh y analizar</strong> para que Agente Lux los revise.', 'warning');
+      banner((enRango
+          ? enRango + ' correo(s) del rango elegido sin analizar. Dale a <strong>Refresh y analizar</strong> para que Agente Lux los revise.'
+          : 'Nada pendiente en el rango elegido.') + escapar(notaFuera), enRango ? 'warning' : 'info');
     } else {
       // Decirle "dale al botón" con el botón apagado era mandarla a un
       // callejón: lo que hace falta es levantar el vigía en la PC.
@@ -300,7 +333,7 @@ document.getElementById('btn-refresh').addEventListener('click', async (ev) => {
 
   try {
     const r = await fetch('{{ url_for("agente_lux.refresh") }}', {
-      method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(rango())
     });
     const d = await r.json();
     if (!r.ok) {
