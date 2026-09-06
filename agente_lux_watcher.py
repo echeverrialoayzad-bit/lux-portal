@@ -75,43 +75,57 @@ def _ruta_corta(ruta):
     return ruta
 
 
-def instalar_tarea():
-    """Registra una tarea de Windows que arranca el vigia al iniciar sesion.
+def escribir_lanzador():
+    """Deja en _agente_lux/vigia.cmd un .cmd que arranca el vigia.
 
-    La tarea no llama a python directo: schtasks no acepta comandos de mas de
-    261 caracteres y la carpeta de OneDrive sola ya se come casi la mitad.
-    Deja un .cmd chico en _agente_lux/ y la tarea apunta a ese."""
-    import subprocess
-
+    Va solo con ASCII a proposito: cmd.exe lo lee con la pagina de codigos de
+    la consola y un acento en la ruta lo rompe. Por eso la carpeta sale de
+    %~dp0 y python va en su ruta corta."""
     carpeta = os.path.dirname(os.path.abspath(__file__))
     lanzador = os.path.join(carpeta, '_agente_lux', 'vigia.cmd')
 
-    # El .cmd va solo con ASCII a proposito: cmd.exe lo lee con la pagina de
-    # codigos de la consola y un acento en la ruta lo rompe. Por eso la
-    # carpeta sale de %~dp0 y python va en su ruta corta.
     python = _ruta_corta(sys.executable)
     if not python.isascii():
         python = 'python'   # el de PATH, que es con el que se instalo todo
     os.makedirs(os.path.dirname(lanzador), exist_ok=True)
-    with open(lanzador, 'w', encoding='ascii') as fh:
+    # newline='' para que Python no convierta el \r\n en \r\r\n.
+    with open(lanzador, 'w', encoding='ascii', newline='') as fh:
         fh.write('@echo off\r\n'
                  'cd /d "%~dp0.."\r\n'
                  f'"{python}" agente_lux_watcher.py\r\n')
+    return lanzador
 
-    resultado = subprocess.run(
-        ['schtasks', '/Create', '/TN', 'Agente Lux - vigia',
-         '/TR', f'"{lanzador}"', '/SC', 'ONLOGON', '/RL', 'LIMITED', '/F'],
-        capture_output=True, text=True,
-    )
-    if resultado.returncode == 0:
-        print('Tarea creada: el vigia va a arrancar solo cada vez que inicies '
-              'sesion en Windows.')
-        print(f'Lo que vaya haciendo queda en {RUTA_LOG}')
-        print('Para quitarla:  schtasks /Delete /TN "Agente Lux - vigia" /F')
-    else:
-        print('No se pudo crear la tarea:')
-        print(resultado.stdout or resultado.stderr)
-        sys.exit(1)
+
+def instalar_tarea():
+    """Deja el vigia arrancando solo cada vez que Daniela inicia sesion.
+
+    Va como acceso directo en la carpeta Inicio de Windows y no como tarea
+    programada: schtasks pide permisos de administrador para las tareas de
+    inicio de sesion (aca dio "Acceso denegado"), y ademas mata las tareas
+    que llevan mas de tres dias corriendo. La carpeta Inicio no pide nada y
+    no tiene ese limite."""
+    carpeta = os.path.dirname(os.path.abspath(__file__))
+    lanzador = escribir_lanzador()
+
+    inicio = os.path.join(os.environ.get('APPDATA', ''), 'Microsoft', 'Windows',
+                          'Start Menu', 'Programs', 'Startup')
+    if not os.path.isdir(inicio):
+        sys.exit(f'No encontre la carpeta Inicio de Windows ({inicio}).')
+    acceso = os.path.join(inicio, 'Agente Lux - vigia.lnk')
+
+    import win32com.client
+    shell = win32com.client.Dispatch('WScript.Shell')
+    atajo = shell.CreateShortcut(acceso)
+    atajo.TargetPath = lanzador
+    atajo.WorkingDirectory = carpeta
+    atajo.WindowStyle = 7          # minimizada, para que no tape nada al iniciar
+    atajo.Description = 'Vigia de Agente Lux: conecta el portal con tu Outlook'
+    atajo.Save()
+
+    print('Listo: el vigia va a arrancar solo (minimizado) cada vez que '
+          'inicies sesion en Windows.')
+    print(f'Lo que vaya haciendo queda en {RUTA_LOG}')
+    print(f'Para quitarlo, borra este acceso directo:\n  {acceso}')
 
 
 PROMPT_ANALISIS = (
