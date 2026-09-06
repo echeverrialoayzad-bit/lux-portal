@@ -505,6 +505,7 @@ def mails():
             'cuerpo': _cuerpo_solicitud(r),
             'destinatarios': r.destinatarios or '',
             'cc': r.cc or '',
+            'cuerpo_editado': bool(r.cuerpo_editado),
             'ultimo_envio': ultimo.to_dict() if ultimo else None,
             'ultima_respuesta': resp.strftime('%Y-%m-%d %H:%M') if resp else None,
         })
@@ -514,7 +515,10 @@ def mails():
 @agente_lux_bp.route('/api/mails/<int:id>', methods=['POST'])
 @login_required
 def guardar_mail(id):
-    """Guarda a quien se manda y el asunto de una solicitud."""
+    """Guarda a quien se manda, el asunto, los destinos o el texto de una
+    solicitud. Mismas reglas que la pestana Mails del portal: al cambiar los
+    destinos el texto se regenera, salvo que Daniela lo haya editado a mano;
+    restablecer_cuerpo vuelve al texto automatico."""
     from lux_portal.cotizaciones.models import AirlineMailRequest
 
     registro = AirlineMailRequest.query.get(id)
@@ -527,8 +531,24 @@ def guardar_mail(id):
         registro.cc = _limpiar_direcciones(data.get('cc'))
     if 'asunto' in data:
         registro.asunto = (data.get('asunto') or '').strip()[:200] or None
+    if 'destinos' in data:
+        destinos = sorted({(d or '').strip().upper()
+                           for d in (data.get('destinos') or []) if (d or '').strip()})
+        registro.destinos = destinos
+        if not registro.cuerpo_editado:
+            registro.cuerpo = None
+    if 'cuerpo' in data:
+        texto = (data.get('cuerpo') or '').strip()
+        if texto:
+            registro.cuerpo = texto
+            registro.cuerpo_editado = True
+    if data.get('restablecer_cuerpo'):
+        registro.cuerpo = None
+        registro.cuerpo_editado = False
     db.session.commit()
-    return jsonify({'ok': True})
+    return jsonify({'ok': True, 'destinos': registro.destinos,
+                    'cuerpo': _cuerpo_solicitud(registro),
+                    'cuerpo_editado': bool(registro.cuerpo_editado)})
 
 
 def _limpiar_direcciones(texto):

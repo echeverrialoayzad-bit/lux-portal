@@ -648,8 +648,19 @@ const MAIL_GUARDAR_URL = '{{ url_for("agente_lux.guardar_mail", id=0) }}'.slice(
 let vigiaActivo = false;
 
 function tarjetaMail(m) {
-  const chips = (m.destinos || []).map(d => `<span class="badge bg-light text-dark border me-1 mb-1">${escapar(d)}</span>`).join('')
-    || '<span class="text-muted">sin destinos en Mails</span>';
+  // Cada destino se puede quitar con la x, y abajo se agregan nuevos.
+  const chips = (m.destinos || []).map(d => `
+    <span class="badge bg-light text-dark border me-1 mb-1 chip-destino" data-iata="${escapar(d)}">${escapar(d)}
+      <a href="#" class="text-danger text-decoration-none ms-1" title="Quitar ${escapar(d)}"
+         onclick="quitarDestino(${m.id}, '${escapar(d)}'); return false;">&times;</a></span>`).join('')
+    || '<span class="text-muted">sin destinos</span>';
+  const agregar = `
+    <span class="d-inline-flex align-items-center gap-1 ms-1 mb-1">
+      <input class="form-control form-control-sm inp-nuevo-destino" style="width:70px;" maxlength="3"
+             placeholder="IATA" onkeydown="if (event.key === 'Enter') { agregarDestino(${m.id}); return false; }">
+      <button class="btn btn-outline-secondary btn-sm py-0" onclick="agregarDestino(${m.id})" title="Agregar destino">
+        <i class="bi bi-plus-lg"></i></button>
+    </span>`;
   const ultimo = m.ultimo_envio
     ? (m.ultimo_envio.estado === 'enviado'
         ? `<span class="text-success"><i class="bi bi-check2-circle"></i> enviado ${fechaCorta(m.ultimo_envio.enviado_en)}</span>`
@@ -665,7 +676,7 @@ function tarjetaMail(m) {
       <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
         <div>
           <strong>${escapar(m.aerolinea)}</strong>
-          <div class="mt-1">${chips}</div>
+          <div class="mt-1 d-flex flex-wrap align-items-center">${chips}${agregar}</div>
         </div>
         <div class="text-end small">
           <div>${ultimo}</div>
@@ -687,8 +698,17 @@ function tarjetaMail(m) {
         </div>
       </div>
       <details class="mt-2 small">
-        <summary class="text-muted">Ver el texto del correo</summary>
-        <div class="al-cuerpo mt-1 p-2 border rounded bg-light">${escapar(m.cuerpo)}</div>
+        <summary class="text-muted">Ver o editar el texto del correo</summary>
+        <textarea class="form-control form-control-sm mt-1 txt-cuerpo" rows="12"
+                  style="white-space:pre-wrap;font-family:inherit;">${escapar(m.cuerpo)}</textarea>
+        <div class="d-flex justify-content-between align-items-center mt-1 text-muted">
+          <span>${m.cuerpo_editado
+            ? 'Texto editado a mano: no cambia solo cuando cambian los destinos.'
+            : 'Texto automático a partir de los destinos. Si lo editas, se guarda al salir del cuadro.'}</span>
+          ${m.cuerpo_editado
+            ? `<a href="#" onclick="restablecerCuerpo(${m.id}); return false;">Volver al texto automático</a>`
+            : ''}
+        </div>
       </details>
       <div class="d-flex justify-content-end mt-2">
         <button class="btn btn-primary btn-sm" onclick="enviarMail(${m.id}, '${escapar(m.aerolinea)}')" ${puede ? '' : 'disabled'}
@@ -709,18 +729,49 @@ async function cargarMails() {
     ? lista.map(tarjetaMail).join('')
     : '<div class="al-vacio">No hay aerolíneas en la pestaña Mails del portal.</div>';
   document.querySelectorAll('#lista-mails .inp-mail').forEach(i => i.addEventListener('change', guardarMail));
+  document.querySelectorAll('#lista-mails .txt-cuerpo').forEach(t => t.addEventListener('change', guardarCuerpo));
   cargarEnvios();
+}
+
+async function guardarCambios(id, datos, mensajeError) {
+  const r = await fetch(MAIL_GUARDAR_URL + id, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(datos)
+  });
+  if (r.ok) { cargarMails(); } else { banner(mensajeError || 'No se pudo guardar.', 'danger'); }
 }
 
 async function guardarMail(ev) {
   const card = ev.currentTarget.closest('.card');
-  const id = card.dataset.id;
   const datos = {};
   card.querySelectorAll('.inp-mail').forEach(i => { datos[i.dataset.campo] = i.value; });
-  const r = await fetch(MAIL_GUARDAR_URL + id, {
-    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(datos)
-  });
-  if (r.ok) { cargarMails(); } else { banner('No se pudo guardar el contacto.', 'danger'); }
+  guardarCambios(card.dataset.id, datos, 'No se pudo guardar el contacto.');
+}
+
+function destinosDe(card) {
+  return [...card.querySelectorAll('.chip-destino')].map(c => c.dataset.iata);
+}
+
+function quitarDestino(id, iata) {
+  const card = document.querySelector(`#lista-mails .card[data-id="${id}"]`);
+  guardarCambios(id, { destinos: destinosDe(card).filter(d => d !== iata) }, 'No se pudo quitar el destino.');
+}
+
+function agregarDestino(id) {
+  const card = document.querySelector(`#lista-mails .card[data-id="${id}"]`);
+  const inp = card.querySelector('.inp-nuevo-destino');
+  const iata = (inp.value || '').trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(iata)) { banner('El destino va en código IATA de 3 letras, por ejemplo BNE.', 'warning'); return; }
+  guardarCambios(id, { destinos: [...destinosDe(card), iata] }, 'No se pudo agregar el destino.');
+}
+
+function guardarCuerpo(ev) {
+  const card = ev.currentTarget.closest('.card');
+  guardarCambios(card.dataset.id, { cuerpo: ev.currentTarget.value }, 'No se pudo guardar el texto.');
+}
+
+function restablecerCuerpo(id) {
+  if (!confirm('Se vuelve al texto automático generado desde los destinos. Se pierde lo editado a mano. ¿Continuar?')) return;
+  guardarCambios(id, { restablecer_cuerpo: true }, 'No se pudo restablecer el texto.');
 }
 
 async function enviarMail(id, aerolinea) {
