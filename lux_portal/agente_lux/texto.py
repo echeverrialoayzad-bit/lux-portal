@@ -42,3 +42,21 @@ def limpiar_banners(texto):
 def sin_enlaces(texto):
     """Quita los <https://...> y <mailto:...> que ensucian un vistazo."""
     return _RE_ENLACES.sub('', texto or '')
+
+
+# Microsoft envuelve cada enlace en safelinks.protection.outlook.com/?url=...
+# y el original queda ilegible dentro de una URL de 300 caracteres.
+_RE_SAFELINK = re.compile(
+    r'https?://[a-z0-9.-]*safelinks\.protection\.outlook\.com/\?url=([^&\s>]+)[^\s>]*',
+    re.I)
+_RE_MAILTO = re.compile(r'\s*<(?:mailto|tel):[^>]*>')
+
+
+def limpiar_para_ver(texto):
+    """El cuerpo como para leerlo en pantalla: sin avisos del sistema, con
+    los enlaces reales en vez de los de safelinks, y sin los <mailto:...>
+    que repiten la direccion que ya esta al lado."""
+    from urllib.parse import unquote
+    limpio = limpiar_banners(texto)
+    limpio = _RE_SAFELINK.sub(lambda m: unquote(m.group(1)), limpio)
+    return _RE_MAILTO.sub('', limpio)

@@ -221,12 +221,19 @@ async function verMail(id) {
     : `<span class="badge bg-light text-muted border me-1 mb-1" title="Este adjunto no se guardó (solo se guardan imágenes y PDF)">
           <i class="bi bi-paperclip"></i> ${escapar(a.nombre)}</span>`).join('');
 
+  // "Responder" es un mailto: abre el correo que tenga la PC (el Outlook
+  // nuevo, el clasico o el que sea) con el destinatario y el asunto puestos.
+  const asuntoRe = /^\s*(re|rv|fw|fwd)\s*:/i.test(m.asunto || '') ? (m.asunto || '') : 'RE: ' + (m.asunto || '');
+  const responder = m.remitente
+    ? `<a class="btn btn-outline-primary btn-sm py-0 ms-2" href="mailto:${encodeURIComponent(m.remitente)}?subject=${encodeURIComponent(asuntoRe)}">
+         <i class="bi bi-reply me-1"></i>Responder</a>`
+    : '';
   document.getElementById('modal-mail-cuerpo').innerHTML = `
-    <div class="small text-muted mb-2">
-      <strong>${escapar(m.remitente_nombre || m.remitente || '')}</strong>
+    <div class="small text-muted mb-2 d-flex flex-wrap align-items-center gap-1">
+      <span><strong>${escapar(m.remitente_nombre || m.remitente || '')}</strong>
       ${m.remitente ? `&lt;${escapar(m.remitente)}&gt;` : ''} · ${fechaCorta(m.fecha)}
-      ${m.carpeta ? ` · <i class="bi bi-folder2"></i> ${escapar(m.carpeta)}` : ''}
-      ${m.outlook_link ? ` · <a href="${escapar(m.outlook_link)}">Abrir en Outlook</a>` : ''}
+      ${m.carpeta ? ` · <i class="bi bi-folder2"></i> ${escapar(m.carpeta)}` : ''}</span>
+      ${responder}
     </div>
     ${m.resumen ? `<div class="al-vistazo mb-2"><i class="bi bi-stars text-primary me-1"></i>${escapar(m.resumen)}</div>` : ''}
     ${(m.temas || []).length ? `<ul class="small mb-2">${m.temas.map(t => `<li>${escapar(t)}</li>`).join('')}</ul>` : ''}

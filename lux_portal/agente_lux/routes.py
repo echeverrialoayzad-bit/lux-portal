@@ -21,7 +21,7 @@ from lux_portal.agente_lux.aplicar import aplicar_hallazgo
 from lux_portal.agente_lux.models import (
     AgenteCuenta, AgenteMail, AgenteHallazgo, AgenteAdjunto, ahora_ecuador,
 )
-from lux_portal.agente_lux.texto import limpiar_banners, sin_enlaces
+from lux_portal.agente_lux.texto import limpiar_banners, limpiar_para_ver, sin_enlaces
 from lux_portal.extensions import db
 from lux_portal.auth.decorators import login_required
 
@@ -359,11 +359,12 @@ def ver_mail(mail_id):
     # contenido se sirve aparte en /api/adjunto/<id>.
     for adj in datos.get('adjuntos', []):
         adj.pop('contenido_b64', None)
-    datos['cuerpo'] = limpiar_banners(datos.get('cuerpo'))
+    datos['cuerpo'] = limpiar_para_ver(datos.get('cuerpo'))
     datos['hallazgos'] = [h.to_dict() for h in correo.hallazgos]
-    # "outlook:<EntryID>" abre el correo en el Outlook clasico de la PC.
-    gid = correo.graph_id or ''
-    datos['outlook_link'] = gid if gid.startswith('outlook:') else None
+    # No hay enlace "abrir en Outlook": el esquema outlook:<EntryID> solo lo
+    # entiende el Outlook clasico, y desde el navegador no abre nada cuando
+    # el cliente por defecto es el Outlook nuevo. La pantalla ofrece
+    # "Responder", que es un mailto: y funciona con cualquier cliente.
     return jsonify(datos)
 
 
