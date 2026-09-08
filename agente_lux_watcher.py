@@ -17,7 +17,7 @@ este al dia sin tener que apretar nada.
 
 USO
 ---
-    python agente_lux_watcher.py                # cada 20 min + atiende el boton
+    python agente_lux_watcher.py                # cada 5 min + atiende el boton
     python agente_lux_watcher.py --auto 10      # relee cada 10 minutos
     python agente_lux_watcher.py --auto 0       # solo cuando se aprieta el boton
     python agente_lux_watcher.py --carpeta "Inbox/AEROLINEAS"
@@ -241,13 +241,23 @@ def _ruta_corta(ruta):
 
 
 def escribir_lanzador():
-    """Deja en _agente_lux/vigia.cmd un .cmd que arranca el vigia.
+    """Deja en _agente_lux/ los dos lanzadores del vigia.
+
+    - vigia.cmd: arranca el vigia en una consola. Con el argumento `oculto`
+      no se queda esperando una tecla si algo falla (nadie la veria).
+    - vigia_oculto.vbs: corre vigia.cmd sin ventana. Es lo que usa el acceso
+      directo de Inicio: con ventana, el vigia murio dos veces el 2026-09-07
+      porque la ventana (una pestana mas de la Terminal de Windows, igual a
+      las de Claude Code) se cerro por error. Sin ventana no hay nada que
+      cerrar; lo que hace queda en vigia.log y el portal dice si esta vivo.
 
     Va solo con ASCII a proposito: cmd.exe lo lee con la pagina de codigos de
     la consola y un acento en la ruta lo rompe. Por eso la carpeta sale de
-    %~dp0 y python va en su ruta corta."""
+    %~dp0 y python va en su ruta corta. El .vbs saca su carpeta en tiempo de
+    ejecucion por la misma razon."""
     carpeta = os.path.dirname(os.path.abspath(__file__))
     lanzador = os.path.join(carpeta, '_agente_lux', 'vigia.cmd')
+    oculto = os.path.join(carpeta, '_agente_lux', 'vigia_oculto.vbs')
 
     python = _ruta_corta(sys.executable)
     if not python.isascii():
@@ -276,18 +286,29 @@ def escribir_lanzador():
         'if not "%errorlevel%"=="0" (',
         '  echo.',
         '  echo El vigia termino con error. Revisa _agente_lux\\vigia.log',
-        '  pause',
+        '  if not "%~1"=="oculto" pause',
         ')',
         'goto fin',
         ':falta',
         'echo No encuentro la carpeta del proyecto. Esta OneDrive sincronizando?',
-        'pause',
+        'if not "%~1"=="oculto" pause',
         ':fin',
     ]
     # newline='' para que Python no convierta el \r\n en \r\r\n.
     with open(lanzador, 'w', encoding='ascii', newline='') as fh:
         fh.write('\r\n'.join(lineas) + '\r\n')
-    return lanzador
+
+    lineas_vbs = [
+        "' Arranca el vigia de Agente Lux sin ventana, para que nadie lo",
+        "' cierre por error. Para pararlo: crea el archivo _agente_lux\\parar.",
+        'Set fso = CreateObject("Scripting.FileSystemObject")',
+        'carpeta = fso.GetParentFolderName(WScript.ScriptFullName)',
+        'Set sh = CreateObject("WScript.Shell")',
+        'sh.Run """" & carpeta & "\\vigia.cmd"" oculto", 0, False',
+    ]
+    with open(oculto, 'w', encoding='ascii', newline='') as fh:
+        fh.write('\r\n'.join(lineas_vbs) + '\r\n')
+    return oculto
 
 
 def instalar_tarea():
@@ -310,15 +331,20 @@ def instalar_tarea():
     import win32com.client
     shell = win32com.client.Dispatch('WScript.Shell')
     atajo = shell.CreateShortcut(acceso)
-    atajo.TargetPath = lanzador
+    # wscript.exe explicito y no el .vbs a secas: asi no depende de con que
+    # programa esten asociados los .vbs en esta PC.
+    atajo.TargetPath = os.path.join(os.environ.get('SystemRoot', r'C:\Windows'),
+                                    'System32', 'wscript.exe')
+    atajo.Arguments = f'"{lanzador}"'
     atajo.WorkingDirectory = carpeta
-    atajo.WindowStyle = 7          # minimizada, para que no tape nada al iniciar
-    atajo.Description = 'Vigia de Agente Lux: conecta el portal con tu Outlook'
+    atajo.Description = ('Vigia de Agente Lux: conecta el portal con tu Outlook. '
+                         'Corre sin ventana; miralo en el portal.')
     atajo.Save()
 
-    print('Listo: el vigia va a arrancar solo (minimizado) cada vez que '
+    print('Listo: el vigia va a arrancar solo, sin ventana, cada vez que '
           'inicies sesion en Windows.')
     print(f'Lo que vaya haciendo queda en {RUTA_LOG}')
+    print(f'Para pararlo, crea el archivo {RUTA_PARAR}')
     print(f'Para quitarlo, borra este acceso directo:\n  {acceso}')
 
 
@@ -683,7 +709,13 @@ def _leer(app, args, motivo, desde, hasta):
 def main():
     parser = argparse.ArgumentParser(description='Vigia local de Agente Lux.')
     parser.add_argument('--db', help='URL de PostgreSQL (por defecto usa .env).')
-    parser.add_argument('--auto', type=int, default=20,
+    # 5 y no 20: Daniela no quiere depender del boton (2026-09-07). Mirar el
+    # Outlook es gratis (unos 10 s por COM, sin Claude); Claude Code solo
+    # entra cuando la lectura trae correo nuevo, asi que el intervalo corto no
+    # gasta tokens de mas. Mas seguido que 5 no ayuda: el analisis en si
+    # tarda 2-4 min y los correos que llegan juntos se aprovechan mejor en
+    # una sola tanda.
+    parser.add_argument('--auto', type=int, default=5,
                         help='Releer solo cada N minutos. 0 = solo con el boton.')
     parser.add_argument('--carpeta', default='Inbox',
                         help='Carpeta a leer. Por defecto Inbox con subcarpetas.')
@@ -908,7 +940,7 @@ def main():
                         datetime.utcnow() - ultimo_auto
                         >= timedelta(minutes=args.auto)):
                     # Con ultimo_auto arrancando "vencido", la primera
-                    # lectura sale enseguida en vez de esperar 20 minutos.
+                    # lectura sale enseguida en vez de esperar el intervalo.
                     lanzar('relectura automatica')
                     ultimo_auto = datetime.utcnow()
 
