@@ -673,8 +673,15 @@ def _leer(app, args, motivo, desde, hasta):
                 recursivo=not args.sin_subcarpetas,
             )
         resumen = f'[{texto_rango}] ' + ingesta_local.resumen_texto(stats)
-        log(f'{motivo} ({texto_rango}): {ingesta_local.resumen_texto(stats)} '
-            f'({stats["pendientes"]} por analizar en el rango)')
+        # Con la relectura cada minuto, una vuelta sin novedad no merece dos
+        # lineas de log (serian miles al dia): las automaticas solo se anotan
+        # si trajeron algo, tenian algo por analizar, resumieron o fallaron.
+        # El portal se entera igual por _marcar (ultima lectura).
+        silencio = (motivo == 'relectura automatica'
+                    and stats['nuevos'] == 0 and not stats['pendientes'])
+        if not silencio:
+            log(f'{motivo} ({texto_rango}): {ingesta_local.resumen_texto(stats)} '
+                f'({stats["pendientes"]} por analizar en el rango)')
 
         if args.analizar and stats['pendientes']:
             resumen += ' ' + _analizar(app, args, carpeta_proyecto, rango)
@@ -689,12 +696,15 @@ def _leer(app, args, motivo, desde, hasta):
                 log(f'Fallo el resumen rapido: {exc}')
                 resumen += (' El resumen de los otros correos fallo; se '
                             'reintenta en el proximo ciclo.')
+                silencio = False
             else:
                 if resumidos:
                     resumen += f' {resumidos} correo(s) resumidos para la bitacora.'
+                    silencio = False
 
         _marcar(app, 'ok', resumen, limpiar_solicitud=True)
-        log(resumen)
+        if not silencio:
+            log(resumen)
         return stats
 
     except Exception as exc:
@@ -709,13 +719,13 @@ def _leer(app, args, motivo, desde, hasta):
 def main():
     parser = argparse.ArgumentParser(description='Vigia local de Agente Lux.')
     parser.add_argument('--db', help='URL de PostgreSQL (por defecto usa .env).')
-    # 5 y no 20: Daniela no quiere depender del boton (2026-09-07). Mirar el
-    # Outlook es gratis (unos 10 s por COM, sin Claude); Claude Code solo
-    # entra cuando la lectura trae correo nuevo, asi que el intervalo corto no
-    # gasta tokens de mas. Mas seguido que 5 no ayuda: el analisis en si
-    # tarda 2-4 min y los correos que llegan juntos se aprovechan mejor en
-    # una sola tanda.
-    parser.add_argument('--auto', type=int, default=5,
+    # 1 y no 20: Daniela no quiere depender del boton y pidio cada minuto
+    # (2026-09-07). Mirar el Outlook es gratis (unos 10 s por COM, sin
+    # Claude); Claude Code solo entra cuando la lectura trae correo nuevo,
+    # asi que el intervalo corto no gasta tokens de mas. Se le explico que
+    # el analisis en si tarda 2-4 min y que los correos que llegan juntos se
+    # aprovechan mejor en una sola tanda; lo prefirio asi igual.
+    parser.add_argument('--auto', type=int, default=1,
                         help='Releer solo cada N minutos. 0 = solo con el boton.')
     parser.add_argument('--carpeta', default='Inbox',
                         help='Carpeta a leer. Por defecto Inbox con subcarpetas.')
