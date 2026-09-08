@@ -62,13 +62,36 @@ RUTA_PARAR = os.path.join(os.path.dirname(RUTA_LOG), 'parar')
 
 
 def _proceso_vivo(pid):
+    """True si el PID es un Python vivo (o sea, otro vigia).
+
+    No basta con que el PID exista: Windows los reutiliza enseguida, y tras
+    una muerte sucia (ventana cerrada, apagon) el numero del lock puede ser
+    de cualquier otro programa. El 2026-09-07 era la Terminal de Windows, y
+    el vigia nuevo se habria negado a arrancar creyendo que habia otro."""
     import ctypes
+    from ctypes import wintypes
+
     PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-    h = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    k32 = ctypes.windll.kernel32
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    k32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+    k32.QueryFullProcessImageNameW.argtypes = [
+        wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+        ctypes.POINTER(wintypes.DWORD)]
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+
+    h = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
     if not h:
         return False
-    ctypes.windll.kernel32.CloseHandle(h)
-    return True
+    try:
+        ruta = ctypes.create_unicode_buffer(1024)
+        largo = wintypes.DWORD(len(ruta))
+        if not k32.QueryFullProcessImageNameW(h, 0, ruta, ctypes.byref(largo)):
+            return True   # vivo pero sin poder leer el nombre: mejor no pisarlo
+        return os.path.basename(ruta.value).lower() in ('python.exe', 'pythonw.exe')
+    finally:
+        k32.CloseHandle(h)
 
 
 def _tomar_lock():
@@ -247,7 +270,10 @@ def escribir_lanzador():
         ':listo',
         'cd /d "%~dp0.."',
         f'"{python}" agente_lux_watcher.py',
-        'if errorlevel 1 (',
+        # "if errorlevel 1" no atrapa los codigos negativos con los que
+        # Windows reporta un cierre violento del proceso, y la ventana se
+        # cerraba sin decir nada.
+        'if not "%errorlevel%"=="0" (',
         '  echo.',
         '  echo El vigia termino con error. Revisa _agente_lux\\vigia.log',
         '  pause',
