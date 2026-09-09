@@ -92,6 +92,11 @@ class AgenteCuenta(db.Model):
     netas_solicitado = db.Column(db.DateTime)
     netas_actualizado = db.Column(db.DateTime)
     netas_mensaje = db.Column(db.Text)
+    # Pestana Mails: como quiere Daniela que salgan las solicitudes.
+    #   'enviar'   -> el vigia las manda por Outlook al instante.
+    #   'borrador' -> el vigia las deja en Borradores de Outlook y ella las
+    #                 revisa y las envia a mano. Lo elige arriba de la pestana.
+    envio_modo = db.Column(db.String(20), default='enviar')
 
     def vigia_activo(self, segundos=90):
         """True si el vigia dio senales de vida hace poco."""
@@ -114,6 +119,7 @@ class AgenteCuenta(db.Model):
             'netas_pendiente': bool(self.netas_solicitado),
             'netas_actualizado': _fmt(a_ecuador(self.netas_actualizado)),
             'netas_mensaje': self.netas_mensaje,
+            'envio_modo': self.envio_modo or 'enviar',
         }
 
 
@@ -310,9 +316,12 @@ class AgenteEnvio(db.Model):
     asunto = db.Column(db.String(300))
     cuerpo = db.Column(db.Text)
     estado = db.Column(db.String(20), default='pendiente', index=True)
-    # pendiente | enviado | error
+    # pendiente | enviado | borrador | error
+    # 'enviar': el vigia lo manda (Send). 'borrador': lo deja en Borradores
+    # de Outlook sin mandarlo, para que Daniela lo revise y lo envie ella.
+    modo = db.Column(db.String(20), default='enviar')
     creado_en = db.Column(db.DateTime, default=datetime.utcnow)
-    enviado_en = db.Column(db.DateTime)
+    enviado_en = db.Column(db.DateTime)   # o cuando quedo en Borradores
     error = db.Column(db.Text)
 
     def to_dict(self):
@@ -323,6 +332,7 @@ class AgenteEnvio(db.Model):
             'cc': self.cc,
             'asunto': self.asunto,
             'estado': self.estado,
+            'modo': self.modo or 'enviar',
             'creado_en': _fmt(a_ecuador(self.creado_en)),
             'enviado_en': _fmt(a_ecuador(self.enviado_en)),
             'error': self.error,

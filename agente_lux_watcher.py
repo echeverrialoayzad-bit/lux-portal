@@ -231,6 +231,35 @@ def _abrir_outlook_si_hace_falta():
         return False
 
 
+def _asegurar_outlook():
+    """Antes de tocar el buzon: Outlook tiene que estar corriendo Y con ventana.
+
+    Si Daniela cierra la ventana del Outlook clasico, Outlook se cierra del
+    todo y la siguiente llamada COM lo levantaria sin ventana: asi queda en
+    "solo encabezados", lee el buzon a medias y Send falla con "El parametro
+    no es correcto" (paso el 2026-09-08 con la primera solicitud a Air
+    Canada). Por eso, si no esta corriendo se abre outlook.exe con ventana, y
+    si esta corriendo pero sin ventana se le abre la Bandeja de entrada.
+    Corre en el hilo de trabajo, con COM inicializado."""
+    if _abrir_outlook_si_hace_falta():
+        log('Outlook estaba cerrado: lo abro con ventana y espero...')
+        time.sleep(20)
+        try:
+            _contestar_dialogos_outlook()
+        except Exception as exc:
+            log(f'No pude revisar los cuadros de Outlook: {exc}')
+        return
+    try:
+        import win32com.client
+        app = win32com.client.Dispatch('Outlook.Application')
+        if app.Explorers.Count == 0:
+            app.GetNamespace('MAPI').GetDefaultFolder(6).Display()
+            log('Outlook estaba corriendo sin ventana: le abri la Bandeja de '
+                'entrada para que sincronice completo.')
+    except Exception as exc:
+        log(f'No pude comprobar la ventana de Outlook: {exc}')
+
+
 def _ruta_corta(ruta):
     """Version 8.3 de una ruta (sin acentos ni espacios), si Windows la da."""
     import ctypes
@@ -462,10 +491,17 @@ def _enviar(app):
     """Manda por Outlook lo que Daniela dejo en cola en la pestana Mails."""
     from lux_portal.agente_lux import envio_local
 
+    _asegurar_outlook()
     with app.app_context():
-        enviados, fallidos = envio_local.enviar_pendientes()
-    log(f'Correos enviados por Outlook: {enviados}'
-        + (f' ({fallidos} con error, ver la pestana Mails)' if fallidos else ''))
+        enviados, borradores, fallidos = envio_local.enviar_pendientes()
+    partes = []
+    if enviados:
+        partes.append(f'{enviados} enviado(s)')
+    if borradores:
+        partes.append(f'{borradores} en Borradores de Outlook')
+    if fallidos:
+        partes.append(f'{fallidos} con error (ver la pestana Mails)')
+    log('Correos por Outlook: ' + (', '.join(partes) or 'nada que mandar'))
 
 
 MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
@@ -662,6 +698,7 @@ def _leer(app, args, motivo, desde, hasta):
 
     try:
         _marcar(app, 'corriendo', f'Leyendo tu Outlook ({texto_rango})...')
+        _asegurar_outlook()
         with app.app_context():
             cuenta = ingesta_local.cuenta_local()
             stats = ingesta_local.ingerir(

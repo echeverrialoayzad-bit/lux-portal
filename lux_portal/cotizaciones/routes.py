@@ -1007,7 +1007,12 @@ _MAIL_SALUDOS = {
 def _generar_cuerpo_mail(aerolinea, destinos):
     """Cuerpo del correo, con los destinos en bullets (columna). Usa un
     saludo personalizado si la aerolinea tiene contacto conocido en
-    _MAIL_SALUDOS, si no el saludo generico."""
+    _MAIL_SALUDOS, si no el saludo generico.
+
+    Sin despedida a proposito: el correo sale por el Outlook de Daniela con
+    su firma, que ya trae el cierre ("Best Regards, ..."). Con el "Quedo
+    atenta. / Saludos cordiales," de antes salia despedido dos veces; lo
+    pidio quitar el 2026-09-08."""
     saludo = _MAIL_SALUDOS.get(aerolinea, 'Estimados,\n\nEspero se encuentren bien.')
     if destinos:
         bullets = '\n'.join(f"• {d}" for d in destinos)
@@ -1016,9 +1021,7 @@ def _generar_cuerpo_mail(aerolinea, destinos):
     return (
         f"{saludo}\n\n"
         "Solicito su ayuda con tarifas actualizadas para flor:\n\n"
-        f"{bullets}\n\n"
-        "Quedo atenta.\n\n"
-        "Saludos cordiales,"
+        f"{bullets}"
     )
 
 

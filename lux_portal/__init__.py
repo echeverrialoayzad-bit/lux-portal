@@ -171,6 +171,9 @@ def _migrate_db(app):
         ('agente_cuenta', 'netas_solicitado', 'TIMESTAMP'),
         ('agente_cuenta', 'netas_actualizado', 'TIMESTAMP'),
         ('agente_cuenta', 'netas_mensaje', 'TEXT'),
+        # Agente Lux > Mails: enviar directo o dejar en Borradores de Outlook
+        ('agente_cuenta', 'envio_modo', "VARCHAR(20) DEFAULT 'enviar'"),
+        ('agente_envios', 'modo', "VARCHAR(20) DEFAULT 'enviar'"),
     ]
     for table, column, col_type in migrations:
         try:

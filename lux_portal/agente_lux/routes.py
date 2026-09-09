@@ -541,6 +541,7 @@ def mails():
     ultimos = {}
     for e in AgenteEnvio.query.order_by(AgenteEnvio.id.desc()).all():
         ultimos.setdefault(e.aerolinea, e)
+    cuenta = _cuenta()
 
     salida = []
     for r in AirlineMailRequest.query.order_by(AirlineMailRequest.aerolinea).all():
@@ -559,7 +560,25 @@ def mails():
             'ultimo_envio': ultimo.to_dict() if ultimo else None,
             'ultima_respuesta': resp.strftime('%Y-%m-%d %H:%M') if resp else None,
         })
-    return jsonify({'mails': salida})
+    return jsonify({'mails': salida,
+                    'modo': (cuenta.envio_modo if cuenta and cuenta.envio_modo else 'enviar')})
+
+
+@agente_lux_bp.route('/api/mails/modo', methods=['POST'])
+@login_required
+def modo_envio():
+    """Guarda como quiere Daniela que salgan las solicitudes: 'enviar' (el
+    vigia las manda al instante) o 'borrador' (quedan en Borradores de su
+    Outlook y las envia ella despues de revisarlas)."""
+    cuenta = _cuenta()
+    if not cuenta:
+        return jsonify({'error': 'No hay cuenta conectada.'}), 404
+    modo = ((request.json or {}).get('modo') or '').strip()
+    if modo not in ('enviar', 'borrador'):
+        return jsonify({'error': 'Opcion no valida.'}), 400
+    cuenta.envio_modo = modo
+    db.session.commit()
+    return jsonify({'ok': True, 'modo': modo})
 
 
 @agente_lux_bp.route('/api/mails/<int:id>', methods=['POST'])
@@ -638,6 +657,10 @@ def enviar_mail(id):
                                  'direccion o usa "Detectar contactos".'}), 400
     if not registro.seleccionados:
         return jsonify({'error': 'Marca al menos un destino para pedir.'}), 400
+    # El boton manda el modo que se ve en pantalla; si no, el guardado.
+    modo = ((request.json or {}).get('modo') or cuenta.envio_modo or 'enviar').strip()
+    if modo not in ('enviar', 'borrador'):
+        return jsonify({'error': 'Opcion de envio no valida.'}), 400
 
     envio = AgenteEnvio(
         aerolinea=registro.aerolinea,
@@ -646,6 +669,7 @@ def enviar_mail(id):
         asunto=(registro.asunto or ASUNTO_POR_DEFECTO)[:300],
         cuerpo=_cuerpo_solicitud(registro),
         estado='pendiente',
+        modo=modo,
     )
     db.session.add(envio)
     db.session.commit()

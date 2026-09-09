@@ -160,11 +160,22 @@
       <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <div class="small text-muted">
           Solicitudes de tarifas por aerolínea, con los destinos de la pestaña Mails del portal.
-          Se mandan por tu Outlook, con tu firma, a través del vigía de tu PC.
+          Salen por tu Outlook, con tu firma, a través del vigía de tu PC.
         </div>
         <button class="btn btn-outline-secondary btn-sm" onclick="descubrirContactos()">
           <i class="bi bi-search me-1"></i>Detectar contactos de mis correos
         </button>
+      </div>
+      <div class="card al-card shadow-sm mb-3">
+        <div class="card-body py-2 d-flex align-items-center flex-wrap gap-3">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Cómo salen las solicitudes">
+            <input type="radio" class="btn-check" name="modo-envio" id="modo-enviar" value="enviar" onchange="cambiarModoEnvio('enviar')">
+            <label class="btn btn-outline-primary" for="modo-enviar"><i class="bi bi-send me-1"></i>Enviar directo</label>
+            <input type="radio" class="btn-check" name="modo-envio" id="modo-borrador" value="borrador" onchange="cambiarModoEnvio('borrador')">
+            <label class="btn btn-outline-primary" for="modo-borrador"><i class="bi bi-pencil-square me-1"></i>Dejar en Borradores para revisar</label>
+          </div>
+          <div class="small text-muted" id="modo-envio-ayuda">—</div>
+        </div>
       </div>
       <div id="lista-mails"></div>
       <div class="card al-card shadow-sm mt-3">
@@ -751,7 +762,29 @@ const MAILS_URL = '{{ url_for("agente_lux.mails") }}';
 const ENVIOS_URL = '{{ url_for("agente_lux.envios") }}';
 const DESCUBRIR_URL = '{{ url_for("agente_lux.descubrir_contactos") }}';
 const MAIL_GUARDAR_URL = '{{ url_for("agente_lux.guardar_mail", id=0) }}'.slice(0, -1);
+const MODO_URL = '{{ url_for("agente_lux.modo_envio") }}';
 let vigiaActivo = false;
+// 'enviar': el vigía manda al instante. 'borrador': deja el correo en
+// Borradores de Outlook y Daniela lo revisa y lo envía ella.
+let modoEnvio = 'enviar';
+
+function pintarModoEnvio() {
+  const radio = document.getElementById(modoEnvio === 'borrador' ? 'modo-borrador' : 'modo-enviar');
+  if (radio) radio.checked = true;
+  document.getElementById('modo-envio-ayuda').textContent = modoEnvio === 'borrador'
+    ? 'Cada solicitud queda en la carpeta Borradores de tu Outlook, con tu firma. La revisas y la envías tú.'
+    : 'Cada solicitud se envía al instante desde tu Outlook, con tu firma.';
+}
+
+async function cambiarModoEnvio(modo) {
+  const r = await fetch(MODO_URL, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ modo })
+  });
+  if (!r.ok) { banner('No se pudo guardar la opción.', 'danger'); pintarModoEnvio(); return; }
+  modoEnvio = modo;
+  pintarModoEnvio();
+  cargarMails();
+}
 
 function tarjetaMail(m) {
   // Cada destino es un boton: marcado va al correo, sin marcar no. La x
@@ -773,13 +806,16 @@ function tarjetaMail(m) {
       <button class="btn btn-outline-secondary btn-sm py-0" onclick="agregarDestino(${m.id})" title="Agregar destino">
         <i class="bi bi-plus-lg"></i></button>
     </span>`;
-  const ultimo = m.ultimo_envio
-    ? (m.ultimo_envio.estado === 'enviado'
-        ? `<span class="text-success"><i class="bi bi-check2-circle"></i> enviado ${fechaCorta(m.ultimo_envio.enviado_en)}</span>`
-        : m.ultimo_envio.estado === 'pendiente'
-          ? '<span class="text-primary"><span class="spinner-border spinner-border-sm me-1"></span>enviando…</span>'
-          : `<span class="text-danger" title="${escapar(m.ultimo_envio.error || '')}"><i class="bi bi-x-circle"></i> falló el envío</span>`)
-    : '<span class="text-muted">nunca enviado desde aquí</span>';
+  const u = m.ultimo_envio;
+  const ultimo = !u
+    ? '<span class="text-muted">nunca enviado desde aquí</span>'
+    : u.estado === 'enviado'
+      ? `<span class="text-success"><i class="bi bi-check2-circle"></i> enviado ${fechaCorta(u.enviado_en)}</span>`
+      : u.estado === 'borrador'
+        ? `<span class="text-primary"><i class="bi bi-pencil-square"></i> en Borradores de tu Outlook ${fechaCorta(u.enviado_en)}</span>`
+        : u.estado === 'pendiente'
+          ? `<span class="text-primary"><span class="spinner-border spinner-border-sm me-1"></span>${u.modo === 'borrador' ? 'preparando el borrador…' : 'enviando…'}</span>`
+          : `<span class="text-danger" title="${escapar(u.error || '')}"><i class="bi bi-x-circle"></i> falló el envío</span>`;
   const resp = m.ultima_respuesta ? `última respuesta ${fechaCorta(m.ultima_respuesta)}` : 'sin respuestas registradas';
   const puede = vigiaActivo && m.destinatarios && nSel > 0;
   return `
@@ -826,7 +862,7 @@ function tarjetaMail(m) {
       <div class="d-flex justify-content-end mt-2">
         <button class="btn btn-primary btn-sm" onclick="enviarMail(${m.id}, '${escapar(m.aerolinea)}')" ${puede ? '' : 'disabled'}
           title="${!vigiaActivo ? 'El vigía no está corriendo en tu PC' : (!nSel ? 'Marca al menos un destino' : (!m.destinatarios ? 'Falta el destinatario' : ''))}">
-          <i class="bi bi-send me-1"></i>Enviar por Outlook${nSel ? ` (${nSel})` : ''}
+          <i class="bi ${modoEnvio === 'borrador' ? 'bi-pencil-square' : 'bi-send'} me-1"></i>${modoEnvio === 'borrador' ? 'Dejar en Borradores' : 'Enviar por Outlook'}${nSel ? ` (${nSel})` : ''}
         </button>
       </div>
     </div>
@@ -837,6 +873,8 @@ async function cargarMails() {
   const r = await fetch(MAILS_URL);
   const d = await r.json();
   const lista = d.mails || [];
+  modoEnvio = d.modo || modoEnvio;
+  pintarModoEnvio();
   document.getElementById('badge-mails').textContent = lista.length;
   document.getElementById('lista-mails').innerHTML = lista.length
     ? lista.map(tarjetaMail).join('')
@@ -899,13 +937,18 @@ function restablecerCuerpo(id) {
 }
 
 async function enviarMail(id, aerolinea) {
-  if (!confirm(`Se va a enviar la solicitud de tarifas a ${aerolinea} desde tu Outlook. ¿Continuar?`)) return;
+  const borrador = modoEnvio === 'borrador';
+  if (!confirm(borrador
+      ? `La solicitud de tarifas a ${aerolinea} va a quedar en Borradores de tu Outlook para que la revises y la envíes tú. ¿Continuar?`
+      : `Se va a enviar la solicitud de tarifas a ${aerolinea} desde tu Outlook. ¿Continuar?`)) return;
   const r = await fetch(MAIL_GUARDAR_URL + id + '/enviar', {
-    method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ modo: modoEnvio })
   });
   const d = await r.json();
   if (!r.ok) { banner(escapar(d.error || 'No se pudo enviar.'), 'danger'); return; }
-  banner(`Solicitud a ${escapar(aerolinea)} en cola: tu PC la manda en unos segundos.`, 'info');
+  banner(borrador
+    ? `Solicitud a ${escapar(aerolinea)} en cola: en unos segundos aparece en Borradores de tu Outlook.`
+    : `Solicitud a ${escapar(aerolinea)} en cola: tu PC la manda en unos segundos.`, 'info');
   cargarMails();
   // El vigia la manda en el siguiente latido; se vuelve a mirar un rato.
   let intentos = 0;
@@ -921,6 +964,7 @@ async function cargarEnvios() {
         <li class="list-group-item py-1 d-flex justify-content-between flex-wrap gap-2">
           <span><strong>${escapar(e.aerolinea)}</strong> · ${escapar(e.asunto)} · <span class="text-muted">${escapar(e.para)}</span></span>
           <span>${e.estado === 'enviado' ? '<span class="text-success">enviado ' + fechaCorta(e.enviado_en) + '</span>'
+                : e.estado === 'borrador' ? '<span class="text-primary">en Borradores de Outlook ' + fechaCorta(e.enviado_en) + '</span>'
                 : e.estado === 'pendiente' ? '<span class="text-primary">en cola desde ' + fechaCorta(e.creado_en) + '</span>'
                 : '<span class="text-danger" title="' + escapar(e.error || '') + '">error: ' + escapar((e.error || '').slice(0, 80)) + '</span>'}</span>
         </li>`).join('') + '</ul>'
