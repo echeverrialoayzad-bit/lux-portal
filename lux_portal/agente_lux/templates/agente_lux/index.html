@@ -40,6 +40,9 @@
   .al-iconos { font-size:.95rem; }
   .al-correo { font-size:.78rem; margin-top:.25rem; line-height:1.2; overflow-wrap:anywhere; }
   .al-correo a { font-weight:600; }
+  .al-resumen td { vertical-align:top; }
+  .al-resumen .badge { font-size:.72rem; min-width:84px; }
+  .al-resumen .al-correo { margin-top:0; }
   .al-v { font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
   .al-hint { font-size:.7rem; color:#666; }
   .al-linea { display:flex; align-items:center; gap:.3rem; min-height:31px; }
@@ -778,7 +781,8 @@ function bloqueTarifa(b, todas) {
       <td class="al-col-kg">${escapar((h.detalle || {}).kg || '')}</td>
       <td><span class="al-v">${val(pasada)}</span></td>
       ${i === 0 ? `<td rowspan="${n}"><span class="al-v">${a.fecha ? fechaDia(a.fecha) : GUION}</span></td>` : ''}
-      <td><div class="al-linea">${chkHallazgo(h)}${inputValor(h)}</div></td>
+      <td><div class="al-linea">${chkHallazgo(h)}${inputValor(h)}</div>
+        ${mismoNum(ha.tarifa, h.valor_nuevo) ? '<div class="al-hint">ya está así en la cotización</div>' : ''}</td>
       ${i === 0 ? `<td rowspan="${n}">${inputVigencia(vig, fechaCorreo, idsAttr)}<div class="al-hint">${hintVigencia(vig, vigHasta)}</div></td>` : ''}
     </tr>`;
   }).join('');
@@ -846,7 +850,8 @@ function bloqueSimple(b) {
   const pasada = b.tipo === 'fsc' ? (a.fsc != null ? a.fsc : h.valor_actual) : h.valor_actual;
   const actual = soloInfo
     ? `<span class="al-v">${val(h.valor_nuevo)}</span><div class="al-hint">${b.tipo === 'dias' ? 'no se aplica solo' : 'solo informativo'}</div>`
-    : `<div class="al-linea">${chkHallazgo(h)}${inputValor(h)}</div>`;
+    : `<div class="al-linea">${chkHallazgo(h)}${inputValor(h)}</div>`
+      + (mismoNum(pasada, h.valor_nuevo) ? '<div class="al-hint">ya está así en el portal</div>' : '');
   const fechaNueva = soloInfo
     ? `<span class="al-v">${vig ? fechaTexto(vig) : fechaDia(fechaCorreo)}</span>`
     : inputVigencia(vig, fechaCorreo, idsAttr);
@@ -903,7 +908,7 @@ function celdaCargo(h) {
   return `<div class="al-linea">
     <span class="al-v">${val(pasada)}</span><span class="al-hint">→</span>
     ${chkHallazgo(h)}${inputValor(h)}
-  </div>${iconosDe([h])}`;
+  </div>${mismoNum(pasada, h.valor_nuevo) ? '<div class="al-hint">ya está así en el portal</div>' : ''}${iconosDe([h])}`;
 }
 
 function tablaCargos(cargos) {
@@ -935,6 +940,91 @@ function tablaCargos(cargos) {
   </table>`;
 }
 
+// ---- Resumen: que cuadra y que hay que actualizar -------------------------
+// Compara lo que propone el correo con lo que hay hoy en la cotizacion o en
+// las tablas maestras, bloque por bloque, y lo clasifica:
+//   actualizar -> hay un valor distinto que reemplazar
+//   agregar    -> la aerolinea, el tramo o la regla no existen todavia
+//   revisar    -> avisos, dias de salida o cifras que no se pueden comparar
+//   cuadra     -> ya esta igual en el portal, no hay que tocar nada
+const numDe = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return Number.isFinite(n) ? n : null; };
+const mismoNum = (a, b) => { const x = numDe(a), y = numDe(b); return x != null && y != null && Math.abs(x - y) < 0.005; };
+const ESTADOS = {
+  actualizar: ['Actualizar', 'bg-warning text-dark', 1],
+  agregar:    ['Agregar',    'bg-primary', 2],
+  revisar:    ['Revisar',    'bg-secondary', 3],
+  cuadra:     ['Cuadra',     'bg-success', 4],
+};
+
+function estadoBloque(b) {
+  const filas = b.filas, h = filas[0], d = h.detalle || {}, a = h.actual || {};
+  if (b.tipo === 'tarifa') {
+    let cambios = 0, nuevos = 0;
+    const lineas = filas.map(x => {
+      const xa = x.actual || {};
+      const kg = (x.detalle || {}).kg || '';
+      if (xa.tarifa == null) { nuevos++; return `${kg}: no existe → ${x.valor_nuevo}`; }
+      if (mismoNum(xa.tarifa, x.valor_nuevo)) return `${kg}: ${xa.tarifa} = ${x.valor_nuevo}`;
+      cambios++;
+      return `${kg}: ${xa.tarifa} → ${x.valor_nuevo}`;
+    });
+    return { estado: cambios ? 'actualizar' : (nuevos ? 'agregar' : 'cuadra'), lineas };
+  }
+  if (b.tipo === 'fsc') {
+    const hoy = a.fsc != null ? a.fsc : h.valor_actual;
+    if (numDe(h.valor_nuevo) == null) return { estado: 'revisar', lineas: [`FSC: ${h.valor_nuevo || 'sin cifra'}`] };
+    if (numDe(hoy) == null) return { estado: 'agregar', lineas: [`FSC: sin regla → ${h.valor_nuevo}`] };
+    return mismoNum(hoy, h.valor_nuevo)
+      ? { estado: 'cuadra', lineas: [`FSC: ${hoy} = ${h.valor_nuevo}`] }
+      : { estado: 'actualizar', lineas: [`FSC: ${hoy} → ${h.valor_nuevo}`] };
+  }
+  if (b.tipo === 'cargo') {
+    const hoy = a.monto != null ? a.monto : h.valor_actual;
+    const c = d.concepto || 'cargo';
+    if (numDe(h.valor_nuevo) == null) return { estado: 'revisar', lineas: [`${c}: ${h.valor_nuevo || 'sin monto'}`] };
+    if (numDe(hoy) == null) return { estado: 'agregar', lineas: [`${c}: no está → ${h.valor_nuevo}`] };
+    return mismoNum(hoy, h.valor_nuevo)
+      ? { estado: 'cuadra', lineas: [`${c}: ${hoy} = ${h.valor_nuevo}`] }
+      : { estado: 'actualizar', lineas: [`${c}: ${hoy} → ${h.valor_nuevo}`] };
+  }
+  if (b.tipo === 'dias') {
+    return { estado: 'revisar', lineas: [`Días: ${h.valor_actual || '—'} → ${h.valor_nuevo || '—'}`] };
+  }
+  const cifra = h.valor_nuevo ? `${h.valor_actual ? h.valor_actual + ' → ' : ''}${h.valor_nuevo}` : '';
+  return { estado: 'revisar', lineas: [cifra || (h.descripcion || '').slice(0, 90)] };
+}
+
+function tablaResumen(grupos) {
+  const filas = [];
+  grupos.forEach(g => g.bloques.forEach(b => {
+    const h = b.filas[0], d = h.detalle || {};
+    const { estado, lineas } = estadoBloque(b);
+    const [etiqueta, color] = ETIQUETA_TIPO[b.tipo] || ['Otro', 'bg-secondary'];
+    const destino = b.tipo === 'fsc'
+      ? (d.destinos && d.destinos.length ? d.destinos.join(', ') : 'Todos los destinos')
+      : b.tipo === 'cargo' ? (d.concepto || '') : (h.destino || '');
+    filas.push({ orden: ESTADOS[estado][2], estado, html: `<tr>
+      <td class="text-center"><span class="badge ${ESTADOS[estado][1]}">${ESTADOS[estado][0]}</span></td>
+      <td><strong>${escapar(g.aerolinea)}</strong>${destino ? ' · ' + escapar(destino) : ''}
+          ${b.tipo !== 'tarifa' ? ` <span class="badge ${color} al-tag">${etiqueta}</span>` : ''}</td>
+      <td>${lineas.map(l => `<div>${escapar(l)}</div>`).join('')}</td>
+      <td>${iconosDe(b.filas)}</td>
+    </tr>` });
+  }));
+  if (!filas.length) return '';
+  filas.sort((x, y) => x.orden - y.orden);
+  const n = est => filas.filter(f => f.estado === est).length;
+  return `
+  <table class="al-cuadro al-resumen mb-4">
+    <colgroup><col style="width:11%"><col style="width:24%"><col style="width:35%"><col style="width:30%"></colgroup>
+    <thead>
+      <tr><th colspan="4" class="al-cuadro-titulo">Resumen · ${n('actualizar')} por actualizar · ${n('agregar')} por agregar · ${n('revisar')} por revisar · ${n('cuadra')} ya cuadran</th></tr>
+      <tr class="al-cuadro-cols"><th>Estado</th><th>Aerolínea · destino</th><th>Portal hoy → correo</th><th>Correo</th></tr>
+    </thead>
+    <tbody>${filas.map(f => f.html).join('')}</tbody>
+  </table>`;
+}
+
 // Pinta todo de nuevo a partir de hallazgosEnPantalla, conservando lo que
 // Daniela tenga marcado. Se usa al cargar y despues de cada edicion: un
 // bloque junta varias propuestas, asi que repintar solo una no alcanza.
@@ -943,7 +1033,8 @@ function pintarHallazgos() {
   const marcados = new Set(idsSeleccionados());
   const sinCargos = filas.filter(h => h.tipo !== 'cargo');
   document.getElementById('cuerpo-hallazgos').innerHTML =
-    agruparPorAerolinea(sinCargos).map(g => tablaAerolinea(g, filas)).join('')
+    tablaResumen(agruparPorAerolinea(filas))
+    + agruparPorAerolinea(sinCargos).map(g => tablaAerolinea(g, filas)).join('')
     + tablaCargos(filas.filter(h => h.tipo === 'cargo'));
   document.querySelectorAll('#cuerpo-hallazgos .chk-hallazgo').forEach(c => {
     if (marcados.has(parseInt(c.dataset.id, 10))) c.checked = true;
