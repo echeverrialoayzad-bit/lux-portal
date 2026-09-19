@@ -1071,9 +1071,10 @@ function pintarHallazgos() {
   actualizarBotonAplicar();
 }
 
-// Actualizaciones no depende del rango de fechas: es la lista de lo que
-// falta hacer, de cualquier fecha, hasta que se aplique, se marque hecho o
-// la tarifa ya este igual en el portal (entonces sale sola).
+// Actualizaciones no depende del rango de fechas de arriba: el portal manda
+// todo lo pendiente desde el 14 de septiembre de 2026 (fecha fija que
+// eligio Daniela), y cada propuesta se queda hasta que se aplique, se
+// marque hecho o la tarifa ya este igual en el portal (entonces sale sola).
 async function cargarHallazgos() {
   const r = await fetch('{{ url_for("agente_lux.hallazgos") }}?estado=pendiente,aprobado');
   const d = await r.json();
@@ -1089,7 +1090,7 @@ async function cargarHallazgos() {
   const hechas = d.resueltas ? ` · ${d.resueltas} ya estaban iguales en el portal y se dieron por hechas` : '';
   document.getElementById('resumen-hallazgos').textContent = (filas.length
     ? Object.entries(porTipo).map(([t, n]) => `${n} ${ETIQUETA_TIPO[t] ? ETIQUETA_TIPO[t][0] : t}`).join(' · ')
-    : 'Nada pendiente') + hechas;
+    : 'Nada pendiente') + ' · desde el 14 sep 2026' + hechas;
 
   avisarViejas(filas);
 }
@@ -1109,7 +1110,7 @@ function avisarViejas(filas) {
     : '';
   el.innerHTML = `<i class="bi bi-clock-history me-1"></i>
     <strong>${viejas.length} propuesta(s)</strong> salen de correos de hace más de ${DIAS_VIEJA} días${rango}.
-    Es correo atrasado que se analizó ahora: la fecha que ves es la del correo original, no la de hoy.
+    La fecha que ves es la del correo original, no la de hoy.
     Si ya no te sirven, <button class="btn btn-outline-danger btn-sm py-0 ms-1" onclick="rechazarViejas()">
     rechazar las ${viejas.length} antiguas</button>`;
   el.classList.remove('d-none');

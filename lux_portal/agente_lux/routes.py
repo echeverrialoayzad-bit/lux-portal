@@ -30,6 +30,12 @@ MAX_DIAS_RANGO = 62
 # Regenerar NETAS ACTUALES.xlsx solo al aplicar propuestas (ver aplicar()).
 NETAS_AUTO_TRAS_APLICAR = False
 
+# Actualizaciones cuenta desde esta fecha en adelante, fija. Daniela lo
+# decidio el 2026-09-19: lo anterior es demasiada informacion y ya lo tenia
+# cargado a mano. Todo correo desde aqui queda pendiente hasta que ella lo
+# aplique, lo marque hecho o el portal ya tenga el mismo valor.
+INICIO_ACTUALIZACIONES = date(2026, 9, 14)
+
 
 def _rango_pedido(fuente):
     """(desde, hasta) como fechas, a partir de un dict con 'desde'/'hasta' en
@@ -252,6 +258,10 @@ def hallazgos():
             return jsonify({'error': f'Fechas invalidas: {exc}'}), 400
         inicio, fin = rango_del_dia(desde, hasta)
         query = query.filter(AgenteMail.fecha >= inicio, AgenteMail.fecha <= fin)
+    else:
+        # Sin rango: todo lo pendiente desde la fecha de arranque, fija.
+        inicio, _ = rango_del_dia(INICIO_ACTUALIZACIONES, INICIO_ACTUALIZACIONES)
+        query = query.filter(AgenteMail.fecha >= inicio)
 
     # Lo mas reciente primero: si algo viene de un correo viejo, que se vea
     # abajo y no se confunda con lo que acaba de llegar.
