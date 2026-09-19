@@ -38,6 +38,8 @@
   .al-col-kg { text-align:center; font-weight:700; }
   .al-tag { font-size:.62rem; }
   .al-iconos { font-size:.95rem; }
+  .al-correo { font-size:.78rem; margin-top:.25rem; line-height:1.2; overflow-wrap:anywhere; }
+  .al-correo a { font-weight:600; }
   .al-v { font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
   .al-hint { font-size:.7rem; color:#666; }
   .al-linea { display:flex; align-items:center; gap:.3rem; min-height:31px; }
@@ -666,21 +668,26 @@ function tonoCorreo(dias) {
   return ['text-danger', ` · hace ${dias} días, ¿sigue vigente?`];
 }
 
-// Los iconos que reemplazan al texto que Daniela pidio quitar: el sobre abre
-// el correo, y al pasar el mouse por la (i) o el triangulo se lee la
-// descripcion o la alerta.
+// Lo que reemplaza al texto que Daniela pidio quitar: un enlace con el asunto
+// del correo (abre el correo completo para revisarlo), y al pasar el mouse
+// por la (i) o el triangulo se lee la descripcion o la alerta.
 function iconosDe(filas) {
   const conKg = x => (filas.length > 1 && (x.detalle || {}).kg ? x.detalle.kg + ': ' : '');
   const correos = new Map();
   filas.forEach(x => { if (x.mail_id && !correos.has(x.mail_id)) correos.set(x.mail_id, x); });
-  const sobres = [...correos.values()].map(x => {
+  const enlaces = [...correos.values()].map(x => {
     const [tono, extra] = tonoCorreo(x.mail_dias);
-    return `<a href="#" class="${tono} text-decoration-none me-1" onclick="verMail(${x.mail_id}); return false;"
-      title="${escapar((x.mail_asunto || '') + ' · ' + (x.mail_remitente || '') + ' · ' + fechaCorta(x.mail_fecha) + extra)}"><i class="bi bi-envelope"></i></a>`;
+    const asunto = x.mail_asunto || '(sin asunto)';
+    return `<div class="al-correo">
+      <a href="#" class="${tono === 'text-muted' ? '' : tono} text-decoration-none" onclick="verMail(${x.mail_id}); return false;"
+         title="${escapar(asunto + ' · ' + (x.mail_remitente || '') + ' · ' + fechaCorta(x.mail_fecha) + extra)}">
+        <i class="bi bi-envelope me-1"></i>${escapar(asunto.length > 28 ? asunto.slice(0, 27) + '…' : asunto)}</a>
+      <div class="al-hint">${escapar((x.mail_remitente || '').slice(0, 30))} · ${fechaCorta(x.mail_fecha).split(' ·')[0]}</div>
+    </div>`;
   }).join('');
   const textos = filas.filter(x => x.descripcion).map(x => conKg(x) + x.descripcion).join('\n');
   const alertas = filas.filter(x => x.alerta).map(x => conKg(x) + x.alerta).join('\n');
-  return `<span class="al-iconos">${sobres}
+  return `${enlaces}<span class="al-iconos">
     ${textos ? `<i class="bi bi-info-circle text-muted me-1" title="${escapar(textos)}"></i>` : ''}
     ${alertas ? `<i class="bi bi-exclamation-triangle-fill text-warning me-1" title="${escapar(alertas)}"></i>` : ''}</span>`;
 }
@@ -874,8 +881,8 @@ function tablaAerolinea(g, todas) {
   return `
   <table class="al-cuadro mb-3">
     <colgroup>
-      <col style="width:12%"><col style="width:8%"><col style="width:14%"><col style="width:15%">
-      <col style="width:18%"><col style="width:33%">
+      <col style="width:17%"><col style="width:7%"><col style="width:13%"><col style="width:14%">
+      <col style="width:18%"><col style="width:31%">
     </colgroup>
     <thead>
       <tr><th colspan="6" class="al-cuadro-titulo">${escapar(g.aerolinea)}</th></tr>
@@ -895,8 +902,8 @@ function celdaCargo(h) {
   const pasada = a.monto != null ? a.monto : h.valor_actual;
   return `<div class="al-linea">
     <span class="al-v">${val(pasada)}</span><span class="al-hint">→</span>
-    ${chkHallazgo(h)}${inputValor(h)}${iconosDe([h])}
-  </div>`;
+    ${chkHallazgo(h)}${inputValor(h)}
+  </div>${iconosDe([h])}`;
 }
 
 function tablaCargos(cargos) {
