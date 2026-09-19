@@ -267,7 +267,41 @@ def hallazgos():
     # incrementos que hay hoy para eso mismo. Es la columna "Pasada" de la
     # tarjeta, y se mira en vivo porque es lo que se va a pisar.
     salida = contexto.completar_actual([h.to_dict() for h in filas])
-    return jsonify({'hallazgos': salida, 'fuera_del_rango': fuera})
+
+    # Lo que ya esta igual en el portal se da por hecho. Daniela suele cargar
+    # la tarifa a mano apenas llega el correo, y la propuesta del agente
+    # llega despues repetida: queda como 'resuelto' y sale de la lista, en
+    # vez de mostrarse como si fuera un cambio.
+    por_id = {h.id: h for h in filas}
+    resueltas, vigentes = 0, []
+    for d in salida:
+        if d['estado'] == 'pendiente' and _ya_cuadra(d):
+            por_id[d['id']].estado = 'resuelto'
+            resueltas += 1
+        else:
+            vigentes.append(d)
+    if resueltas:
+        db.session.commit()
+    return jsonify({'hallazgos': vigentes, 'fuera_del_rango': fuera, 'resueltas': resueltas})
+
+
+def _numero(valor):
+    try:
+        return float(str(valor).replace(',', '.'))
+    except (TypeError, ValueError):
+        return None
+
+
+def _ya_cuadra(d):
+    """True si lo que propone el correo ya esta asi en el portal."""
+    nuevo = _numero(d.get('valor_nuevo'))
+    if nuevo is None:
+        return False
+    actual = d.get('actual') or {}
+    hoy = _numero({'tarifa': actual.get('tarifa'),
+                   'fsc': actual.get('fsc'),
+                   'cargo': actual.get('monto')}.get(d.get('tipo')))
+    return hoy is not None and abs(hoy - nuevo) < 0.005
 
 
 @agente_lux_bp.route('/api/hallazgos/decidir', methods=['POST'])
@@ -278,7 +312,9 @@ def decidir():
     ids = data.get('ids') or []
     decision = data.get('decision')
 
-    if decision not in ('aprobado', 'rechazado', 'pendiente'):
+    # 'resuelto' es "ya lo vi / ya lo hice a mano": sale de la lista sin
+    # aplicar nada, igual que rechazar, pero queda claro que no se descarto.
+    if decision not in ('aprobado', 'rechazado', 'pendiente', 'resuelto'):
         return jsonify({'error': 'Decision invalida.'}), 400
     if not ids:
         return jsonify({'error': 'No se recibio ningun hallazgo.'}), 400

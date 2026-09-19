@@ -85,6 +85,20 @@ tarifa vigente del trayecto. El campo `es_reserva_o_guia` marca esos correos,
 y aplica incluso cuando el hilo lo abrió Daniela: "RE: RESERVA CONFIRMADA"
 sigue siendo una reserva. `cargar` también los deja como `info`.
 
+**Ni de más ni de menos.** Daniela revisa la lista como pendientes: cada
+correo de tarifas tiene que producir exactamente lo que trae, sin inventar y
+sin dejar fuera nada.
+- Si el correo cotiza un destino que sí tiene cotización pero la aerolínea
+  no está en ella, o trae un tramo de kilos que no existe, propón igual
+  `tipo: "tarifa"` con ese `cot_id` y `kg`: el portal lo muestra como
+  "Agregar". No lo conviertas en `info` por eso.
+- Si el mismo correo aparece dos veces (Outlook lo archivó en dos carpetas),
+  analízalo una sola vez con la aerolínea que corresponda por remitente y
+  contenido, y para la copia repetida no generes ningún hallazgo: solo su
+  resumen diciendo que es una copia.
+- `confianza` sigue existiendo para tus alertas, pero el portal ya no la
+  muestra: no la uses como excusa para proponer a medias.
+
 **Solo vale lo más reciente.** Una tarifa o un FSC de hace un mes no le sirve
 de nada a Daniela. Si dos correos hablan de la misma aerolínea + destino + tier,
 propón **únicamente el del correo más nuevo** y no menciones el viejo como

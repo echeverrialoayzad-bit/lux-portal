@@ -25,29 +25,32 @@
      leer va en iconos con su tooltip debajo del destino. Al final, los
      cargos adicionales en su propia tabla. Es ancho a proposito y en
      pantallas chicas se desplaza de lado. */
-  .al-cuadro { width:100%; min-width:920px; border-collapse:collapse; table-layout:fixed;
-               font-size:.82rem; background:#fff; color:#000; }
+  /* El base limita la pagina a 1240px; el cuadro necesita todo el ancho. */
+  .container-fluid.py-4 { max-width: none !important; }
+  .al-cuadro { width:100%; min-width:1100px; border-collapse:collapse; table-layout:fixed;
+               font-size:.92rem; background:#fff; color:#000; }
   .al-cuadro th, .al-cuadro td { border:1px solid #000; padding:.25rem .45rem; vertical-align:middle; text-align:center; }
   .al-cuadro-titulo { text-align:center; background:#7030a0; color:#fff; font-size:.95rem; font-weight:700; }
   .al-cuadro-cols th, .al-sub td { text-align:center; background:#e2efda; color:#000; font-weight:400;
-                                   font-size:.8rem; padding:.15rem .45rem; }
+                                   font-size:.86rem; padding:.15rem .45rem; }
   .al-cuadro-morado th { text-align:center; background:#7030a0; color:#fff; font-weight:700; }
   .al-sub td.al-blanco, .al-sub td.al-destino { background:#fff; }
   .al-destino { text-align:center; }
-  .al-destino-nombre { font-weight:700; font-size:.95rem; }
+  .al-destino-nombre { font-weight:700; font-size:1.08rem; }
   .al-col-kg { text-align:center; font-weight:700; }
   .al-tag { font-size:.62rem; }
-  .al-iconos { font-size:.95rem; }
-  .al-correo { font-size:.78rem; margin-top:.25rem; line-height:1.2; overflow-wrap:anywhere; }
+  .al-iconos { font-size:1rem; }
+  .al-hecho { font-size:.78rem; }
+  .al-correo { font-size:.84rem; margin-top:.3rem; line-height:1.25; overflow-wrap:anywhere; }
   .al-correo a { font-weight:600; }
   .al-resumen td { vertical-align:top; }
-  .al-resumen .badge { font-size:.72rem; min-width:84px; }
+  .al-resumen .badge { font-size:.78rem; min-width:92px; }
   .al-resumen .al-correo { margin-top:0; }
   .al-v { font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
-  .al-hint { font-size:.7rem; color:#666; }
-  .al-linea { display:flex; align-items:center; justify-content:center; gap:.3rem; min-height:31px; }
-  .al-inp-fecha { width:128px; }
-  .al-cuadro .al-val-nuevo { width:84px; }
+  .al-hint { font-size:.76rem; color:#666; }
+  .al-linea { display:flex; align-items:center; justify-content:center; gap:.35rem; min-height:34px; }
+  .al-inp-fecha { width:142px; }
+  .al-cuadro .al-val-nuevo { width:96px; }
   .al-vacio { padding:2.5rem 1rem; text-align:center; color:#8a8a8a; }
   .al-abrir { cursor:pointer; }
   .al-abrir:hover { color: var(--fw-purple, #4535a8); text-decoration: underline; }
@@ -160,8 +163,8 @@
         <div id="cuerpo-hallazgos" class="p-2" style="overflow-x:auto;"></div>
         <div id="hallazgos-vacio" class="al-vacio">
           <i class="bi bi-inbox fs-3 d-block mb-2"></i>
-          No hay cambios propuestos en estas fechas.<br>
-          <span class="small">Cuando llegue una respuesta de tarifas o un aviso de FSC, aparece aquí.</span>
+          No hay cambios pendientes.<br>
+          <span class="small">Cuando llegue una respuesta de tarifas o un aviso de FSC, aparece aquí y se queda hasta que lo apliques o lo marques hecho.</span>
         </div>
       </div>
 
@@ -711,15 +714,31 @@ function celdaDestino(b) {
     : (h.destino || '—');
   const errores = filas.filter(x => x.error)
     .map(x => (filas.length > 1 && (x.detalle || {}).kg ? x.detalle.kg + ': ' : '') + x.error).join('\n');
-  const confianzas = [...new Set(filas.map(x => (x.confianza || '').toLowerCase()).filter(Boolean))].join(' / ');
-  // Solo el IATA de destino y sus avisos: el correo va en la celda Fecha del
-  // lado Actual, que es de donde sale el valor nuevo.
+  // Solo el IATA de destino, sus avisos y el boton "hecho": el correo va en
+  // la celda Fecha del lado Actual, que es de donde sale el valor nuevo.
   return `
     <div class="al-destino-nombre">${escapar(destino)}</div>
-    ${b.tipo !== 'tarifa' ? `<span class="badge ${color} al-tag">${etiqueta}</span>` : ''}
     <div class="mt-1">${iconosAviso(filas)}</div>
-    ${confianzas ? `<div class="al-hint text-uppercase">${escapar(confianzas)}</div>` : ''}
+    ${enlaceHecho(filas)}
     ${errores ? `<div class="text-danger small mt-1">${escapar(errores)}</div>` : ''}`;
+}
+
+// "Hecho" saca el bloque de la lista sin aplicar nada: para lo que Daniela
+// ya cargo a mano o ya vio y no va a cambiar. Lo aplicado sale solo.
+function enlaceHecho(filas) {
+  const ids = escapar(JSON.stringify(filas.map(x => x.id)));
+  return `<div class="mt-1"><a href="#" class="al-hecho text-decoration-none text-success"
+      title="Quitar de la lista sin cambiar nada en el portal" onclick='marcarHecho(${ids}); return false;'>
+      <i class="bi bi-check2-circle"></i> hecho</a></div>`;
+}
+
+async function marcarHecho(ids) {
+  if (!confirm('Se quita de la lista sin cambiar nada en el portal. ¿Continuar?')) return;
+  await fetch('{{ url_for("agente_lux.decidir") }}', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ ids, decision: 'resuelto' })
+  });
+  cargarHallazgos();
 }
 
 function inputVigencia(vig, fechaCorreo, idsAttr) {
@@ -916,7 +935,7 @@ function celdaCargo(h) {
   return `<div class="al-linea">
     <span class="al-v">${val(pasada)}</span><span class="al-hint">→</span>
     ${chkHallazgo(h)}${inputValor(h)}
-  </div>${mismoNum(pasada, h.valor_nuevo) ? '<div class="al-hint">ya está así en el portal</div>' : ''}${iconosDe([h])}`;
+  </div>${mismoNum(pasada, h.valor_nuevo) ? '<div class="al-hint">ya está así en el portal</div>' : ''}${iconosDe([h])}${enlaceHecho([h])}`;
 }
 
 function tablaCargos(cargos) {
@@ -1007,14 +1026,12 @@ function tablaResumen(grupos) {
   grupos.forEach(g => g.bloques.forEach(b => {
     const h = b.filas[0], d = h.detalle || {};
     const { estado, lineas } = estadoBloque(b);
-    const [etiqueta, color] = ETIQUETA_TIPO[b.tipo] || ['Otro', 'bg-secondary'];
     const destino = b.tipo === 'fsc'
       ? (d.destinos && d.destinos.length ? d.destinos.join(', ') : 'Todos los destinos')
       : b.tipo === 'cargo' ? (d.concepto || '') : (h.destino || '');
     filas.push({ orden: ESTADOS[estado][2], estado, html: `<tr>
       <td class="text-center"><span class="badge ${ESTADOS[estado][1]}">${ESTADOS[estado][0]}</span></td>
-      <td><strong>${escapar(g.aerolinea)}</strong>${destino ? ' · ' + escapar(destino) : ''}
-          ${b.tipo !== 'tarifa' ? ` <span class="badge ${color} al-tag">${etiqueta}</span>` : ''}</td>
+      <td><strong>${escapar(g.aerolinea)}</strong>${destino ? ' · ' + escapar(destino) : ''}</td>
       <td>${lineas.map(l => `<div>${escapar(l)}</div>`).join('')}</td>
       <td>${iconosDe(b.filas)}</td>
     </tr>` });
@@ -1054,9 +1071,11 @@ function pintarHallazgos() {
   actualizarBotonAplicar();
 }
 
+// Actualizaciones no depende del rango de fechas: es la lista de lo que
+// falta hacer, de cualquier fecha, hasta que se aplique, se marque hecho o
+// la tarifa ya este igual en el portal (entonces sale sola).
 async function cargarHallazgos() {
-  const rg = rango();
-  const r = await fetch('{{ url_for("agente_lux.hallazgos") }}?estado=pendiente,aprobado&desde=' + rg.desde + '&hasta=' + rg.hasta);
+  const r = await fetch('{{ url_for("agente_lux.hallazgos") }}?estado=pendiente,aprobado');
   const d = await r.json();
   const filas = d.hallazgos || [];
   hallazgosEnPantalla = filas;
@@ -1067,10 +1086,10 @@ async function cargarHallazgos() {
 
   const porTipo = {};
   filas.forEach(h => { porTipo[h.tipo] = (porTipo[h.tipo] || 0) + 1; });
-  const fuera = d.fuera_del_rango ? ` · ${d.fuera_del_rango} más de otras fechas (amplía el rango para verlas)` : '';
+  const hechas = d.resueltas ? ` · ${d.resueltas} ya estaban iguales en el portal y se dieron por hechas` : '';
   document.getElementById('resumen-hallazgos').textContent = (filas.length
     ? Object.entries(porTipo).map(([t, n]) => `${n} ${ETIQUETA_TIPO[t] ? ETIQUETA_TIPO[t][0] : t}`).join(' · ')
-    : `Sin cambios propuestos ${esHoy() ? 'hoy' : textoRango()}`) + fuera;
+    : 'Nada pendiente') + hechas;
 
   avisarViejas(filas);
 }
