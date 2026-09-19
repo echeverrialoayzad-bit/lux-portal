@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta
 from flask import render_template, request, jsonify, Response
 
 from lux_portal.agente_lux import agente_lux_bp
-from lux_portal.agente_lux import contexto, reglas
+from lux_portal.agente_lux import contexto, reglas, vigencia
 from lux_portal.agente_lux.aplicar import aplicar_hallazgo
 from lux_portal.agente_lux.models import (
     AgenteCuenta, AgenteMail, AgenteHallazgo, AgenteAdjunto, AgenteEnvio,
@@ -263,7 +263,11 @@ def hallazgos():
                  .filter(AgenteHallazgo.estado.in_([e.strip() for e in estados if e.strip()]))
                  .count())
         fuera = max(total - len(filas), 0)
-    return jsonify({'hallazgos': [h.to_dict() for h in filas], 'fuera_del_rango': fuera})
+    # Cada propuesta lleva ademas `actual`: la fecha, tarifa, FSC e
+    # incrementos que hay hoy para eso mismo. Es la columna "Pasada" de la
+    # tarjeta, y se mira en vivo porque es lo que se va a pisar.
+    salida = contexto.completar_actual([h.to_dict() for h in filas])
+    return jsonify({'hallazgos': salida, 'fuera_del_rango': fuera})
 
 
 @agente_lux_bp.route('/api/hallazgos/decidir', methods=['POST'])
@@ -322,6 +326,16 @@ def editar():
         detalle.pop('regla_id', None)
         hallazgo.destino = ', '.join(destinos)
 
+    # Lo que Daniela corrige en el cuadro Pasada/Nuevo de la tarjeta: desde
+    # cuando rige lo nuevo, y los incrementos por temporada (cuanto sube y
+    # desde/hasta cuando). Vacio significa "quitar".
+    for clave in ('vigencia_desde', 'vigencia_hasta'):
+        if clave in data:
+            detalle[clave] = data[clave]
+    if 'incrementos' in data:
+        detalle['incrementos'] = data['incrementos']
+    vigencia.normalizar_detalle(detalle)
+
     hallazgo.detalle = detalle
     hallazgo.alerta = reglas.revisar({
         'tipo': hallazgo.tipo,
@@ -329,7 +343,8 @@ def editar():
         'detalle': detalle,
     })
     db.session.commit()
-    return jsonify({'ok': True, 'hallazgo': hallazgo.to_dict()})
+    return jsonify({'ok': True,
+                    'hallazgo': contexto.completar_actual([hallazgo.to_dict()])[0]})
 
 
 @agente_lux_bp.route('/api/aplicar', methods=['POST'])

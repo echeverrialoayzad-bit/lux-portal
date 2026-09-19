@@ -10,6 +10,7 @@ aprobo el hallazgo explicitamente en la pantalla de revision.
 from datetime import datetime
 
 from lux_portal.extensions import db
+from lux_portal.agente_lux import contexto, vigencia
 from lux_portal.agente_lux.reglas import TIPOS_SOLO_INFORMATIVOS
 
 
@@ -26,6 +27,13 @@ def aplicar_hallazgo(hallazgo):
     No hace commit: el caller decide cuando confirmar toda la tanda."""
     if hallazgo.tipo in TIPOS_SOLO_INFORMATIVOS:
         return False, 'Este hallazgo es informativo y no se aplica automaticamente.'
+
+    # Foto de lo que habia justo antes de escribir. Una vez aplicada, la
+    # tarjeta ya no puede mirar la cotizacion en vivo para la columna
+    # "Pasada" (ya tendria el valor nuevo): muestra esto.
+    detalle = hallazgo.detalle
+    detalle['actual'] = contexto.actual_de(hallazgo)
+    hallazgo.detalle = detalle
 
     if hallazgo.tipo == 'tarifa':
         return _aplicar_tarifa(hallazgo)
@@ -63,6 +71,12 @@ def _aplicar_tarifa(hallazgo):
     hoy = datetime.now().strftime('%Y-%m-%d')
     tocado = False
 
+    # El incremento por temporada que anuncio el correo va al campo Rate
+    # Increase de la cotizacion (sale en el PDF y en el Excel), que es donde
+    # Daniela lo escribia a mano. Si la propuesta no trae incremento, lo que
+    # tenga la cotizacion se deja como esta.
+    rate_increases = vigencia.rate_increases_de(detalle.get('incrementos'))
+
     for aero in aerolineas:
         if normalizar_aerolinea(aero.get('aerolinea', '')) != objetivo:
             continue
@@ -85,13 +99,20 @@ def _aplicar_tarifa(hallazgo):
         if tocado:
             aero['kg_rates'] = kg_rates
             aero['fecha_actualizacion'] = hoy
+            if rate_increases:
+                aero['rate_increases'] = rate_increases
 
     if not tocado:
         return False, (f'No se encontro {objetivo} {kg_objetivo} en la '
                        f'cotizacion {cot_id}.')
 
     cot.aerolineas = aerolineas
-    return True, f'Cotizacion {cot_id}: {objetivo} {kg_objetivo} -> {tarifa_nueva:.2f}'
+    mensaje = f'Cotizacion {cot_id}: {objetivo} {kg_objetivo} -> {tarifa_nueva:.2f}'
+    if rate_increases:
+        mensaje += ' · incremento por temporada guardado en Rate Increase: ' + ', '.join(
+            f"{ri['amount']} ({ri['date']})" if ri['date'] else ri['amount']
+            for ri in rate_increases)
+    return True, mensaje
 
 
 # ---------------------------------------------------------------------------

@@ -386,6 +386,9 @@ PROMPT_ANALISIS = (
     'de tarifa que la aerolinea mando por su cuenta va como tipo info. El FSC '
     'si puede venir directo. De cada tarifa o FSC solo vale el correo mas '
     'reciente, y en los hallazgos de FSC el campo destinos es obligatorio. '
+    'Si el correo dice desde cuando rige lo nuevo o anuncia incrementos por '
+    'temporada (peak season, PSS), ponlos en detalle.vigencia_desde y '
+    'detalle.incrementos (monto, desde, hasta). '
     'No corras ningun comando ni modifiques nada mas: tu unica salida es ese '
     'archivo.'
 )

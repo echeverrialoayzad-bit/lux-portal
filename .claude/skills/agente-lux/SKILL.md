@@ -99,6 +99,26 @@ aplica.
 `cargar` también deduplica por su cuenta y descarta lo superado, pero no cuentes
 con eso: es una red de seguridad, no un sustituto de mirar las fechas.
 
+**Vigencia e incrementos por temporada.** La tarjeta del portal muestra, para
+cada propuesta, un cuadro Pasada / Nuevo con fecha, tarifa y FSC, y abajo una
+fila "Incremento por temporada". Llena estos campos del `detalle` cuando el
+correo lo diga (valen en cualquier tipo de hallazgo):
+
+- `vigencia_desde` (y `vigencia_hasta` si la hay), en `AAAA-MM-DD`: desde
+  cuándo rige la tarifa o el FSC nuevo según el correo ("effective Oct 1st",
+  "a partir del 15 de enero"). Si el correo no lo dice, **no lo pongas**: el
+  portal usa la fecha del correo y lo aclara.
+- `incrementos`: lista, un objeto por cada incremento que anuncie el correo:
+  `{"monto": 0.30, "desde": "2027-01-15", "hasta": "2027-02-14", "nota": "Peak season Valentine"}`.
+  Busca "peak season", "PSS", "high season", "incremento por temporada",
+  "Valentine's", "Mother's Day", "rate increase". `monto` es USD por kilo que
+  se suma a la tarifa. Si el correo da la temporada sin fechas exactas, pon
+  las que se deduzcan y explícalo en `nota`. Al aplicar la tarifa, el portal
+  los escribe en el campo Rate Increase de la cotización.
+- `fsc_correo` (opcional, solo en `tarifa`): el FSC que el correo menciona al
+  lado de la tarifa ("+25awc", "FSC 0.54"), para verlo junto a ella. Si el
+  FSC de verdad cambia, además va como hallazgo `fsc` aparte, como siempre.
+
 **FSC — el error más caro.** `detalle.destinos` es obligatorio y explícito:
 - `[]` significa **TODOS los destinos de esa aerolínea**.
 - `["MAD","LHR"]` significa solo esos trayectos.

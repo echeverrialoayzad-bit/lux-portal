@@ -229,11 +229,16 @@ class AgenteHallazgo(db.Model):
     """Un cambio propuesto por el analisis, pendiente de aprobacion.
 
     tipo:
-      'tarifa' -> detalle {cot_id, kg, tarifa_actual, tarifa_nueva}
+      'tarifa' -> detalle {cot_id, kg, tarifa_actual, tarifa_nueva, fsc_correo?}
       'fsc'    -> detalle {regla_id|None, aerolinea, nombre, destinos[], fsc_actual, fsc_nuevo}
       'cargo'  -> detalle {aerolinea, concepto, monto_actual, monto_nuevo}
       'dias'   -> detalle {aerolinea, dias_actual[], dias_nuevo[]}  (nunca se auto-aplica)
       'info'   -> solo informativo, no se aplica
+
+    En cualquier tipo, el detalle puede traer ademas (ver vigencia.py):
+      vigencia_desde / vigencia_hasta -> 'AAAA-MM-DD', desde cuando rige lo nuevo
+      incrementos[] -> [{monto, desde, hasta, nota}] incrementos por temporada
+      actual        -> foto de lo que habia antes de aplicar (la congela aplicar)
 
     destino == '' en un hallazgo de FSC significa la regla catch-all
     (todos los destinos de esa aerolinea)."""

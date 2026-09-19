@@ -65,7 +65,12 @@ FORMATO DE _agente_lux/hallazgos.json
         "cot_id": 7,                   // OBLIGATORIO en tipo=tarifa
         "kg": "+100",                  // OBLIGATORIO en tipo=tarifa
         "tarifa_nueva": 2.85,
-        "kg_rate_actual": {"tarifa":"3.00","margen":"0.00","costo_operativo":"0.09","fsc":"0.10"}
+        "kg_rate_actual": {"tarifa":"3.00","margen":"0.00","costo_operativo":"0.09","fsc":"0.10"},
+        "fsc_correo": 0.10,            // opcional: el FSC que el correo menciona junto a la tarifa
+        "vigencia_desde": "2026-04-01",  // opcional: desde cuando rige, SOLO si el correo lo dice
+        "incrementos": [               // opcional: incrementos por temporada que anuncia el correo
+          {"monto": 0.30, "desde": "2027-01-15", "hasta": "2027-02-14", "nota": "Peak season Valentine"}
+        ]
       }
     },
     {
@@ -99,6 +104,10 @@ Notas importantes para quien genere ese JSON:
     como tipo "info" con alerta: se ve en el portal, pero no se aplica.
   - El FSC es la excepcion: las aerolineas lo mandan directo, sin solicitud.
   - cot_id y kg se sacan de estado_actual.cotizaciones en pendientes.json.
+  - vigencia_desde e incrementos valen en cualquier tipo. Las fechas van en
+    AAAA-MM-DD; `cargar` tambien entiende DD/MM/AAAA. Un incremento sin
+    monto se descarta. Al aplicar una tarifa, los incrementos se escriben en
+    el campo Rate Increase de la cotizacion (sale en el PDF y en el Excel).
 """
 
 import argparse
@@ -544,7 +553,7 @@ def cmd_cargar(args):
     app = crear_app(resolver_db(args))
     from lux_portal.extensions import db
     from lux_portal.agente_lux.models import AgenteMail, AgenteHallazgo
-    from lux_portal.agente_lux import reglas
+    from lux_portal.agente_lux import reglas, vigencia
 
     with app.app_context():
         pendientes = {m.id: m for m in AgenteMail.query.filter_by(estado='pendiente').all()}
@@ -631,6 +640,9 @@ def cmd_cargar(args):
         con_alerta = 0
         for h in entrantes:
             detalle = h.get('detalle') or {}
+            # Fechas de vigencia e incrementos por temporada en un solo
+            # formato, vengan como vengan del analisis.
+            vigencia.normalizar_detalle(detalle)
             destino = h.get('destino') or ''
             if h.get('tipo') == 'fsc' and not destino:
                 destinos = detalle.get('destinos') or []
