@@ -502,6 +502,29 @@ def clave_hallazgo(tipo, aerolinea, detalle):
     return None   # los informativos no se deduplican
 
 
+def _compartir_vigencia(hallazgos):
+    """Los tramos de kilos de un mismo destino comparten vigencia e
+    incrementos por temporada: en la pantalla son un solo bloque, y al
+    aplicar cualquiera de ellos tiene que llevar el incremento a la
+    cotizacion. Si el analisis los puso en uno solo, se copian a los demas
+    de la misma aerolinea y cotizacion que no traigan los suyos."""
+    grupos = {}
+    for h in hallazgos:
+        if h.get('tipo') != 'tarifa':
+            continue
+        d = h.get('detalle') or {}
+        clave = ((h.get('aerolinea') or '').upper().strip(), str(d.get('cot_id') or ''))
+        grupos.setdefault(clave, []).append(h)
+    for miembros in grupos.values():
+        for campo in ('vigencia_desde', 'vigencia_hasta', 'incrementos'):
+            valor = next((m['detalle'][campo] for m in miembros
+                          if (m.get('detalle') or {}).get(campo)), None)
+            if valor is None:
+                continue
+            for m in miembros:
+                m.setdefault('detalle', {}).setdefault(campo, valor)
+
+
 def _quedarse_con_lo_mas_nuevo(hallazgos, fecha_de_mail):
     """De cada grupo de hallazgos equivalentes, deja solo el del correo mas
     reciente. Devuelve (vigentes, descartados)."""
@@ -635,14 +658,18 @@ def cmd_cargar(args):
                 previo.estado = 'descartado'
                 superados += 1
 
+        # Fechas de vigencia e incrementos por temporada en un solo formato,
+        # vengan como vengan del analisis, y compartidos entre los tramos de
+        # kilos de un mismo destino.
+        for h in entrantes:
+            h['detalle'] = vigencia.normalizar_detalle(h.get('detalle') or {})
+        _compartir_vigencia(entrantes)
+
         # Hallazgos
         n_hallazgos = 0
         con_alerta = 0
         for h in entrantes:
             detalle = h.get('detalle') or {}
-            # Fechas de vigencia e incrementos por temporada en un solo
-            # formato, vengan como vengan del analisis.
-            vigencia.normalizar_detalle(detalle)
             destino = h.get('destino') or ''
             if h.get('tipo') == 'fsc' and not destino:
                 destinos = detalle.get('destinos') or []

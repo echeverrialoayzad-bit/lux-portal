@@ -114,7 +114,9 @@ correo lo diga (valen en cualquier tipo de hallazgo):
   "Valentine's", "Mother's Day", "rate increase". `monto` es USD por kilo que
   se suma a la tarifa. Si el correo da la temporada sin fechas exactas, pon
   las que se deduzcan y explícalo en `nota`. Al aplicar la tarifa, el portal
-  los escribe en el campo Rate Increase de la cotización.
+  los escribe en el campo Rate Increase de la cotización. Los tramos de kilos
+  de un mismo destino comparten vigencia e incrementos: basta ponerlos en uno
+  de ellos y `cargar` los copia a los demás.
 - `fsc_correo` (opcional, solo en `tarifa`): el FSC que el correo menciona al
   lado de la tarifa ("+25awc", "FSC 0.54"), para verlo junto a ella. Si el
   FSC de verdad cambia, además va como hallazgo `fsc` aparte, como siempre.

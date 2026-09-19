@@ -300,51 +300,56 @@ def editar():
     Es la valvula de escape cuando el agente leyo mal un numero o cuando un
     FSC que vino como 'todos los destinos' en realidad aplica a algunos."""
     data = request.json or {}
-    hallazgo = AgenteHallazgo.query.get(data.get('id'))
-    if not hallazgo:
+    # Un bloque de la pantalla agrupa los tramos de kilos de un destino: la
+    # vigencia y los incrementos se editan para todos a la vez, con `ids`.
+    # El valor propuesto sigue siendo de a uno (`id`).
+    ids = data.get('ids') or ([data.get('id')] if data.get('id') else [])
+    filas = AgenteHallazgo.query.filter(AgenteHallazgo.id.in_(ids)).all() if ids else []
+    if not filas:
         return jsonify({'error': 'Hallazgo no encontrado.'}), 404
-    if hallazgo.estado == 'aplicado':
+    if any(h.estado == 'aplicado' for h in filas):
         return jsonify({'error': 'Ese hallazgo ya se aplico.'}), 400
 
-    detalle = hallazgo.detalle
+    for hallazgo in filas:
+        detalle = hallazgo.detalle
 
-    if 'valor_nuevo' in data:
-        valor = str(data['valor_nuevo']).strip()
-        hallazgo.valor_nuevo = valor
-        if hallazgo.tipo == 'tarifa':
-            detalle['tarifa_nueva'] = valor
-        elif hallazgo.tipo == 'fsc':
-            detalle['fsc_nuevo'] = valor
-        elif hallazgo.tipo == 'cargo':
-            detalle['monto_nuevo'] = valor
+        if 'valor_nuevo' in data and len(filas) == 1:
+            valor = str(data['valor_nuevo']).strip()
+            hallazgo.valor_nuevo = valor
+            if hallazgo.tipo == 'tarifa':
+                detalle['tarifa_nueva'] = valor
+            elif hallazgo.tipo == 'fsc':
+                detalle['fsc_nuevo'] = valor
+            elif hallazgo.tipo == 'cargo':
+                detalle['monto_nuevo'] = valor
 
-    if 'destinos' in data and hallazgo.tipo == 'fsc':
-        destinos = [d.strip().upper() for d in (data['destinos'] or []) if d and d.strip()]
-        detalle['destinos'] = destinos
-        # Cambiar el alcance implica que ya no aplica la regla que se habia
-        # emparejado: se vuelve a resolver al aplicar.
-        detalle.pop('regla_id', None)
-        hallazgo.destino = ', '.join(destinos)
+        if 'destinos' in data and hallazgo.tipo == 'fsc':
+            destinos = [d.strip().upper() for d in (data['destinos'] or []) if d and d.strip()]
+            detalle['destinos'] = destinos
+            # Cambiar el alcance implica que ya no aplica la regla que se
+            # habia emparejado: se vuelve a resolver al aplicar.
+            detalle.pop('regla_id', None)
+            hallazgo.destino = ', '.join(destinos)
 
-    # Lo que Daniela corrige en el cuadro Pasada/Nuevo de la tarjeta: desde
-    # cuando rige lo nuevo, y los incrementos por temporada (cuanto sube y
-    # desde/hasta cuando). Vacio significa "quitar".
-    for clave in ('vigencia_desde', 'vigencia_hasta'):
-        if clave in data:
-            detalle[clave] = data[clave]
-    if 'incrementos' in data:
-        detalle['incrementos'] = data['incrementos']
-    vigencia.normalizar_detalle(detalle)
+        # Lo que Daniela corrige en el cuadro Pasada/Actual: desde cuando
+        # rige lo nuevo, y los incrementos por temporada (cuanto sube y
+        # desde/hasta cuando). Vacio significa "quitar".
+        for clave in ('vigencia_desde', 'vigencia_hasta'):
+            if clave in data:
+                detalle[clave] = data[clave]
+        if 'incrementos' in data:
+            detalle['incrementos'] = data['incrementos']
+        vigencia.normalizar_detalle(detalle)
 
-    hallazgo.detalle = detalle
-    hallazgo.alerta = reglas.revisar({
-        'tipo': hallazgo.tipo,
-        'destino': hallazgo.destino,
-        'detalle': detalle,
-    })
+        hallazgo.detalle = detalle
+        hallazgo.alerta = reglas.revisar({
+            'tipo': hallazgo.tipo,
+            'destino': hallazgo.destino,
+            'detalle': detalle,
+        })
     db.session.commit()
-    return jsonify({'ok': True,
-                    'hallazgo': contexto.completar_actual([hallazgo.to_dict()])[0]})
+    salida = contexto.completar_actual([h.to_dict() for h in filas])
+    return jsonify({'ok': True, 'hallazgo': salida[0], 'hallazgos': salida})
 
 
 @agente_lux_bp.route('/api/aplicar', methods=['POST'])

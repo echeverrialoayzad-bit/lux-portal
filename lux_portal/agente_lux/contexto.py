@@ -149,7 +149,10 @@ def _actual_tarifa(h, cots, reglas):
     """Fecha, tarifa, FSC e incrementos que tiene hoy la cotizacion para la
     aerolinea y el tramo de kilos del hallazgo."""
     detalle = h.get('detalle') or {}
-    salida = {'fecha': None, 'tarifa': None, 'fsc': None, 'incrementos': []}
+    # fsc_origen dice de donde salio el FSC de hoy: 'cotizacion' (el tramo
+    # de kilos lo trae, y entonces vale la fecha de la cotizacion) o 'regla'
+    # (la tabla maestra, que no guarda fecha).
+    salida = {'fecha': None, 'tarifa': None, 'fsc': None, 'fsc_origen': None, 'incrementos': []}
     cot = cots.get(detalle.get('cot_id'))
     if cot is not None:
         objetivo = _normalizar_aerolinea(h.get('aerolinea') or '')
@@ -167,6 +170,8 @@ def _actual_tarifa(h, cots, reglas):
                 if _normalizar_kg(kr.get('kg')) == kg_objetivo:
                     salida['tarifa'] = kr.get('tarifa') or None
                     salida['fsc'] = kr.get('fsc') or None
+                    if salida['fsc']:
+                        salida['fsc_origen'] = 'cotizacion'
                     break
             break
     # En muchas cotizaciones el FSC del tramo esta en 0 o vacio y el vigente
@@ -175,6 +180,7 @@ def _actual_tarifa(h, cots, reglas):
         por_regla = _fsc_por_regla(h.get('aerolinea'), h.get('destino'), reglas)
         if por_regla is not None:
             salida['fsc'] = por_regla
+            salida['fsc_origen'] = 'regla'
     return salida
 
 

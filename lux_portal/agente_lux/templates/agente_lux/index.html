@@ -17,22 +17,30 @@
   #cuerpo-hallazgos input[type=number]::-webkit-outer-spin-button,
   #cuerpo-hallazgos input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   #cuerpo-hallazgos input[type=number] { -moz-appearance:textfield; appearance:textfield; }
-  /* El cuadro Pasada / Nuevo de cada propuesta: la aerolinea arriba, una
-     columna con lo que hay hoy y otra con lo que propone el correo (fecha,
-     tarifa, FSC), y abajo el incremento por temporada. Es el formato que
-     Daniela pidio (su tabla de Excel), asi que se dibuja como tabla. */
-  .al-cuadro { width:100%; border-collapse:collapse; table-layout:fixed; font-size:.82rem; }
-  .al-cuadro th, .al-cuadro td { border:1px solid #d9d9e3; padding:.35rem .55rem; vertical-align:top; }
-  .al-cuadro-titulo { text-align:center; background:#efedf8; font-size:.9rem; }
-  .al-cuadro-col { text-align:center; font-weight:600; background:#f8f8fb; color:#5b5b7a; }
+  /* El cuadro de Actualizaciones es el de Excel de Daniela: una tabla por
+     aerolinea; adentro, un bloque por destino con columnas Pasada / Fecha /
+     Actual / Fecha para la tarifa (una fila por tramo de kilos), el FSC y el
+     incremento por temporada. Sin texto al lado: lo que hay que leer va en
+     iconos con su tooltip debajo del destino. Es ancho a proposito y en
+     pantallas chicas se desplaza de lado. */
+  .al-cuadro { width:100%; min-width:920px; border-collapse:collapse; table-layout:fixed;
+               font-size:.82rem; background:#fff; }
+  .al-cuadro th, .al-cuadro td { border:1px solid #d9d9e3; padding:.3rem .5rem; vertical-align:middle; }
+  .al-cuadro-titulo { text-align:center; background:#efedf8; font-size:.95rem; font-weight:700; }
+  .al-cuadro-cols th { text-align:center; font-weight:600; background:#f8f8fb; color:#5b5b7a; }
   .al-cuadro-nuevo { color: var(--fw-purple, #4535a8); }
-  .al-cuadro tfoot td { background:#fffbea; }
-  .al-k { display:block; font-size:.66rem; text-transform:uppercase; letter-spacing:.04em; color:#8a8aa0; }
+  .al-sub td { text-align:center; font-weight:600; background:#f8f8fb; color:#5b5b7a; font-size:.72rem;
+               text-transform:uppercase; letter-spacing:.04em; padding:.12rem .5rem; }
+  .al-destino { text-align:center; background:#fcfcfe; }
+  .al-destino-nombre { font-weight:700; font-size:.95rem; }
+  .al-tag { font-size:.62rem; }
+  .al-iconos { font-size:.95rem; }
   .al-v { font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+  .al-kg { font-size:.7rem; color:#8a8aa0; min-width:42px; }
   .al-hint { font-size:.7rem; color:#8a8aa0; }
-  .al-inp-fecha { width:150px; display:inline-block; }
-  .al-cuadro .al-val-nuevo { display:inline-block; }
-  .al-inc + .al-inc { margin-top:.25rem; }
+  .al-linea { display:flex; align-items:center; gap:.3rem; min-height:31px; }
+  .al-inp-fecha { width:128px; }
+  .al-cuadro .al-val-nuevo { width:84px; }
   .al-vacio { padding:2.5rem 1rem; text-align:center; color:#8a8a8a; }
   .al-abrir { cursor:pointer; }
   .al-abrir:hover { color: var(--fw-purple, #4535a8); text-decoration: underline; }
@@ -141,8 +149,8 @@
             </button>
           </div>
         </div>
-        <!-- Una tarjeta por propuesta, con el cuadro Pasada / Nuevo. -->
-        <div id="cuerpo-hallazgos" class="p-2"></div>
+        <!-- Una tabla por aerolinea, con un bloque por destino (Pasada / Actual). -->
+        <div id="cuerpo-hallazgos" class="p-2" style="overflow-x:auto;"></div>
         <div id="hallazgos-vacio" class="al-vacio">
           <i class="bi bi-inbox fs-3 d-block mb-2"></i>
           No hay cambios propuestos en estas fechas.<br>
@@ -580,18 +588,8 @@ const ETIQUETA_TIPO = {
   info:   ['Info',        'bg-light text-dark border']
 };
 
-// Una tarifa de hace un mes casi nunca sigue vigente: hay que poder verlo
-// de un vistazo sin abrir el correo.
-function etiquetaAntiguedad(dias) {
-  if (dias == null) return '';
-  if (dias <= 1)  return '<span class="badge bg-success">hoy</span>';
-  if (dias <= 7)  return `<span class="badge bg-light text-dark border">hace ${dias} días</span>`;
-  if (dias <= 21) return `<span class="badge bg-warning text-dark">hace ${dias} días</span>`;
-  return `<span class="badge bg-danger">hace ${dias} días — ¿sigue vigente?</span>`;
-}
-
-// Fecha sin hora ni dia de la semana, "12 ago 2026": para el cuadro
-// Pasada / Nuevo, donde lo que importa es desde cuando rige cada valor.
+// Fecha sin hora ni dia de la semana, "12 ago 2026": en el cuadro lo que
+// importa es desde cuando rige cada valor.
 function fechaDia(f) {
   const p = partesFecha(f);
   if (!p) return escapar(f || '—');
@@ -604,20 +602,43 @@ const val = v => (v == null || v === '') ? GUION : escapar(v);
 // Una fecha guardada: en ISO se muestra bonita; si el analisis dejo un texto
 // que no pudo leer ("primera semana de octubre"), se muestra tal cual.
 const fechaTexto = v => v ? (ES_ISO.test(v) ? fechaDia(v) : escapar(v)) : '';
+const kgNum = kg => parseFloat(String(kg || '').replace(/[^\d.]/g, '')) || 0;
 
-// Las propuestas que estan en pantalla: la tarjeta de una tarifa busca aca si
-// el mismo correo trajo tambien un cambio de FSC para esa aerolinea.
+// Las propuestas que estan en pantalla. Se pintan como el cuadro de Excel
+// de Daniela: una tabla por aerolinea y adentro un bloque por destino. Los
+// tramos de kilos de un destino son filas del mismo bloque.
 let hallazgosEnPantalla = [];
 
+function agruparPorAerolinea(filas) {
+  const grupos = new Map();
+  filas.forEach(h => {
+    const aero = normAero(h.aerolinea) || 'SIN AEROLÍNEA';
+    if (!grupos.has(aero)) grupos.set(aero, { aerolinea: h.aerolinea || aero, bloques: new Map() });
+    const g = grupos.get(aero);
+    const d = h.detalle || {};
+    // Las tarifas de un destino (misma cotizacion) van juntas; lo demas es
+    // un bloque por propuesta.
+    const clave = h.tipo === 'tarifa' ? `tarifa|${d.cot_id || ''}|${normAero(h.destino)}` : `${h.tipo}|${h.id}`;
+    if (!g.bloques.has(clave)) g.bloques.set(clave, { tipo: h.tipo, filas: [] });
+    g.bloques.get(clave).filas.push(h);
+  });
+  return [...grupos.values()].map(g => ({
+    aerolinea: g.aerolinea,
+    bloques: [...g.bloques.values()].map(b => {
+      if (b.tipo === 'tarifa') b.filas.sort((x, y) => kgNum((x.detalle || {}).kg) - kgNum((y.detalle || {}).kg));
+      return b;
+    })
+  }));
+}
+
+// Si el mismo correo trajo tambien un cambio de FSC para esa aerolinea y ese
+// destino, va como propuesta aparte (su propio bloque) y aca se muestra al
+// lado de la tarifa para leerlo todo junto.
 function fscHermano(h, todas) {
   return (todas || []).find(x => x.tipo === 'fsc' && x.id !== h.id && x.mail_id === h.mail_id
     && normAero(x.aerolinea) === normAero(h.aerolinea)
     && (!((x.detalle || {}).destinos || []).length
         || ((x.detalle || {}).destinos || []).map(normAero).includes(normAero(h.destino))));
-}
-
-function celda(k, v, hint) {
-  return `<span class="al-k">${k}</span><span class="al-v">${v}</span>${hint ? `<div class="al-hint">${hint}</div>` : ''}`;
 }
 
 function textoRangoInc(i) {
@@ -627,197 +648,244 @@ function textoRangoInc(i) {
   return 'sin fechas';
 }
 
-// Una fila editable de incremento: monto por kilo, desde y hasta. La nota
+// El sobre que abre el correo: gris si es reciente, amarillo o rojo si es
+// viejo, porque una tarifa de hace un mes casi nunca sigue vigente.
+function tonoCorreo(dias) {
+  if (dias == null || dias <= 7) return ['text-muted', ''];
+  if (dias <= 21) return ['text-warning', ` · hace ${dias} días`];
+  return ['text-danger', ` · hace ${dias} días, ¿sigue vigente?`];
+}
+
+// La celda Destino de un bloque: el destino y, debajo, los iconos que
+// reemplazan al texto de la derecha que Daniela pidio quitar. Al pasar el
+// mouse se lee la descripcion o la alerta; el sobre abre el correo.
+function celdaDestino(b) {
+  const filas = b.filas, h = filas[0], d = h.detalle || {};
+  const [etiqueta, color] = ETIQUETA_TIPO[b.tipo] || ['Otro', 'bg-secondary'];
+  const destino = b.tipo === 'fsc'
+    ? (d.destinos && d.destinos.length ? d.destinos.join(', ') : 'Todos los destinos')
+    : b.tipo === 'cargo' ? (d.concepto || h.destino || '—') : (h.destino || '—');
+  const conKg = x => (filas.length > 1 && (x.detalle || {}).kg ? x.detalle.kg + ': ' : '');
+  const correos = new Map();
+  filas.forEach(x => { if (x.mail_id && !correos.has(x.mail_id)) correos.set(x.mail_id, x); });
+  const sobres = [...correos.values()].map(x => {
+    const [tono, extra] = tonoCorreo(x.mail_dias);
+    return `<a href="#" class="${tono} text-decoration-none me-1" onclick="verMail(${x.mail_id}); return false;"
+      title="${escapar((x.mail_asunto || '') + ' · ' + (x.mail_remitente || '') + ' · ' + fechaCorta(x.mail_fecha) + extra)}"><i class="bi bi-envelope"></i></a>`;
+  }).join('');
+  const textos = filas.filter(x => x.descripcion).map(x => conKg(x) + x.descripcion).join('\n');
+  const alertas = filas.filter(x => x.alerta).map(x => conKg(x) + x.alerta).join('\n');
+  const errores = filas.filter(x => x.error).map(x => conKg(x) + x.error).join('\n');
+  const confianzas = [...new Set(filas.map(x => (x.confianza || '').toLowerCase()).filter(Boolean))].join(' / ');
+  return `
+    <div class="al-destino-nombre">${escapar(destino)}</div>
+    ${b.tipo !== 'tarifa' ? `<span class="badge ${color} al-tag">${etiqueta}</span>` : ''}
+    <div class="al-iconos mt-1">
+      ${sobres}
+      ${textos ? `<i class="bi bi-info-circle text-muted me-1" title="${escapar(textos)}"></i>` : ''}
+      ${alertas ? `<i class="bi bi-exclamation-triangle-fill text-warning me-1" title="${escapar(alertas)}"></i>` : ''}
+    </div>
+    ${confianzas ? `<div class="al-hint text-uppercase">${escapar(confianzas)}</div>` : ''}
+    ${errores ? `<div class="text-danger small mt-1">${escapar(errores)}</div>` : ''}`;
+}
+
+function inputVigencia(vig, fechaCorreo, idsAttr) {
+  return (vig && !ES_ISO.test(vig))
+    ? `<input type="text" class="form-control form-control-sm al-inp-fecha inp-vigencia" data-ids="${idsAttr}" value="${escapar(vig)}">`
+    : `<input type="date" class="form-control form-control-sm al-inp-fecha inp-vigencia" data-ids="${idsAttr}"
+              value="${escapar(vig || fechaCorreo)}" title="Desde cuándo rige. Si el correo no lo dice, queda la fecha del correo.">`;
+}
+function hintVigencia(vig, hasta) {
+  return vig ? (hasta ? `rige hasta el ${fechaTexto(hasta)}` : 'según el correo') : 'fecha del correo';
+}
+function chkHallazgo(h) {
+  return `<input class="form-check-input chk-hallazgo m-0" type="checkbox" data-id="${h.id}"
+             ${h.estado === 'aprobado' ? 'checked' : ''} title="Marcar para aplicar">`;
+}
+function inputValor(h) {
+  return `<input type="number" step="0.01" class="form-control form-control-sm text-end al-val-nuevo inp-valor"
+             data-id="${h.id}" value="${escapar(h.valor_nuevo || '')}">`;
+}
+
+// Lineas del incremento por temporada, editables. Los montos van en una
+// celda y las fechas en la de al lado, emparejados por data-linea. La nota
 // que dejo el analisis viaja en data-nota para no perderla al guardar.
-function filaIncremento(i) {
-  i = i || {};
-  const inpFecha = (campo, v) => (v && !ES_ISO.test(v))
-    ? `<input type="text" class="form-control form-control-sm al-inp-fecha inp-inc" data-campo="${campo}" value="${escapar(v)}">`
-    : `<input type="date" class="form-control form-control-sm al-inp-fecha inp-inc" data-campo="${campo}" value="${escapar(v || '')}">`;
-  return `<div class="al-inc d-flex flex-wrap align-items-center gap-1" data-nota="${escapar(i.nota || '')}">
+function lineaIncMonto(i, k) {
+  return `<div class="al-linea" data-linea="${k}" data-nota="${escapar(i.nota || '')}">
     <span class="al-hint">+</span>
     <input type="number" step="0.01" min="0" class="form-control form-control-sm text-end al-val-nuevo inp-inc"
            data-campo="monto" placeholder="0.00" value="${escapar(i.monto || '')}" title="Cuánto sube por kilo (USD)">
-    <span class="al-hint">/kg · del</span> ${inpFecha('desde', i.desde)}
-    <span class="al-hint">al</span> ${inpFecha('hasta', i.hasta)}
-    <a href="#" class="text-danger text-decoration-none ms-1" title="Quitar este incremento"
+    <span class="al-hint">/kg</span>
+    ${i.nota ? `<i class="bi bi-info-circle al-hint" title="${escapar(i.nota)}"></i>` : ''}
+  </div>`;
+}
+function lineaIncFechas(i, k) {
+  const inp = (campo, v) => (v && !ES_ISO.test(v))
+    ? `<input type="text" class="form-control form-control-sm al-inp-fecha inp-inc" data-campo="${campo}" value="${escapar(v)}">`
+    : `<input type="date" class="form-control form-control-sm al-inp-fecha inp-inc" data-campo="${campo}" value="${escapar(v || '')}">`;
+  return `<div class="al-linea" data-linea="${k}">
+    <span class="al-hint">del</span>${inp('desde', i.desde)}<span class="al-hint">al</span>${inp('hasta', i.hasta)}
+    <a href="#" class="text-danger text-decoration-none" title="Quitar este incremento"
        onclick="quitarIncremento(this); return false;">&times;</a>
-    ${i.nota ? `<div class="al-hint w-100"><i class="bi bi-info-circle me-1"></i>${escapar(i.nota)}</div>` : ''}
   </div>`;
 }
 
-function tarjetaHallazgo(h, todas) {
-  const [etiqueta, color] = ETIQUETA_TIPO[h.tipo] || ['Otro', 'bg-secondary'];
-  const d = h.detalle || {};
-  const a = h.actual || {};
-  const alcance = h.tipo === 'fsc'
-      ? (d.destinos && d.destinos.length ? d.destinos.join(', ') : 'TODOS los destinos')
-      : h.tipo === 'cargo'
-        ? (d.concepto || h.destino || '—')
-        : (h.destino || '—');
-  const soloInfo = (h.tipo === 'dias' || h.tipo === 'info');
-  const editable = !soloInfo;
-  const inputValor = `<input type="number" step="0.01"
-        class="form-control form-control-sm text-end al-val-nuevo inp-valor"
-        value="${escapar(h.valor_nuevo || '')}">`;
+// Bloque de tarifas de un destino: una fila por tramo de kilos y, abajo, el
+// FSC y el incremento por temporada, cada uno con su lado Pasada y Actual.
+function bloqueTarifa(b, todas) {
+  const filas = b.filas, n = filas.length, primero = filas[0];
+  const ids = filas.map(x => x.id);
+  const idsAttr = escapar(JSON.stringify(ids));
+  const a = primero.actual || {};
+  const dVig = filas.find(x => (x.detalle || {}).vigencia_desde);
+  const vig = dVig ? dVig.detalle.vigencia_desde : '';
+  const dHasta = filas.find(x => (x.detalle || {}).vigencia_hasta);
+  const vigHasta = dHasta ? dHasta.detalle.vigencia_hasta : '';
+  const fechaCorreo = (primero.mail_fecha || '').slice(0, 10);
 
-  // --- Fecha: cuando se actualizo lo que hay, y desde cuando rige lo nuevo ---
-  const fechaPasada = a.fecha ? fechaDia(a.fecha) : GUION;
-  const hintPasada = a.fecha ? 'última actualización en la cotización'
-      : (h.tipo === 'tarifa' ? 'la cotización no tiene fecha para esta aerolínea' : '');
+  const filasTramo = filas.map((h, i) => {
+    const ha = h.actual || {};
+    const kg = (h.detalle || {}).kg || '';
+    const pasada = ha.tarifa != null ? ha.tarifa : h.valor_actual;
+    return `<tr data-id="${h.id}">
+      ${i === 0 ? `<td rowspan="${n + 4}" class="al-destino">${celdaDestino(b)}</td>` : ''}
+      <td><div class="al-linea"><span class="al-kg">${escapar(kg)}</span><span class="al-v">${val(pasada)}</span></div></td>
+      ${i === 0 ? `<td rowspan="${n}"><span class="al-v">${a.fecha ? fechaDia(a.fecha) : GUION}</span>
+          <div class="al-hint">${a.fecha ? 'última actualización en la cotización' : 'sin fecha en la cotización'}</div></td>` : ''}
+      <td><div class="al-linea">${chkHallazgo(h)}<span class="al-kg">${escapar(kg)}</span>${inputValor(h)}</div></td>
+      ${i === 0 ? `<td rowspan="${n}">${inputVigencia(vig, fechaCorreo, idsAttr)}<div class="al-hint">${hintVigencia(vig, vigHasta)}</div></td>` : ''}
+    </tr>`;
+  }).join('');
+
+  // FSC: el de hoy (de la cotizacion o de la regla) y el que trae el correo.
+  const fscActual = a.fsc != null ? a.fsc : (((primero.detalle || {}).kg_rate_actual || {}).fsc || null);
+  const fechaFscPasada = (a.fsc_origen === 'cotizacion' && a.fecha) ? fechaDia(a.fecha) : GUION;
+  const hintFscPasada = a.fsc_origen === 'regla' ? 'según la regla de FSC de la aerolínea' : '';
+  const hermano = fscHermano(primero, todas);
+  const dFsc = filas.find(x => (x.detalle || {}).fsc_correo != null && x.detalle.fsc_correo !== '');
+  let fscNuevo, hintFsc, fechaFscNueva;
+  if (hermano) {
+    fscNuevo = val(hermano.valor_nuevo);
+    hintFsc = 'propuesta aparte: está en su bloque FSC';
+    const hv = (hermano.detalle || {}).vigencia_desde;
+    fechaFscNueva = hv ? fechaTexto(hv) : fechaDia((hermano.mail_fecha || '').slice(0, 10));
+  } else if (dFsc) {
+    fscNuevo = val(dFsc.detalle.fsc_correo);
+    hintFsc = 'según el correo; la regla de FSC no cambia';
+    fechaFscNueva = vig ? fechaTexto(vig) : fechaDia(fechaCorreo);
+  } else {
+    fscNuevo = val(fscActual);
+    hintFsc = fscActual != null ? 'sin cambio' : '';
+    fechaFscNueva = GUION;
+  }
+  const filasFsc = `
+    <tr class="al-sub"><td colspan="2">FSC</td><td colspan="2" class="al-cuadro-nuevo">FSC</td></tr>
+    <tr>
+      <td><span class="al-v">${val(fscActual)}</span></td>
+      <td><span class="al-v">${fechaFscPasada}</span>${hintFscPasada ? `<div class="al-hint">${hintFscPasada}</div>` : ''}</td>
+      <td><span class="al-v">${fscNuevo}</span>${hintFsc ? `<div class="al-hint">${hintFsc}</div>` : ''}</td>
+      <td><span class="al-v">${fechaFscNueva}</span></td>
+    </tr>`;
+
+  // Incremento por temporada: el que ya tiene la cotizacion (Rate Increase)
+  // y el que anuncia el correo, editable. Al aplicar, el nuevo reemplaza al
+  // viejo en la cotizacion.
+  const incPasados = a.incrementos || [];
+  const conInc = filas.find(x => ((x.detalle || {}).incrementos || []).length);
+  const incs = conInc ? conInc.detalle.incrementos : [];
+  const lineasPasadas = fn => incPasados.length
+    ? incPasados.map(i => `<div class="al-linea">${fn(i)}</div>`).join('')
+    : `<div class="al-linea">${GUION}</div>`;
+  const filasInc = `
+    <tr class="al-sub"><td>Incremento</td><td>Fecha</td><td class="al-cuadro-nuevo">Incremento</td><td class="al-cuadro-nuevo">Fecha</td></tr>
+    <tr>
+      <td>${lineasPasadas(i => `<span class="al-v">${val(i.monto)}</span>`)}</td>
+      <td>${lineasPasadas(i => `<span class="al-v">${i.texto ? escapar(i.texto) : GUION}</span>`)}</td>
+      <td class="al-inc-montos">${incs.map(lineaIncMonto).join('')}
+        <a href="#" class="al-hint text-decoration-none" onclick="agregarIncremento(this); return false;">
+          <i class="bi bi-plus-lg"></i> ${incs.length ? 'otro incremento' : 'agregar incremento'}</a></td>
+      <td class="al-inc-fechas">${incs.map(lineaIncFechas).join('')}</td>
+    </tr>`;
+
+  return `<tbody class="al-bloque" data-ids="${idsAttr}">${filasTramo}${filasFsc}${filasInc}</tbody>`;
+}
+
+// Bloques de una sola propuesta: FSC, cargo, dias de salida e informativos.
+function bloqueSimple(b) {
+  const h = b.filas[0], d = h.detalle || {}, a = h.actual || {};
+  const idsAttr = escapar(JSON.stringify([h.id]));
   const vig = d.vigencia_desde || '';
   const fechaCorreo = (h.mail_fecha || '').slice(0, 10);
-  let fechaNueva;
-  if (editable) {
-    fechaNueva = (vig && !ES_ISO.test(vig))
-      ? `<input type="text" class="form-control form-control-sm al-inp-fecha inp-vigencia" value="${escapar(vig)}">`
-      : `<input type="date" class="form-control form-control-sm al-inp-fecha inp-vigencia" value="${escapar(vig || fechaCorreo)}"
-                title="Desde cuándo rige. Si el correo no lo dice, queda la fecha del correo.">`;
-  } else {
-    fechaNueva = vig ? fechaTexto(vig) : fechaDia(fechaCorreo);
-  }
-  const hintNueva = vig
-    ? (d.vigencia_hasta ? `rige hasta el ${fechaTexto(d.vigencia_hasta)}` : 'vigencia según el correo')
-    : 'fecha del correo: no dice desde cuándo rige';
+  const soloInfo = (b.tipo === 'dias' || b.tipo === 'info');
+  const pasada = b.tipo === 'fsc' ? (a.fsc != null ? a.fsc : h.valor_actual)
+               : b.tipo === 'cargo' ? (a.monto != null ? a.monto : h.valor_actual)
+               : h.valor_actual;
+  const actual = soloInfo
+    ? `<span class="al-v">${val(h.valor_nuevo)}</span><div class="al-hint">${b.tipo === 'dias' ? 'no se aplica solo' : 'solo informativo'}</div>`
+    : `<div class="al-linea">${chkHallazgo(h)}${inputValor(h)}</div>`;
+  const fechaNueva = soloInfo
+    ? `<span class="al-v">${vig ? fechaTexto(vig) : fechaDia(fechaCorreo)}</span>`
+    : inputVigencia(vig, fechaCorreo, idsAttr);
+  const hint = `<div class="al-hint">${hintVigencia(vig, d.vigencia_hasta)}</div>`;
+  const kg = d.kg ? `<span class="al-kg">${escapar(d.kg)}</span>` : '';
 
-  // --- Valor principal: tarifa, cargo, o el texto del aviso ---
-  let etqPasado = 'Tarifa pasada', etqNuevo = 'Tarifa nueva';
-  let valorPasado, valorNuevo, hintValor = '';
-  if (h.tipo === 'tarifa') {
-    valorPasado = val(a.tarifa != null ? a.tarifa : h.valor_actual);
-    valorNuevo = inputValor;
-  } else if (h.tipo === 'fsc') {
-    valorPasado = GUION; valorNuevo = GUION;
-    hintValor = 'este correo solo cambia el FSC';
-  } else if (h.tipo === 'cargo') {
-    etqPasado = 'Cargo pasado'; etqNuevo = 'Cargo nuevo';
-    valorPasado = val(a.monto != null ? a.monto : h.valor_actual);
-    valorNuevo = inputValor;
-  } else if (h.tipo === 'dias') {
-    etqPasado = 'Días de salida hoy'; etqNuevo = 'Días según el correo';
-    valorPasado = val(h.valor_actual); valorNuevo = val(h.valor_nuevo);
-    hintValor = 'no se aplica solo';
-  } else {
-    etqPasado = 'Valor hoy'; etqNuevo = 'Cifra del correo';
-    valorPasado = val(h.valor_actual); valorNuevo = val(h.valor_nuevo);
-    hintValor = 'solo informativo: no se aplica';
-  }
+  // Un aviso puede traer incrementos (un comunicado de peak season que no se
+  // aplica solo): se muestran, sin editar.
+  const incs = soloInfo ? (d.incrementos || []) : [];
+  const filasInc = incs.length ? `
+    <tr class="al-sub"><td>Incremento</td><td>Fecha</td><td class="al-cuadro-nuevo">Incremento</td><td class="al-cuadro-nuevo">Fecha</td></tr>
+    <tr>
+      <td>${GUION}</td><td>${GUION}</td>
+      <td>${incs.map(i => `<div class="al-linea"><span class="al-v">+${escapar(i.monto)}</span><span class="al-hint">/kg</span></div>`).join('')}</td>
+      <td>${incs.map(i => `<div class="al-linea"><span class="al-v">${textoRangoInc(i)}</span>${i.nota ? `<i class="bi bi-info-circle al-hint" title="${escapar(i.nota)}"></i>` : ''}</div>`).join('')}</td>
+    </tr>` : '';
 
-  // --- FSC: el de hoy y el que trae el correo (si trae) ---
-  let fscPasado, fscNuevo, hintFsc = '';
-  if (h.tipo === 'fsc') {
-    fscPasado = val(a.fsc != null ? a.fsc : h.valor_actual);
-    fscNuevo = inputValor;
-  } else if (h.tipo === 'tarifa') {
-    const fscActual = a.fsc != null ? a.fsc : ((d.kg_rate_actual || {}).fsc || null);
-    fscPasado = val(fscActual);
-    const hermano = fscHermano(h, todas);
-    if (hermano) {
-      fscNuevo = val(hermano.valor_nuevo);
-      hintFsc = 'viene como propuesta aparte en este mismo correo';
-    } else if (d.fsc_correo != null && d.fsc_correo !== '') {
-      fscNuevo = val(d.fsc_correo);
-      hintFsc = 'según el correo; la regla de FSC no cambia';
-    } else {
-      fscNuevo = val(fscActual);
-      hintFsc = fscActual != null ? 'sin cambio' : '';
-    }
-  } else {
-    fscPasado = GUION; fscNuevo = GUION;
-  }
-
-  // --- Incremento por temporada: cuanto sube y desde/hasta cuando ---
-  const incs = d.incrementos || [];
-  const incActual = (a.incrementos || [])
-    .map(i => `$${escapar(i.monto || '?')}${i.texto ? ' (' + escapar(i.texto) + ')' : ''}`).join(', ');
-  let incremento;
-  if (editable) {
-    incremento = `<div class="al-incs">${incs.map(filaIncremento).join('')}</div>
-      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-1">
-        <a href="#" class="al-hint text-decoration-none" onclick="agregarIncremento(this); return false;">
-          <i class="bi bi-plus-lg"></i> ${incs.length ? 'otro incremento' : 'agregar incremento'}</a>
-        <span class="al-hint">${h.tipo === 'tarifa'
-          ? (incActual ? `hoy en la cotización: ${incActual} · ` : '') + 'al aplicar se guarda en Rate Increase de la cotización'
-          : 'solo informativo: no se escribe en ninguna tabla'}</span>
-      </div>`;
-  } else {
-    incremento = incs.length
-      ? incs.map(i => `<div><span class="al-v">+${escapar(i.monto)}</span>
-          <span class="al-hint">/kg ${textoRangoInc(i)}${i.nota ? ' · ' + escapar(i.nota) : ''}</span></div>`).join('')
-      : `<span class="al-hint">el correo no anuncia incrementos</span>`;
-  }
-
-  const origen = `
-    <div class="small al-abrir" onclick="verMail(${h.mail_id})" title="Ver el correo completo">${escapar(h.mail_asunto || '')}
-      <i class="bi bi-box-arrow-up-right text-muted ms-1" style="font-size:.7rem;"></i></div>
-    <div class="small text-muted">
-      ${escapar(h.mail_remitente || '')} · correo del ${fechaCorta(h.mail_fecha)}
-      ${etiquetaAntiguedad(h.mail_dias)}
-    </div>
-    ${h.mail_carpeta ? `<div class="small text-muted"><i class="bi bi-folder2 me-1"></i>${escapar(h.mail_carpeta)}</div>` : ''}
-    ${h.cita ? `<div class="al-cita mt-1">“${escapar(h.cita)}”</div>` : ''}`;
-
-  return `
-  <div class="card al-card al-hallazgo mb-2" data-id="${h.id}">
-    <div class="card-body py-2 px-3">
-      <div class="d-flex align-items-start gap-2">
-        <div class="pt-1" style="width:22px;flex:none;">
-          ${soloInfo ? '' : `<input class="form-check-input chk-hallazgo" type="checkbox"
-             ${h.estado === 'aprobado' ? 'checked' : ''}>`}
-        </div>
-        <div class="flex-grow-1" style="min-width:0;">
-          <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
-            <span class="badge ${color}">${etiqueta}</span>
-            <strong>${escapar(h.aerolinea || '')}</strong>
-            <span class="text-muted">· ${escapar(alcance)}</span>
-            ${d.kg ? `<span class="badge bg-light text-dark border">${escapar(d.kg)}</span>` : ''}
-            <span class="small text-uppercase text-muted ms-auto">confianza ${escapar(h.confianza || '')}</span>
-          </div>
-          <div class="row g-3">
-            <div class="col-lg-7">
-              <table class="al-cuadro">
-                <thead>
-                  <tr><th colspan="2" class="al-cuadro-titulo">${escapar(h.aerolinea || '')}
-                    <span class="fw-normal text-muted">· ${escapar(alcance)}${d.kg ? ' · ' + escapar(d.kg) : ''}</span></th></tr>
-                  <tr><th class="al-cuadro-col">Pasada</th><th class="al-cuadro-col al-cuadro-nuevo">Nuevo</th></tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>${celda('Fecha', fechaPasada, hintPasada)}</td>
-                    <td>${celda('Fecha', fechaNueva, hintNueva)}</td>
-                  </tr>
-                  <tr>
-                    <td>${celda(etqPasado, valorPasado)}</td>
-                    <td>${celda(etqNuevo, valorNuevo, hintValor)}</td>
-                  </tr>
-                  <tr>
-                    <td>${celda('FSC', fscPasado)}</td>
-                    <td>${celda('FSC', fscNuevo, hintFsc)}</td>
-                  </tr>
-                </tbody>
-                <tfoot>
-                  <tr><td colspan="2"><span class="al-k">Incremento por temporada</span>${incremento}</td></tr>
-                </tfoot>
-              </table>
-            </div>
-            <div class="col-lg-5">
-              ${h.descripcion ? `<div class="small mb-2">${escapar(h.descripcion)}</div>` : ''}
-              ${h.alerta ? `<div class="al-alerta mb-2"><i class="bi bi-exclamation-triangle me-1"></i>${escapar(h.alerta)}</div>` : ''}
-              ${h.error ? `<div class="text-danger small mb-2">${escapar(h.error)}</div>` : ''}
-              ${origen}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>`;
+  const nFilas = (b.tipo === 'fsc' ? 2 : 1) + (incs.length ? 2 : 0);
+  const destino = `<td rowspan="${nFilas}" class="al-destino">${celdaDestino(b)}</td>`;
+  const valores = `
+      <td><div class="al-linea">${kg}<span class="al-v">${val(pasada)}</span></div></td>
+      <td>${GUION}</td>
+      <td>${actual}</td>
+      <td>${fechaNueva}${hint}</td>`;
+  const filas = b.tipo === 'fsc'
+    ? `<tr class="al-sub">${destino}<td colspan="2">FSC</td><td colspan="2" class="al-cuadro-nuevo">FSC</td></tr><tr>${valores}</tr>`
+    : `<tr>${destino}${valores}</tr>`;
+  return `<tbody class="al-bloque" data-ids="${idsAttr}">${filas}${filasInc}</tbody>`;
 }
 
-function enlazarTarjeta(card) {
-  card.querySelectorAll('.chk-hallazgo').forEach(c => c.addEventListener('change', actualizarBotonAplicar));
-  card.querySelectorAll('.inp-valor').forEach(i => i.addEventListener('change', guardarValor));
-  card.querySelectorAll('.inp-vigencia').forEach(i => i.addEventListener('change', guardarVigencia));
-  card.querySelectorAll('.inp-inc').forEach(i => i.addEventListener('change', guardarIncrementos));
+function tablaAerolinea(g, todas) {
+  return `
+  <table class="al-cuadro mb-3">
+    <colgroup>
+      <col style="width:13%"><col style="width:15%"><col style="width:17%"><col style="width:19%"><col style="width:36%">
+    </colgroup>
+    <thead>
+      <tr><th colspan="5" class="al-cuadro-titulo">${escapar(g.aerolinea)}</th></tr>
+      <tr class="al-cuadro-cols">
+        <th>Destino</th><th>Pasada</th><th>Fecha</th>
+        <th class="al-cuadro-nuevo">Actual</th><th class="al-cuadro-nuevo">Fecha</th>
+      </tr>
+    </thead>
+    ${g.bloques.map(b => b.tipo === 'tarifa' ? bloqueTarifa(b, todas) : bloqueSimple(b)).join('')}
+  </table>`;
+}
+
+// Pinta todo de nuevo a partir de hallazgosEnPantalla, conservando lo que
+// Daniela tenga marcado. Se usa al cargar y despues de cada edicion: un
+// bloque junta varias propuestas, asi que repintar solo una no alcanza.
+function pintarHallazgos() {
+  const filas = hallazgosEnPantalla;
+  const marcados = new Set(idsSeleccionados());
+  document.getElementById('cuerpo-hallazgos').innerHTML =
+    agruparPorAerolinea(filas).map(g => tablaAerolinea(g, filas)).join('');
+  document.querySelectorAll('#cuerpo-hallazgos .chk-hallazgo').forEach(c => {
+    if (marcados.has(parseInt(c.dataset.id, 10))) c.checked = true;
+    c.addEventListener('change', actualizarBotonAplicar);
+  });
+  document.querySelectorAll('#cuerpo-hallazgos .inp-valor').forEach(i => i.addEventListener('change', guardarValor));
+  document.querySelectorAll('#cuerpo-hallazgos .inp-vigencia').forEach(i => i.addEventListener('change', guardarVigencia));
+  document.querySelectorAll('#cuerpo-hallazgos .inp-inc').forEach(i => i.addEventListener('change', guardarIncrementos));
+  actualizarBotonAplicar();
 }
 
 async function cargarHallazgos() {
@@ -828,8 +896,8 @@ async function cargarHallazgos() {
   hallazgosEnPantalla = filas;
 
   document.getElementById('badge-hallazgos').textContent = filas.length;
-  document.getElementById('cuerpo-hallazgos').innerHTML = filas.map(h => tarjetaHallazgo(h, filas)).join('');
   document.getElementById('hallazgos-vacio').style.display = filas.length ? 'none' : 'block';
+  pintarHallazgos();
 
   const porTipo = {};
   filas.forEach(h => { porTipo[h.tipo] = (porTipo[h.tipo] || 0) + 1; });
@@ -838,8 +906,6 @@ async function cargarHallazgos() {
     ? Object.entries(porTipo).map(([t, n]) => `${n} ${ETIQUETA_TIPO[t] ? ETIQUETA_TIPO[t][0] : t}`).join(' · ')
     : `Sin cambios propuestos ${esHoy() ? 'hoy' : textoRango()}`) + fuera;
 
-  document.querySelectorAll('#cuerpo-hallazgos .al-hallazgo').forEach(enlazarTarjeta);
-  actualizarBotonAplicar();
   avisarViejas(filas);
 }
 
@@ -879,8 +945,8 @@ async function rechazarViejas() {
 }
 
 function idsSeleccionados() {
-  return [...document.querySelectorAll('#cuerpo-hallazgos .al-hallazgo')]
-    .filter(c => c.querySelector('.chk-hallazgo')?.checked)
+  return [...document.querySelectorAll('#cuerpo-hallazgos .chk-hallazgo')]
+    .filter(c => c.checked)
     .map(c => parseInt(c.dataset.id, 10));
 }
 
@@ -896,73 +962,74 @@ function marcarTodos(valor) {
   actualizarBotonAplicar();
 }
 
-// Un solo camino para todo lo que se edita en una tarjeta: se guarda en el
-// portal y se vuelve a pintar SOLO esa tarjeta con lo que devuelve, para que
-// las demas no pierdan lo que Daniela tenga marcado o a medio escribir.
+// Un solo camino para todo lo que se edita en el cuadro: se guarda en el
+// portal, se actualizan las propuestas en memoria con lo que devuelve y se
+// repinta conservando lo marcado.
 const EDITAR_URL = '{{ url_for("agente_lux.editar") }}';
 
-async function guardarEdicion(card, datos) {
-  const id = parseInt(card.dataset.id, 10);
-  const marcado = card.querySelector('.chk-hallazgo')?.checked;
+async function guardarEdicion(datos) {
   const r = await fetch(EDITAR_URL, {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ id, ...datos })
+    body: JSON.stringify(datos)
   });
   const d = await r.json();
   if (!r.ok) { banner(escapar(d.error || 'No se pudo guardar el cambio.'), 'danger'); return; }
-
-  const idx = hallazgosEnPantalla.findIndex(x => x.id === id);
-  if (idx >= 0) hallazgosEnPantalla[idx] = d.hallazgo;
-  const molde = document.createElement('div');
-  molde.innerHTML = tarjetaHallazgo(d.hallazgo, hallazgosEnPantalla);
-  const nueva = molde.firstElementChild;
-  card.replaceWith(nueva);
-  const chk = nueva.querySelector('.chk-hallazgo');
-  if (chk && marcado != null) chk.checked = marcado;
-  enlazarTarjeta(nueva);
-  actualizarBotonAplicar();
+  (d.hallazgos || [d.hallazgo]).forEach(h => {
+    const idx = hallazgosEnPantalla.findIndex(x => x.id === h.id);
+    if (idx >= 0) hallazgosEnPantalla[idx] = h;
+  });
+  pintarHallazgos();
 }
 
 function guardarValor(ev) {
-  guardarEdicion(ev.currentTarget.closest('.al-hallazgo'), { valor_nuevo: ev.currentTarget.value });
+  guardarEdicion({ id: parseInt(ev.currentTarget.dataset.id, 10), valor_nuevo: ev.currentTarget.value });
 }
 
 function guardarVigencia(ev) {
-  guardarEdicion(ev.currentTarget.closest('.al-hallazgo'), { vigencia_desde: ev.currentTarget.value });
+  guardarEdicion({ ids: JSON.parse(ev.currentTarget.dataset.ids), vigencia_desde: ev.currentTarget.value });
 }
 
-function incrementosDe(card) {
-  return [...card.querySelectorAll('.al-inc')].map(fila => ({
-    monto: fila.querySelector('[data-campo="monto"]').value,
-    desde: fila.querySelector('[data-campo="desde"]').value,
-    hasta: fila.querySelector('[data-campo="hasta"]').value,
-    nota: fila.dataset.nota || '',
-  })).filter(i => i.monto || i.desde || i.hasta);
+// Los incrementos de un bloque, leidos del cuadro: el monto de cada linea
+// con las fechas de la linea de al lado.
+function incrementosDe(bloque) {
+  const fechasDe = k => bloque.querySelector(`.al-inc-fechas .al-linea[data-linea="${k}"]`);
+  return [...bloque.querySelectorAll('.al-inc-montos .al-linea')].map(m => {
+    const f = fechasDe(m.dataset.linea);
+    return {
+      monto: m.querySelector('[data-campo="monto"]').value,
+      desde: f ? f.querySelector('[data-campo="desde"]').value : '',
+      hasta: f ? f.querySelector('[data-campo="hasta"]').value : '',
+      nota: m.dataset.nota || '',
+    };
+  }).filter(i => i.monto || i.desde || i.hasta);
 }
 
 function guardarIncrementos(ev) {
-  const card = ev.currentTarget.closest('.al-hallazgo');
-  const fila = ev.currentTarget.closest('.al-inc');
+  const bloque = ev.currentTarget.closest('.al-bloque');
+  const k = ev.currentTarget.closest('.al-linea').dataset.linea;
+  const monto = bloque.querySelector(`.al-inc-montos .al-linea[data-linea="${k}"] [data-campo="monto"]`);
   // Sin monto no hay incremento que guardar: se espera a que lo escriba.
-  if (fila && !fila.querySelector('[data-campo="monto"]').value) return;
-  guardarEdicion(card, { incrementos: incrementosDe(card) });
+  if (monto && !monto.value) return;
+  guardarEdicion({ ids: JSON.parse(bloque.dataset.ids), incrementos: incrementosDe(bloque) });
 }
 
 function agregarIncremento(enlace) {
-  const card = enlace.closest('.al-hallazgo');
-  const cont = card.querySelector('.al-incs');
-  cont.insertAdjacentHTML('beforeend', filaIncremento({}));
-  const fila = cont.lastElementChild;
-  fila.querySelectorAll('.inp-inc').forEach(i => i.addEventListener('change', guardarIncrementos));
-  fila.querySelector('[data-campo="monto"]').focus();
+  const bloque = enlace.closest('.al-bloque');
+  const usados = [...bloque.querySelectorAll('.al-inc-montos .al-linea')].map(l => parseInt(l.dataset.linea, 10));
+  const k = usados.length ? Math.max(...usados) + 1 : 0;
+  enlace.insertAdjacentHTML('beforebegin', lineaIncMonto({}, k));
+  bloque.querySelector('.al-inc-fechas').insertAdjacentHTML('beforeend', lineaIncFechas({}, k));
+  bloque.querySelectorAll(`.al-linea[data-linea="${k}"] .inp-inc`).forEach(i => i.addEventListener('change', guardarIncrementos));
+  bloque.querySelector(`.al-inc-montos .al-linea[data-linea="${k}"] [data-campo="monto"]`).focus();
 }
 
 function quitarIncremento(enlace) {
-  const card = enlace.closest('.al-hallazgo');
-  const fila = enlace.closest('.al-inc');
-  const tenia = !!fila.querySelector('[data-campo="monto"]').value;
-  fila.remove();
-  if (tenia) guardarEdicion(card, { incrementos: incrementosDe(card) });
+  const bloque = enlace.closest('.al-bloque');
+  const k = enlace.closest('.al-linea').dataset.linea;
+  const monto = bloque.querySelector(`.al-inc-montos .al-linea[data-linea="${k}"] [data-campo="monto"]`);
+  const tenia = !!(monto && monto.value);
+  bloque.querySelectorAll(`.al-linea[data-linea="${k}"]`).forEach(l => l.remove());
+  if (tenia) guardarEdicion({ ids: JSON.parse(bloque.dataset.ids), incrementos: incrementosDe(bloque) });
 }
 
 document.getElementById('btn-aplicar').addEventListener('click', async (ev) => {
