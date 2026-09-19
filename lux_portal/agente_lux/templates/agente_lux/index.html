@@ -307,7 +307,13 @@ async function verMail(id) {
     ${adj ? `<div class="mb-2">${adj}</div>` : ''}
     <div class="al-cuerpo border-top pt-2">${escapar(m.cuerpo || '(sin texto)')}</div>`;
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-mail')).show();
+  // La direccion queda como /agente-lux/?mail=ID mientras el correo esta
+  // abierto: se puede copiar y mandar, y al abrirla se abre ese correo.
+  history.replaceState(null, '', location.pathname + '?mail=' + id);
 }
+document.getElementById('modal-mail').addEventListener('hidden.bs.modal', () => {
+  history.replaceState(null, '', location.pathname);
+});
 
 // ---------------------------------------------------------------- rango de fechas
 function hoyLocal() {
@@ -1357,6 +1363,11 @@ cargarHoy();
 cargarHallazgos();
 cargarMails();
 cargarPrioritarios();
+
+// Enlace directo a un correo: /agente-lux/?mail=818 lo abre apenas carga la
+// pagina, este o no dentro del rango de fechas elegido.
+const mailPedido = parseInt(new URLSearchParams(location.search).get('mail') || '', 10);
+if (mailPedido) verMail(mailPedido);
 
 // Mantiene vivo el indicador del vigía sin tener que recargar la página.
 setInterval(cargarEstado, 30000);
