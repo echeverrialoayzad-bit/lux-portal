@@ -27,7 +27,7 @@
      pantallas chicas se desplaza de lado. */
   .al-cuadro { width:100%; min-width:920px; border-collapse:collapse; table-layout:fixed;
                font-size:.82rem; background:#fff; color:#000; }
-  .al-cuadro th, .al-cuadro td { border:1px solid #000; padding:.25rem .45rem; vertical-align:middle; }
+  .al-cuadro th, .al-cuadro td { border:1px solid #000; padding:.25rem .45rem; vertical-align:middle; text-align:center; }
   .al-cuadro-titulo { text-align:center; background:#7030a0; color:#fff; font-size:.95rem; font-weight:700; }
   .al-cuadro-cols th, .al-sub td { text-align:center; background:#e2efda; color:#000; font-weight:400;
                                    font-size:.8rem; padding:.15rem .45rem; }
@@ -45,7 +45,7 @@
   .al-resumen .al-correo { margin-top:0; }
   .al-v { font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
   .al-hint { font-size:.7rem; color:#666; }
-  .al-linea { display:flex; align-items:center; gap:.3rem; min-height:31px; }
+  .al-linea { display:flex; align-items:center; justify-content:center; gap:.3rem; min-height:31px; }
   .al-inp-fecha { width:128px; }
   .al-cuadro .al-val-nuevo { width:84px; }
   .al-vacio { padding:2.5rem 1rem; text-align:center; color:#8a8a8a; }
@@ -674,11 +674,10 @@ function tonoCorreo(dias) {
 // Lo que reemplaza al texto que Daniela pidio quitar: un enlace con el asunto
 // del correo (abre el correo completo para revisarlo), y al pasar el mouse
 // por la (i) o el triangulo se lee la descripcion o la alerta.
-function iconosDe(filas) {
-  const conKg = x => (filas.length > 1 && (x.detalle || {}).kg ? x.detalle.kg + ': ' : '');
+function enlacesCorreo(filas) {
   const correos = new Map();
   filas.forEach(x => { if (x.mail_id && !correos.has(x.mail_id)) correos.set(x.mail_id, x); });
-  const enlaces = [...correos.values()].map(x => {
+  return [...correos.values()].map(x => {
     const [tono, extra] = tonoCorreo(x.mail_dias);
     const asunto = x.mail_asunto || '(sin asunto)';
     return `<div class="al-correo">
@@ -688,11 +687,18 @@ function iconosDe(filas) {
       <div class="al-hint">${escapar((x.mail_remitente || '').slice(0, 30))} · ${fechaCorta(x.mail_fecha).split(' ·')[0]}</div>
     </div>`;
   }).join('');
+}
+function iconosAviso(filas) {
+  const conKg = x => (filas.length > 1 && (x.detalle || {}).kg ? x.detalle.kg + ': ' : '');
   const textos = filas.filter(x => x.descripcion).map(x => conKg(x) + x.descripcion).join('\n');
   const alertas = filas.filter(x => x.alerta).map(x => conKg(x) + x.alerta).join('\n');
-  return `${enlaces}<span class="al-iconos">
+  if (!textos && !alertas) return '';
+  return `<span class="al-iconos">
     ${textos ? `<i class="bi bi-info-circle text-muted me-1" title="${escapar(textos)}"></i>` : ''}
     ${alertas ? `<i class="bi bi-exclamation-triangle-fill text-warning me-1" title="${escapar(alertas)}"></i>` : ''}</span>`;
+}
+function iconosDe(filas) {
+  return enlacesCorreo(filas) + iconosAviso(filas);
 }
 
 // La celda Destino de un bloque: el destino, la etiqueta si no es tarifa,
@@ -706,10 +712,12 @@ function celdaDestino(b) {
   const errores = filas.filter(x => x.error)
     .map(x => (filas.length > 1 && (x.detalle || {}).kg ? x.detalle.kg + ': ' : '') + x.error).join('\n');
   const confianzas = [...new Set(filas.map(x => (x.confianza || '').toLowerCase()).filter(Boolean))].join(' / ');
+  // Solo el IATA de destino y sus avisos: el correo va en la celda Fecha del
+  // lado Actual, que es de donde sale el valor nuevo.
   return `
     <div class="al-destino-nombre">${escapar(destino)}</div>
     ${b.tipo !== 'tarifa' ? `<span class="badge ${color} al-tag">${etiqueta}</span>` : ''}
-    <div class="mt-1">${iconosDe(filas)}</div>
+    <div class="mt-1">${iconosAviso(filas)}</div>
     ${confianzas ? `<div class="al-hint text-uppercase">${escapar(confianzas)}</div>` : ''}
     ${errores ? `<div class="text-danger small mt-1">${escapar(errores)}</div>` : ''}`;
 }
@@ -783,7 +791,7 @@ function bloqueTarifa(b, todas) {
       ${i === 0 ? `<td rowspan="${n}"><span class="al-v">${a.fecha ? fechaDia(a.fecha) : GUION}</span></td>` : ''}
       <td><div class="al-linea">${chkHallazgo(h)}${inputValor(h)}</div>
         ${mismoNum(ha.tarifa, h.valor_nuevo) ? '<div class="al-hint">ya está así en la cotización</div>' : ''}</td>
-      ${i === 0 ? `<td rowspan="${n}">${inputVigencia(vig, fechaCorreo, idsAttr)}<div class="al-hint">${hintVigencia(vig, vigHasta)}</div></td>` : ''}
+      ${i === 0 ? `<td rowspan="${n}">${inputVigencia(vig, fechaCorreo, idsAttr)}<div class="al-hint">${hintVigencia(vig, vigHasta)}</div>${enlacesCorreo(filas)}</td>` : ''}
     </tr>`;
   }).join('');
 
@@ -875,7 +883,7 @@ function bloqueSimple(b) {
       <td><span class="al-v">${val(pasada)}</span></td>
       <td>${GUION}</td>
       <td>${actual}</td>
-      <td>${fechaNueva}${hint}</td>`;
+      <td>${fechaNueva}${hint}${enlacesCorreo([h])}</td>`;
   const filas = b.tipo === 'fsc'
     ? `<tr class="al-sub">${destino}<td class="al-blanco"></td><td>FSC</td><td>Fecha</td><td>FSC</td><td>Fecha</td></tr><tr>${valores}</tr>`
     : `<tr>${destino}${valores}</tr>`;
@@ -886,8 +894,8 @@ function tablaAerolinea(g, todas) {
   return `
   <table class="al-cuadro mb-3">
     <colgroup>
-      <col style="width:17%"><col style="width:7%"><col style="width:13%"><col style="width:14%">
-      <col style="width:18%"><col style="width:31%">
+      <col style="width:12%"><col style="width:7%"><col style="width:14%"><col style="width:15%">
+      <col style="width:19%"><col style="width:33%">
     </colgroup>
     <thead>
       <tr><th colspan="6" class="al-cuadro-titulo">${escapar(g.aerolinea)}</th></tr>
