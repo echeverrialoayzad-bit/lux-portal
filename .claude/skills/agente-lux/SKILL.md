@@ -20,6 +20,12 @@ en un archivo de propuestas que Daniela aprueba desde el portal.
 Si `exportar` dice que no hay correos pendientes, avísale que primero le dé
 **Refresh correos** en el portal (`/agente-lux/`). No inventes hallazgos.
 
+**Antes de analizar, lee `referencia_aerolineas.md`** (en esta misma carpeta):
+dice quién es cada remitente, cómo escribe cada aerolínea su tabla de tarifas
+y qué significa cada abreviatura (AWC, MR, MYC, AFS, SSC, ALL IN, CHW, Q100,
+PAX/CAO…) y a qué campo del portal corresponde. Está sacada de los correos
+reales; si un correo no calza con lo que dice, explícalo en la `descripcion`.
+
 `DATABASE_URL` debe apuntar al Postgres de Railway. Si no está, pásalo con `--db`.
 
 ## Qué contiene `pendientes.json`
@@ -53,10 +59,13 @@ sirve: Daniela necesita ver "de 3.00 a 2.85", no solo "2.85".
 ## Reglas que no se negocian
 
 **Las tarifas netas salen únicamente de las respuestas a una solicitud de
-Daniela.** Así trabaja ella: manda un correo pidiendo tarifa (asunto "Tarifa
-Flor", cuerpo "Solicito su ayuda con tarifa para: - BNE") y la aerolínea
-contesta sobre ese mismo hilo. Esa respuesta es la tarifa que se actualiza.
-El campo `respuesta_a_mi_solicitud` te dice cuándo pasa eso.
+FreightWise.** Así trabajan: Daniela (o Johana, Felipe, Mónica, todos
+`@freight-wise.com`) manda un correo pidiendo tarifa (asunto "Tarifa Flor",
+cuerpo "Solicito su ayuda con tarifa para: - BNE") y la aerolínea contesta
+sobre ese mismo hilo. Esa respuesta es la tarifa que se actualiza. El campo
+`respuesta_a_mi_solicitud` te dice cuándo pasa eso; si viene `false` pero
+abajo del correo está citada la solicitud de alguien de FreightWise, cuenta
+igual.
 
 - `respuesta_a_mi_solicitud: true` → puedes proponer `tipo: "tarifa"`, con
   `confianza: "alta"` si el número está explícito.

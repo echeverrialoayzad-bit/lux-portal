@@ -446,10 +446,14 @@ def _motivo_no_aplicable(h, correos):
         return (f'No se aplica: el correo "{asunto}" es una reserva o guia, y '
                 f'las cifras por kilo son el precio de ese embarque, no la '
                 f'tarifa vigente.')
-    if not correo.respuesta_mia:
+    # Vale la respuesta a una solicitud de cualquiera de FreightWise (Daniela,
+    # Johana, Felipe, Monica): los correos guardados antes de este cambio
+    # solo marcaban las de Daniela, por eso se vuelve a mirar el cuerpo.
+    from lux_portal.agente_lux import validadores
+    if not correo.respuesta_mia and not validadores.es_respuesta_freightwise(correo.cuerpo):
         return (f'No se aplica: el correo "{asunto}" no es respuesta a una '
-                f'solicitud tuya de tarifas. Si te interesa, pidele la tarifa '
-                f'a la aerolinea y se actualiza con su respuesta.')
+                f'solicitud de tarifas de FreightWise. Si te interesa, pidele '
+                f'la tarifa a la aerolinea y se actualiza con su respuesta.')
     return None
 
 
@@ -576,7 +580,7 @@ def cmd_cargar(args):
     app = crear_app(resolver_db(args))
     from lux_portal.extensions import db
     from lux_portal.agente_lux.models import AgenteMail, AgenteHallazgo
-    from lux_portal.agente_lux import reglas, vigencia
+    from lux_portal.agente_lux import contexto, reglas, validadores, vigencia
 
     with app.app_context():
         pendientes = {m.id: m for m in AgenteMail.query.filter_by(estado='pendiente').all()}
@@ -592,6 +596,15 @@ def cmd_cargar(args):
             if motivo:
                 _dejar_como_aviso(h, motivo)
                 no_aplicables += 1
+
+        # Validadores: lo aprendido de los correos reales de cada aerolinea
+        # (el remitente manda la aerolinea, la cifra tiene que estar en el
+        # correo, los cargos con su nombre del portal, SSC dentro del FSC,
+        # tarifas all in, correos repetidos). Ver validadores.py.
+        informe = validadores.validar_lote(hallazgos_entrada, pendientes, contexto.snapshot())
+        hallazgos_entrada = informe.hallazgos
+        for linea in informe.log:
+            print('  - ' + linea)
 
         # Formato: lo que venga incompleto queda como aviso en vez de tumbar
         # la carga entera. Tumbarla dejaba la tanda atascada para siempre: el
@@ -684,7 +697,11 @@ def cmd_cargar(args):
                 # La razon por la que no se aplica va primero: es lo que
                 # Daniela tiene que leer antes que cualquier otra alerta.
                 alerta = h['_aviso'] + (' ' + alerta if alerta else '')
-            if alerta:
+            # Lo que un validador dio por hecho (ya esta igual en el portal)
+            # se guarda como 'resuelto': queda el registro, no la tarea.
+            if h.get('_resuelto'):
+                alerta = h['_resuelto']
+            if alerta and not h.get('_resuelto'):
                 con_alerta += 1
 
             hallazgo = AgenteHallazgo(
@@ -698,7 +715,7 @@ def cmd_cargar(args):
                 confianza=h.get('confianza') or 'media',
                 cita=h.get('cita') or '',
                 alerta=alerta,
-                estado='pendiente',
+                estado='resuelto' if h.get('_resuelto') else 'pendiente',
             )
             hallazgo.detalle = detalle
             db.session.add(hallazgo)
@@ -728,6 +745,10 @@ def cmd_cargar(args):
         db.session.commit()
 
     print(f'{n_hallazgos} hallazgo(s) cargados, {n_correos} correo(s) resumidos.')
+    if informe.corregidos or informe.resueltos or informe.descartados or informe.avisos:
+        print(f'Validadores: {informe.corregidos} corregido(s), {informe.resueltos} ya estaban '
+              f'iguales en el portal, {informe.descartados} descartado(s) por repetidos o '
+              f'firma, {informe.avisos} con aviso.')
     if incompletos:
         print(f'{incompletos} propuesta(s) venian incompletas y quedaron solo '
               f'como aviso.')

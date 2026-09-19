@@ -378,7 +378,9 @@ def instalar_tarea():
 
 
 PROMPT_ANALISIS = (
-    'Usa el skill agente-lux. Lee _agente_lux/pendientes.json y los adjuntos '
+    'Usa el skill agente-lux. Lee primero .claude/skills/agente-lux/'
+    'referencia_aerolineas.md (quien es cada remitente y como escribe cada '
+    'aerolinea). Lee _agente_lux/pendientes.json y los adjuntos '
     'que referencia, comparalos contra estado_actual, y escribe '
     '_agente_lux/hallazgos.json con el formato del docstring de '
     'agente_lux_cli.py. Reglas clave: las tarifas netas solo salen de correos '

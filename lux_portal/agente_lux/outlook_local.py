@@ -280,7 +280,13 @@ def es_respuesta_a_mi(asunto, cuerpo, mi_correo):
         return None
     if not re.match(r'\s*(re|rv|fwd|fw)\s*:', asunto or '', re.I):
         return False
-    return mi_correo.lower() in (cuerpo or '').lower()
+    texto = (cuerpo or '').lower()
+    if mi_correo.lower() in texto:
+        return True
+    # Tambien vale si el hilo lo arranco otra persona de FreightWise (Johana,
+    # Felipe, Monica): la aerolinea contesta sobre su solicitud igual, y esa
+    # tarifa es tan valida como la que pide Daniela.
+    return bool(re.search(r'^\s*(de|from|para|to)\s*:.*@freight-wise\.com', texto, re.I | re.M))
 
 
 def parece_operativo(asunto):
