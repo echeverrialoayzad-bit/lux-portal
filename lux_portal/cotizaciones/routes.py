@@ -4,7 +4,7 @@
 Rutas del modulo Cotizaciones FreightWise
 """
 
-from flask import render_template, request, jsonify, send_file, redirect, url_for, flash
+from flask import render_template, request, jsonify, send_file, redirect, url_for, flash, current_app
 from datetime import datetime
 from collections import defaultdict
 import re
@@ -578,7 +578,10 @@ def fsc_dashboard():
     try:
         propuestas, propuestas_sueltas = _propuestas_fsc()
     except Exception:
-        # La pestana de FSC tiene que abrir aunque Agente Lux falle.
+        # La pestana de FSC tiene que abrir aunque Agente Lux falle, pero el
+        # fallo se registra: si se traga el error en silencio, las propuestas
+        # desaparecen de la pantalla sin que nadie se entere.
+        current_app.logger.exception('No se pudieron leer las propuestas de FSC')
         propuestas, propuestas_sueltas = {}, []
 
     return render_template(

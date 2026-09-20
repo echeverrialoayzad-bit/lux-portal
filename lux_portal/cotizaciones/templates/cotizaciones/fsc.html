@@ -31,6 +31,14 @@
     .fsc-propuesta .de { color: var(--text-muted); text-decoration: line-through; }
     .fsc-propuesta .meta { color: var(--text-muted); font-size: 0.78rem; }
     .fsc-propuesta .acciones { margin-left: auto; display: flex; gap: 8px; }
+    /* El correo que respalda el cambio: se lee como enlace, no como texto. */
+    .fsc-propuesta .fsc-mail {
+        display: inline-flex; align-items: center; gap: 6px;
+        color: var(--fw-purple, #5F4DCE); font-weight: 600; text-decoration: none;
+        border-bottom: 1px solid rgba(95, 77, 206, 0.35); padding-bottom: 1px;
+    }
+    .fsc-propuesta .fsc-mail:hover { color: #2D1B8E; border-bottom-color: #2D1B8E; }
+    .fsc-propuesta .fsc-mail .meta { font-weight: 400; }
     .fsc-nuevas { border-left: 4px solid #5F4DCE; }
     .fsc-sin-nada { padding: 14px 16px; color: var(--text-muted); font-size: 0.85rem; }
 </style>
@@ -99,9 +107,21 @@
                     <span class="meta">
                         {% if p.desde %}rige desde el {{ p.desde }}{% endif %}
                         {% if p.hasta %} · hasta el {{ p.hasta }}{% endif %}
-                        {% if p.mail_asunto %} · {{ p.mail_asunto[:48] }}{% endif %}
-                        {% if p.mail_fecha %} · {{ p.mail_fecha }}{% endif %}
                     </span>
+                    {# El correo que justifica el cambio: abre en otra pestana
+                       con ese mail desplegado, para poder leerlo sin perder
+                       esta pantalla. #}
+                    {% if p.mail_id %}
+                    <a class="fsc-mail" target="_blank" rel="noopener"
+                       href="{{ url_for('agente_lux.index') }}?mail={{ p.mail_id }}"
+                       title="Abrir el correo que justifica este cambio">
+                        <i class="bi bi-envelope-open"></i>
+                        {{ p.mail_asunto[:46] }}{% if p.mail_asunto|length > 46 %}…{% endif %}
+                        {% if p.mail_fecha %}<span class="meta">· {{ p.mail_fecha }}</span>{% endif %}
+                    </a>
+                    {% else %}
+                    <span class="meta"><i class="bi bi-envelope-slash"></i> sin correo asociado</span>
+                    {% endif %}
                     {% if p.alerta %}
                     <span class="meta text-warning"><i class="bi bi-exclamation-triangle-fill"></i> {{ p.alerta }}</span>
                     {% endif %}
@@ -151,10 +171,18 @@
             <span>{{ p.nombre or 'sin nombre' }} &middot;
                 {{ p.destinos|join(', ') if p.destinos else 'todos los destinos' }}</span>
             <span>FSC <span class="valor">{{ p.fsc_nuevo }}</span></span>
-            <span class="meta">
-                {% if p.desde %}desde el {{ p.desde }} · {% endif %}
-                {{ p.mail_asunto[:40] }} {% if p.mail_fecha %}· {{ p.mail_fecha }}{% endif %}
-            </span>
+            <span class="meta">{% if p.desde %}desde el {{ p.desde }}{% endif %}</span>
+            {% if p.mail_id %}
+            <a class="fsc-mail" target="_blank" rel="noopener"
+               href="{{ url_for('agente_lux.index') }}?mail={{ p.mail_id }}"
+               title="Abrir el correo que justifica este cambio">
+                <i class="bi bi-envelope-open"></i>
+                {{ p.mail_asunto[:40] }}{% if p.mail_asunto|length > 40 %}…{% endif %}
+                {% if p.mail_fecha %}<span class="meta">· {{ p.mail_fecha }}</span>{% endif %}
+            </a>
+            {% else %}
+            <span class="meta"><i class="bi bi-envelope-slash"></i> sin correo asociado</span>
+            {% endif %}
             <span class="acciones">
                 <button class="btn btn-success btn-sm" onclick="aplicarPropuesta(this)">
                     <i class="bi bi-check-lg"></i> Crear y aplicar
