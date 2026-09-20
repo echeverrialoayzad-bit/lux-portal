@@ -672,12 +672,19 @@ def plan_solicitudes():
     respuestas = _ultimas_respuestas()
     plan, cubiertos = [], set()
     for r in AirlineMailRequest.query.order_by(AirlineMailRequest.aerolinea).all():
-        suyos = [d for d in pedidos if d in r.destinos]
-        if not suyos:
+        nuevos = [d for d in pedidos if d in r.destinos]
+        if not nuevos:
             continue
-        cubiertos.update(suyos)
+        cubiertos.update(nuevos)
+        # Lo que ya estaba marcado a mano en su tarjeta NO se pisa: se suma.
+        # Los tres caminos (tarjeta, plan en bloque, envio por fila) escriben
+        # sobre la misma lista de destinos marcados, asi que reemplazarla
+        # borraba en silencio lo que Daniela hubiera dejado preparado.
+        ya_marcados = [d for d in r.seleccionados if d not in nuevos]
+        suyos = nuevos + ya_marcados
         negados = {d: r.no_sirve[d] for d in pedidos if d in r.no_sirve}
-        # El cuerpo, con estos destinos y no con los que estuvieran marcados.
+        # El cuerpo lleva TODO lo que quedara marcado, para que la vista
+        # previa sea exactamente el correo que sale.
         cuerpo = (sincronizar_destinos(r.cuerpo, suyos)
                   if (r.cuerpo_editado and r.cuerpo)
                   else _generar_cuerpo_mail(r.aerolinea, suyos))
@@ -686,6 +693,8 @@ def plan_solicitudes():
             'id': r.id,
             'aerolinea': r.aerolinea,
             'destinos': suyos,
+            'nuevos': nuevos,
+            'ya_marcados': ya_marcados,
             'negados': negados,
             'destinatarios': r.destinatarios or '',
             'cc': _con_cc_fijo(r.cc),
