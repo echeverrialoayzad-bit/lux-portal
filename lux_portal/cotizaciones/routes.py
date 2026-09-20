@@ -543,7 +543,7 @@ def _incrementos_vigentes():
     cots = Cotizacion.query.filter(Cotizacion.estado != 'eliminado').all()
     for cot in cots:
         for aero in (cot.aerolineas or []):
-            for ri in (aero.get('rate_increases') or []):
+            for i, ri in enumerate(aero.get('rate_increases') or []):
                 monto, fechas = ri.get('amount'), ri.get('date')
                 if not monto and not fechas:
                     continue
@@ -554,9 +554,91 @@ def _incrementos_vigentes():
                     'fechas': fechas or '',
                     'cot_id': cot.id,
                     'customer': cot.customer or '',
+                    # Para poder borrarlo: dice exactamente cual de la lista es.
+                    'indice': i,
                 })
     salida.sort(key=lambda x: (x['aerolinea'].upper(), x['destino'].upper()))
     return salida
+
+
+def _entrada_aerolinea(aeros, aerolinea):
+    """La entrada de esa aerolinea dentro de una lista ya leida de
+    cotizacion.aerolineas, comparando por nombre normalizado para que
+    'Air Canada' y 'AIR CANADA' sean la misma.
+
+    Recibe la lista, NO la cotizacion: `cotizacion.aerolineas` hace json.loads
+    en cada lectura y devuelve una copia nueva cada vez, asi que buscar ahi
+    dentro daria un dict de otra copia y al guardar se perderia el cambio."""
+    objetivo = (aerolinea or '').strip().upper()
+    for aero in (aeros or []):
+        if (aero.get('aerolinea') or '').strip().upper() == objetivo:
+            return aero
+    return None
+
+
+@cotizaciones_bp.route('/api/incremento', methods=['POST'])
+@login_required
+def agregar_incremento():
+    """Agrega un incremento por temporada a la cotizacion mas reciente de ese
+    destino. Los incrementos viven dentro de la cotizacion (Rate Increase),
+    asi que esto escribe ahi; la pestana de FSC solo los junta para verlos."""
+    data = request.get_json() or {}
+    aerolinea = (data.get('aerolinea') or '').strip()
+    destino = (data.get('destino') or '').strip().upper()
+    monto = (data.get('monto') or '').strip()
+    fechas = (data.get('fechas') or '').strip()
+
+    if not aerolinea or not destino:
+        return jsonify({'success': False, 'error': 'Falta la aerolinea o el destino.'}), 400
+    if not monto:
+        return jsonify({'success': False, 'error': 'Falta el monto del incremento.'}), 400
+
+    cot = (Cotizacion.query
+           .filter(Cotizacion.estado != 'eliminado', Cotizacion.destino == destino)
+           .order_by(Cotizacion.fecha_modificacion.desc())
+           .first())
+    if cot is None:
+        return jsonify({'success': False,
+                        'error': f'No hay ninguna cotizacion para {destino}.'}), 404
+
+    aeros = cot.aerolineas
+    entrada = _entrada_aerolinea(aeros, aerolinea)
+    if entrada is None:
+        return jsonify({'success': False,
+                        'error': f'La cotizacion #{cot.id} de {destino} no cotiza {aerolinea}.'}), 404
+
+    entrada.setdefault('rate_increases', []).append({'amount': monto, 'date': fechas})
+    cot.aerolineas = aeros
+    db.session.commit()
+    return jsonify({'success': True, 'cot_id': cot.id})
+
+
+@cotizaciones_bp.route('/api/incremento', methods=['DELETE'])
+@login_required
+def eliminar_incremento():
+    """Quita un incremento de su cotizacion. Se identifica por cotizacion +
+    aerolinea + posicion, que es lo que muestra la tabla."""
+    data = request.get_json() or {}
+    try:
+        cot_id = int(data.get('cot_id'))
+        indice = int(data.get('indice'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Falta la cotizacion o el indice.'}), 400
+
+    cot = Cotizacion.query.get(cot_id)
+    if cot is None:
+        return jsonify({'success': False, 'error': 'No existe esa cotizacion.'}), 404
+
+    aeros = cot.aerolineas
+    entrada = _entrada_aerolinea(aeros, data.get('aerolinea'))
+    lista = (entrada or {}).get('rate_increases') or []
+    if entrada is None or indice >= len(lista):
+        return jsonify({'success': False, 'error': 'Ese incremento ya no esta.'}), 404
+
+    quitado = lista.pop(indice)
+    cot.aerolineas = aeros
+    db.session.commit()
+    return jsonify({'success': True, 'quitado': quitado})
 
 
 @cotizaciones_bp.route('/fsc')

@@ -41,6 +41,12 @@
     .fsc-propuesta .fsc-mail .meta { font-weight: 400; }
     .fsc-nuevas { border-left: 4px solid #5F4DCE; }
     .fsc-sin-nada { padding: 14px 16px; color: var(--text-muted); font-size: 0.85rem; }
+    .fsc-inc-form {
+        display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+        padding: 12px 16px; border-bottom: 1px solid var(--border);
+        background: rgba(95, 77, 206, 0.05);
+    }
+    .fsc-inc-form .form-control { max-width: 220px; font-size: 0.85rem; padding: 6px 10px; }
 </style>
 {% endblock %}
 
@@ -200,21 +206,39 @@
 <div class="card fsc-airline-card" id="cardIncrementos">
     <div class="card-header">
         <h5><i class="bi bi-graph-up-arrow me-2"></i>Incrementos vigentes por temporada</h5>
-        <span class="badge bg-light text-dark">{{ incrementos|length }}</span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-light text-dark">{{ incrementos|length }}</span>
+            <button class="btn btn-outline-light btn-sm" id="btnAgregarInc"
+                    title="Agregar un incremento por temporada">
+                <i class="bi bi-plus-lg"></i> Agregar
+            </button>
+        </div>
     </div>
     <div class="card-body p-0">
+        <div class="fsc-inc-form" id="formInc" hidden>
+            <input type="text" id="incAerolinea" class="form-control" placeholder="Aerolinea (ej. QATAR)">
+            <input type="text" id="incDestino" class="form-control" placeholder="Destino (ej. AMS)" style="max-width:130px;">
+            <input type="text" id="incMonto" class="form-control" placeholder="0.20" style="max-width:110px;">
+            <input type="text" id="incFechas" class="form-control" placeholder="desde 25/08/2026">
+            <button class="btn btn-primary btn-sm" onclick="guardarIncremento()">
+                <i class="bi bi-check-lg"></i> Guardar
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('formInc').hidden = true">
+                Cancelar
+            </button>
+        </div>
         {% if incrementos %}
         <div class="table-responsive">
             <table class="table table-sm mb-0 align-middle">
                 <thead>
                     <tr>
                         <th>Aerolinea</th><th>Destino</th><th>Incremento</th>
-                        <th>Fechas</th><th>Cotizacion</th>
+                        <th>Fechas</th><th>Cotizacion</th><th style="width:52px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for i in incrementos %}
-                    <tr>
+                    <tr data-cot="{{ i.cot_id }}" data-aerolinea="{{ i.aerolinea }}" data-indice="{{ i.indice }}">
                         <td><strong>{{ i.aerolinea }}</strong></td>
                         <td>{{ i.destino }}</td>
                         <td>{{ '$' ~ i.monto if i.monto else '—' }}</td>
@@ -223,6 +247,12 @@
                             <a href="{{ url_for('cotizaciones.editar_cotizacion', id=i.cot_id) }}"
                                class="text-decoration-none">#{{ i.cot_id }}</a>
                             {% if i.customer %}<span class="fsc-rule-hint">{{ i.customer }}</span>{% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-outline-danger btn-sm" onclick="borrarIncremento(this)"
+                                    title="Quitar este incremento de la cotizacion">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -287,6 +317,53 @@ async function descartarPropuesta(btn) {
         body: JSON.stringify({ ids: [id], decision: 'resuelto' })
     });
     fila.remove();
+}
+
+// ------------------------------------------------ incrementos por temporada
+// Los incrementos viven dentro de la cotizacion (campo Rate Increase). Aca se
+// ven todos juntos y se pueden quitar o agregar sin entrar a cada una.
+document.getElementById('btnAgregarInc').onclick = () => {
+    const f = document.getElementById('formInc');
+    f.hidden = !f.hidden;
+    if (!f.hidden) document.getElementById('incAerolinea').focus();
+};
+
+async function guardarIncremento() {
+    const cuerpo = {
+        aerolinea: document.getElementById('incAerolinea').value.trim(),
+        destino:   document.getElementById('incDestino').value.trim(),
+        monto:     document.getElementById('incMonto').value.trim(),
+        fechas:    document.getElementById('incFechas').value.trim(),
+    };
+    if (!cuerpo.aerolinea || !cuerpo.destino || !cuerpo.monto) {
+        alert('Hacen falta la aerolinea, el destino y el monto.');
+        return;
+    }
+    const r = await fetch(`${BASE}/api/incremento`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(cuerpo)
+    });
+    const data = await r.json();
+    if (!data.success) { alert('No se pudo agregar: ' + (data.error || '')); return; }
+    location.reload();
+}
+
+async function borrarIncremento(btn) {
+    const fila = btn.closest('tr');
+    if (!confirm('Se quita este incremento de la cotizacion. ¿Continuar?')) return;
+    const r = await fetch(`${BASE}/api/incremento`, {
+        method: 'DELETE', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            cot_id: fila.dataset.cot,
+            aerolinea: fila.dataset.aerolinea,
+            indice: fila.dataset.indice,
+        })
+    });
+    const data = await r.json();
+    if (!data.success) { alert('No se pudo quitar: ' + (data.error || '')); return; }
+    // Se recarga en vez de solo borrar la fila: los indices de las demas
+    // filas de esa misma aerolinea se corren al quitar una.
+    location.reload();
 }
 
 function destinosFromInput(value) {
