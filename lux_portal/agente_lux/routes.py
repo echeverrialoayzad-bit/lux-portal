@@ -721,6 +721,30 @@ def _limpiar_direcciones(texto):
     return '; '.join(vistas)
 
 
+@agente_lux_bp.route('/api/mails/<int:id>', methods=['DELETE'])
+@login_required
+def borrar_mail(id):
+    """Quita una aerolinea de la lista de solicitudes de tarifas.
+
+    Es solo esa lista: sirve para sacar aerolineas que ya no se usan o que
+    quedaron duplicadas por un nombre mal escrito (AV/MSC, DELTA PAX...). Las
+    cotizaciones y las tablas maestras de FSC y cargos no se tocan, porque son
+    la fuente de la verdad del portal y se limpian desde su propia pantalla."""
+    from lux_portal.cotizaciones.models import AirlineMailRequest
+
+    registro = AirlineMailRequest.query.get(id)
+    if not registro:
+        return jsonify({'error': 'Aerolinea no encontrada.'}), 404
+    nombre = registro.aerolinea
+    try:
+        db.session.delete(registro)
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({'error': str(exc)}), 500
+    return jsonify({'ok': True, 'aerolinea': nombre})
+
+
 @agente_lux_bp.route('/api/mails/<int:id>/enviar', methods=['POST'])
 @login_required
 def enviar_mail(id):

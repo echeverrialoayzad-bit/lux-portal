@@ -1163,6 +1163,19 @@ const MAILS_URL = '{{ url_for("agente_lux.mails") }}';
 const ENVIOS_URL = '{{ url_for("agente_lux.envios") }}';
 const DESCUBRIR_URL = '{{ url_for("agente_lux.descubrir_contactos") }}';
 const MAIL_GUARDAR_URL = '{{ url_for("agente_lux.guardar_mail", id=0) }}'.slice(0, -1);
+const MAIL_BORRAR_URL = '{{ url_for("agente_lux.borrar_mail", id=0) }}'.slice(0, -1);
+
+// Quita una aerolinea de la lista de solicitudes. No toca sus cotizaciones ni
+// las tablas maestras de FSC/cargos: solo deja de pedirle tarifas desde aqui.
+async function borrarSolicitud(id, nombre) {
+  if (!confirm(`Se quita "${nombre}" de la lista de solicitudes de tarifas.\n\n`
+             + 'Sus cotizaciones y sus reglas de FSC y cargos NO se tocan. ¿Continuar?')) return;
+  const r = await fetch(MAIL_BORRAR_URL + id, { method: 'DELETE' });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d.ok) { banner(escapar(d.error || 'No se pudo eliminar.'), 'danger'); return; }
+  banner(`"${escapar(nombre)}" se quitó de la lista.`, 'success');
+  cargarMails();
+}
 const MODO_URL = '{{ url_for("agente_lux.modo_envio") }}';
 let vigiaActivo = false;
 // 'enviar': el vigía manda al instante. 'borrador': deja el correo en
@@ -1231,6 +1244,13 @@ function tarjetaMail(m) {
         <div class="text-end small">
           <div>${ultimo}</div>
           <div class="text-muted">${escapar(resp)}</div>
+          <!-- Para sacar de la lista aerolineas que ya no se usan o que
+               quedaron duplicadas (AV/MSC, DELTA PAX...). Solo borra la
+               solicitud de correo: no toca cotizaciones ni tablas maestras. -->
+          <a href="#" class="al-hecho text-decoration-none text-danger mt-1 d-inline-block"
+             title="Quitar esta aerolínea de la lista de solicitudes"
+             onclick="borrarSolicitud(${m.id}, '${escapar(m.aerolinea)}'); return false;">
+            <i class="bi bi-trash"></i> eliminar</a>
         </div>
       </div>
       <div class="row g-2 mt-1 small">
