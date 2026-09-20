@@ -17,27 +17,51 @@
   #cuerpo-hallazgos input[type=number]::-webkit-outer-spin-button,
   #cuerpo-hallazgos input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   #cuerpo-hallazgos input[type=number] { -moz-appearance:textfield; appearance:textfield; }
-  /* El cuadro de Actualizaciones es el de Excel de Daniela, con sus colores:
-     una tabla por aerolinea con el nombre en morado y letra blanca, la fila
-     de titulos (Destino, KG, Pasada, Fecha, Actual, Fecha) y las de FSC e
-     Incremento en verde claro, bordes negros. Adentro, un bloque por destino
-     con los tramos de kilos como filas. Sin texto al lado: lo que hay que
-     leer va en iconos con su tooltip debajo del destino. Al final, los
-     cargos adicionales en su propia tabla. Es ancho a proposito y en
-     pantallas chicas se desplaza de lado. */
+  /* El cuadro de Actualizaciones: SOLO tarifas netas, una tabla por
+     aerolinea y UNA FILA POR DESTINO. Colores de la marca (morado
+     FreightWise en el titulo, arena en los encabezados). Tres grosores de
+     borde, de fuera hacia dentro: el marco de la tabla, la linea que separa
+     un destino del siguiente, y una linea fina entre los tramos de kilos
+     dentro de una misma celda. Ni FSC ni incrementos: eso no va aca. */
   /* El base limita la pagina a 1240px; el cuadro necesita todo el ancho. */
   .container-fluid.py-4 { max-width: none !important; }
   .al-cuadro { width:100%; min-width:1100px; border-collapse:collapse; table-layout:fixed;
-               font-size:.92rem; background:#fff; color:#000; }
-  .al-cuadro th, .al-cuadro td { border:1px solid #000; padding:.25rem .45rem; vertical-align:middle; text-align:center; }
-  .al-cuadro-titulo { text-align:center; background:#7030a0; color:#fff; font-size:.95rem; font-weight:700; }
-  .al-cuadro-cols th, .al-sub td { text-align:center; background:#e2efda; color:#000; font-weight:400;
-                                   font-size:.86rem; padding:.15rem .45rem; }
-  .al-cuadro-morado th { text-align:center; background:#7030a0; color:#fff; font-weight:700; }
-  .al-sub td.al-blanco, .al-sub td.al-destino { background:#fff; }
-  .al-destino { text-align:center; }
-  .al-destino-nombre { font-weight:700; font-size:1.08rem; }
+               font-size:.92rem; background:#fff; color:#1b1630;
+               border:3px solid #4535A8; border-radius:2px; }
+  .al-cuadro th, .al-cuadro td { border:1px solid #cfc9ec; padding:.3rem .5rem;
+                                 vertical-align:middle; text-align:center; }
+  .al-cuadro-titulo { text-align:center; background:#5F4DCE; color:#fff; font-size:1rem;
+                      font-weight:700; letter-spacing:.04em; padding:.4rem .5rem;
+                      border-color:#4535A8; }
+  .al-cuadro-cols th { text-align:center; background:#ede9e5; color:#2D1B8E; font-weight:700;
+                       font-size:.82rem; text-transform:uppercase; letter-spacing:.03em;
+                       padding:.25rem .45rem; border-bottom:2px solid #4535A8; }
+  .al-cuadro-morado th { text-align:center; background:#5F4DCE; color:#fff; font-weight:700;
+                         border-color:#4535A8; }
+  /* Un destino se separa del siguiente con linea fuerte. */
+  .al-bloque + .al-bloque > tr > td { border-top:2px solid #4535A8; }
+  /* La columna Destino tambien. */
+  .al-cuadro td.al-destino { border-right:2px solid #4535A8; }
+  .al-destino { text-align:center; background:#fbfaff; padding:.4rem .5rem; }
+  .al-destino-nombre { font-weight:700; font-size:1.08rem; color:#2D1B8E; }
   .al-col-kg { text-align:center; font-weight:700; }
+  /* Linea fina entre un tramo de kilos y el siguiente dentro de la celda:
+     mas suave que la que separa destinos, para que se lea la jerarquia.
+     La celda va sin relleno lateral para que la linea llegue de borde a
+     borde; el relleno lo pone cada tramo. Las dos celdas arrancan arriba (no
+     centradas) para que el tramo +100 de "pasada" quede a la misma altura
+     que el +100 de "actual". */
+  .al-celda-kg { padding:0 !important; vertical-align:top !important; }
+  .al-fila-kg { padding:.2rem .5rem; min-height:44px;
+                display:flex; flex-direction:column; justify-content:center; }
+  .al-fila-kg + .al-fila-kg { border-top:1px solid #d9d3f2; }
+  /* La fecha de lo que hay guardado cierra la celda, sin linea propia: no es
+     un tramo mas. */
+  .al-fecha-pasada { padding:.2rem .5rem .3rem; }
+  /* La etiqueta del tramo, al lado de su tarifa dentro de la celda. */
+  .al-tramo { display:inline-block; min-width:46px; text-align:right; font-size:.78rem;
+              font-weight:700; color:#5F4DCE; }
+  .al-oculto { font-size:.82rem; color:#6f6b85; padding:.5rem .2rem; }
   .al-tag { font-size:.62rem; }
   .al-iconos { font-size:1rem; }
   .al-hecho { font-size:.78rem; }
@@ -50,7 +74,11 @@
   .al-hint { font-size:.76rem; color:#666; }
   .al-linea { display:flex; align-items:center; justify-content:center; gap:.35rem; min-height:34px; }
   .al-inp-fecha { width:142px; }
-  .al-cuadro .al-val-nuevo { width:96px; }
+  /* El portal le pone bastante relleno a los inputs; aca se achican para que
+     la fila de una tarifa editable mida igual que la de la tarifa pasada y
+     las lineas de los dos lados queden a la misma altura. */
+  .al-cuadro .al-val-nuevo { width:96px; height:32px; padding:.15rem .4rem;
+                             font-size:.9rem; line-height:1.2; }
   .al-vacio { padding:2.5rem 1rem; text-align:center; color:#8a8a8a; }
   .al-abrir { cursor:pointer; }
   .al-abrir:hover { color: var(--fw-purple, #4535a8); text-decoration: underline; }
@@ -649,23 +677,6 @@ function agruparPorAerolinea(filas) {
   }));
 }
 
-// Si el mismo correo trajo tambien un cambio de FSC para esa aerolinea y ese
-// destino, va como propuesta aparte (su propio bloque) y aca se muestra al
-// lado de la tarifa para leerlo todo junto.
-function fscHermano(h, todas) {
-  return (todas || []).find(x => x.tipo === 'fsc' && x.id !== h.id && x.mail_id === h.mail_id
-    && normAero(x.aerolinea) === normAero(h.aerolinea)
-    && (!((x.detalle || {}).destinos || []).length
-        || ((x.detalle || {}).destinos || []).map(normAero).includes(normAero(h.destino))));
-}
-
-function textoRangoInc(i) {
-  if (i.desde && i.hasta) return `del ${fechaTexto(i.desde)} al ${fechaTexto(i.hasta)}`;
-  if (i.desde) return `desde el ${fechaTexto(i.desde)}`;
-  if (i.hasta) return `hasta el ${fechaTexto(i.hasta)}`;
-  return 'sin fechas';
-}
-
 // El sobre que abre el correo: gris si es reciente, amarillo o rojo si es
 // viejo, porque una tarifa de hace un mes casi nunca sigue vigente.
 function tonoCorreo(dias) {
@@ -704,18 +715,13 @@ function iconosDe(filas) {
   return enlacesCorreo(filas) + iconosAviso(filas);
 }
 
-// La celda Destino de un bloque: el destino, la etiqueta si no es tarifa,
-// los iconos y la confianza.
+// La celda Destino de un bloque: el IATA del destino una sola vez, sus
+// avisos y el boton "hecho". El correo va en su propia columna.
 function celdaDestino(b) {
-  const filas = b.filas, h = filas[0], d = h.detalle || {};
-  const [etiqueta, color] = ETIQUETA_TIPO[b.tipo] || ['Otro', 'bg-secondary'];
-  const destino = b.tipo === 'fsc'
-    ? (d.destinos && d.destinos.length ? d.destinos.join(', ') : 'Todos los destinos')
-    : (h.destino || '—');
+  const filas = b.filas, h = filas[0];
+  const destino = h.destino || '—';
   const errores = filas.filter(x => x.error)
     .map(x => (filas.length > 1 && (x.detalle || {}).kg ? x.detalle.kg + ': ' : '') + x.error).join('\n');
-  // Solo el IATA de destino, sus avisos y el boton "hecho": el correo va en
-  // la celda Fecha del lado Actual, que es de donde sale el valor nuevo.
   return `
     <div class="al-destino-nombre">${escapar(destino)}</div>
     <div class="mt-1">${iconosAviso(filas)}</div>
@@ -758,171 +764,74 @@ function inputValor(h) {
   return `<input type="number" step="0.01" class="form-control form-control-sm text-end al-val-nuevo inp-valor"
              data-id="${h.id}" value="${escapar(h.valor_nuevo || '')}">`;
 }
-// Fila de titulos verde: FSC / Incremento con sus fechas. La celda de KG
-// queda en blanco, como en el Excel.
-const SUB_FSC = `<tr class="al-sub"><td class="al-blanco"></td><td>FSC</td><td>Fecha</td><td>FSC</td><td>Fecha</td></tr>`;
-const SUB_INC = `<tr class="al-sub"><td class="al-blanco"></td><td>Incremento</td><td>Fecha</td><td>Incremento</td><td>Fecha</td></tr>`;
-
-// Lineas del incremento por temporada, editables. Los montos van en una
-// celda y las fechas en la de al lado, emparejados por data-linea. La nota
-// que dejo el analisis viaja en data-nota para no perderla al guardar.
-function lineaIncMonto(i, k) {
-  return `<div class="al-linea" data-linea="${k}" data-nota="${escapar(i.nota || '')}">
-    <span class="al-hint">+</span>
-    <input type="number" step="0.01" min="0" class="form-control form-control-sm text-end al-val-nuevo inp-inc"
-           data-campo="monto" placeholder="0.00" value="${escapar(i.monto || '')}" title="Cuánto sube por kilo (USD)">
-    <span class="al-hint">/kg</span>
-    ${i.nota ? `<i class="bi bi-info-circle al-hint" title="${escapar(i.nota)}"></i>` : ''}
-  </div>`;
-}
-function lineaIncFechas(i, k) {
-  const inp = (campo, v) => (v && !ES_ISO.test(v))
-    ? `<input type="text" class="form-control form-control-sm al-inp-fecha inp-inc" data-campo="${campo}" value="${escapar(v)}">`
-    : `<input type="date" class="form-control form-control-sm al-inp-fecha inp-inc" data-campo="${campo}" value="${escapar(v || '')}">`;
-  return `<div class="al-linea" data-linea="${k}">
-    <span class="al-hint">del</span>${inp('desde', i.desde)}<span class="al-hint">al</span>${inp('hasta', i.hasta)}
-    <a href="#" class="text-danger text-decoration-none" title="Quitar este incremento"
-       onclick="quitarIncremento(this); return false;">&times;</a>
-  </div>`;
-}
-
-// Bloque de tarifas de un destino: una fila por tramo de kilos (columna KG)
-// y, abajo, el FSC y el incremento por temporada, cada uno con su lado
-// Pasada y Actual.
-function bloqueTarifa(b, todas) {
-  const filas = b.filas, n = filas.length, primero = filas[0];
-  const ids = filas.map(x => x.id);
-  const idsAttr = escapar(JSON.stringify(ids));
+// UNA FILA POR DESTINO. La tarifa pasada es la que tiene hoy la cotizacion
+// (la ultima actualizacion antes de esta); la actual es la que trae el
+// correo, editable y con su casilla para aprobar. Cuando la aerolinea cobra
+// por tramos de kilos, cada tramo va como una linea dentro de la celda, con
+// su propia casilla, para no partir el destino en varias filas.
+function bloqueTarifa(b) {
+  const filas = b.filas, primero = filas[0];
+  const idsAttr = escapar(JSON.stringify(filas.map(x => x.id)));
   const a = primero.actual || {};
   const dVig = filas.find(x => (x.detalle || {}).vigencia_desde);
   const vig = dVig ? dVig.detalle.vigencia_desde : '';
   const dHasta = filas.find(x => (x.detalle || {}).vigencia_hasta);
   const vigHasta = dHasta ? dHasta.detalle.vigencia_hasta : '';
   const fechaCorreo = (primero.mail_fecha || '').slice(0, 10);
+  // Con un solo tramo la etiqueta de kilos sobra: seria ruido en todas las filas.
+  const tramo = h => (filas.length > 1 && (h.detalle || {}).kg)
+    ? `<span class="al-tramo">${escapar(h.detalle.kg)}</span>` : '';
 
-  const filasTramo = filas.map((h, i) => {
+  // Cada tramo va en su propio div para que la linea fina caiga justo entre
+  // uno y otro, aunque alguno lleve un aviso debajo.
+  const pasadas = filas.map(h => {
     const ha = h.actual || {};
-    const pasada = ha.tarifa != null ? ha.tarifa : h.valor_actual;
-    return `<tr data-id="${h.id}">
-      ${i === 0 ? `<td rowspan="${n + 4}" class="al-destino">${celdaDestino(b)}</td>` : ''}
-      <td class="al-col-kg">${escapar((h.detalle || {}).kg || '')}</td>
-      <td><span class="al-v">${val(pasada)}</span></td>
-      ${i === 0 ? `<td rowspan="${n}"><span class="al-v">${a.fecha ? fechaDia(a.fecha) : GUION}</span></td>` : ''}
-      <td><div class="al-linea">${chkHallazgo(h)}${inputValor(h)}</div>
-        ${mismoNum(ha.tarifa, h.valor_nuevo) ? '<div class="al-hint">ya está así en la cotización</div>' : ''}</td>
-      ${i === 0 ? `<td rowspan="${n}">${inputVigencia(vig, fechaCorreo, idsAttr)}<div class="al-hint">${hintVigencia(vig, vigHasta)}</div>${enlacesCorreo(filas)}</td>` : ''}
-    </tr>`;
+    const v = ha.tarifa != null ? ha.tarifa : h.valor_actual;
+    return `<div class="al-fila-kg"><div class="al-linea">${tramo(h)}
+      <span class="al-v">${val(v)}</span></div></div>`;
   }).join('');
 
-  // FSC: el de hoy (de la cotizacion o de la regla) y el que trae el correo.
-  const fscActual = a.fsc != null ? a.fsc : (((primero.detalle || {}).kg_rate_actual || {}).fsc || null);
-  const fechaFscPasada = (a.fsc_origen === 'cotizacion' && a.fecha) ? fechaDia(a.fecha) : GUION;
-  const hintFscPasada = a.fsc_origen === 'regla' ? 'regla de FSC de la aerolínea' : '';
-  const hermano = fscHermano(primero, todas);
-  const dFsc = filas.find(x => (x.detalle || {}).fsc_correo != null && x.detalle.fsc_correo !== '');
-  let fscNuevo, hintFsc, fechaFscNueva;
-  if (hermano) {
-    fscNuevo = val(hermano.valor_nuevo);
-    hintFsc = 'propuesta aparte: está en su bloque FSC';
-    const hv = (hermano.detalle || {}).vigencia_desde;
-    fechaFscNueva = hv ? fechaTexto(hv) : fechaDia((hermano.mail_fecha || '').slice(0, 10));
-  } else if (dFsc) {
-    fscNuevo = val(dFsc.detalle.fsc_correo);
-    hintFsc = 'según el correo; la regla de FSC no cambia';
-    fechaFscNueva = vig ? fechaTexto(vig) : fechaDia(fechaCorreo);
-  } else {
-    fscNuevo = val(fscActual);
-    hintFsc = fscActual != null ? 'sin cambio' : '';
-    fechaFscNueva = GUION;
-  }
-  const filasFsc = SUB_FSC + `
-    <tr>
-      <td class="al-blanco"></td>
-      <td><span class="al-v">${val(fscActual)}</span></td>
-      <td><span class="al-v">${fechaFscPasada}</span>${hintFscPasada ? `<div class="al-hint">${hintFscPasada}</div>` : ''}</td>
-      <td><span class="al-v">${fscNuevo}</span>${hintFsc ? `<div class="al-hint">${hintFsc}</div>` : ''}</td>
-      <td><span class="al-v">${fechaFscNueva}</span></td>
-    </tr>`;
+  const actuales = filas.map(h => {
+    const ha = h.actual || {};
+    return `<div class="al-fila-kg">
+      <div class="al-linea">${tramo(h)}${chkHallazgo(h)}${inputValor(h)}</div>
+      ${mismoNum(ha.tarifa, h.valor_nuevo)
+        ? '<div class="al-hint">ya está así en la cotización</div>' : ''}</div>`;
+  }).join('');
 
-  // Incremento por temporada: el que ya tiene la cotizacion (Rate Increase)
-  // y el que anuncia el correo, editable. Al aplicar, el nuevo reemplaza al
-  // viejo en la cotizacion.
-  const incPasados = a.incrementos || [];
-  const conInc = filas.find(x => ((x.detalle || {}).incrementos || []).length);
-  const incs = conInc ? conInc.detalle.incrementos : [];
-  const lineasPasadas = fn => incPasados.length
-    ? incPasados.map(i => `<div class="al-linea">${fn(i)}</div>`).join('')
-    : `<div class="al-linea">${GUION}</div>`;
-  const filasInc = SUB_INC + `
+  return `<tbody class="al-bloque" data-ids="${idsAttr}">
     <tr>
-      <td class="al-blanco"></td>
-      <td>${lineasPasadas(i => `<span class="al-v">${val(i.monto)}</span>`)}</td>
-      <td>${lineasPasadas(i => `<span class="al-v">${i.texto ? escapar(i.texto) : GUION}</span>`)}</td>
-      <td class="al-inc-montos">${incs.map(lineaIncMonto).join('')}
-        <a href="#" class="al-hint text-decoration-none" onclick="agregarIncremento(this); return false;">
-          <i class="bi bi-plus-lg"></i> ${incs.length ? 'otro incremento' : 'agregar incremento'}</a></td>
-      <td class="al-inc-fechas">${incs.map(lineaIncFechas).join('')}</td>
-    </tr>`;
-
-  return `<tbody class="al-bloque" data-ids="${idsAttr}">${filasTramo}${filasFsc}${filasInc}</tbody>`;
+      <td class="al-destino">${celdaDestino(b)}</td>
+      <td class="al-celda-kg">${pasadas}
+        <div class="al-fecha-pasada al-hint">${a.fecha ? 'del ' + fechaDia(a.fecha) : 'sin fecha guardada'}</div></td>
+      <td class="al-celda-kg">${actuales}</td>
+      <td>${inputVigencia(vig, fechaCorreo, idsAttr)}
+        <div class="al-hint">${hintVigencia(vig, vigHasta)}</div></td>
+      <td>${enlacesCorreo(filas)}</td>
+    </tr>
+  </tbody>`;
 }
 
-// Bloques de una sola propuesta: FSC, dias de salida e informativos.
-function bloqueSimple(b) {
-  const h = b.filas[0], d = h.detalle || {}, a = h.actual || {};
-  const idsAttr = escapar(JSON.stringify([h.id]));
-  const vig = d.vigencia_desde || '';
-  const fechaCorreo = (h.mail_fecha || '').slice(0, 10);
-  const soloInfo = (b.tipo === 'dias' || b.tipo === 'info');
-  const pasada = b.tipo === 'fsc' ? (a.fsc != null ? a.fsc : h.valor_actual) : h.valor_actual;
-  const actual = soloInfo
-    ? `<span class="al-v">${val(h.valor_nuevo)}</span><div class="al-hint">${b.tipo === 'dias' ? 'no se aplica solo' : 'solo informativo'}</div>`
-    : `<div class="al-linea">${chkHallazgo(h)}${inputValor(h)}</div>`
-      + (mismoNum(pasada, h.valor_nuevo) ? '<div class="al-hint">ya está así en el portal</div>' : '');
-  const fechaNueva = soloInfo
-    ? `<span class="al-v">${vig ? fechaTexto(vig) : fechaDia(fechaCorreo)}</span>`
-    : inputVigencia(vig, fechaCorreo, idsAttr);
-  const hint = `<div class="al-hint">${hintVigencia(vig, d.vigencia_hasta)}</div>`;
-
-  // Un aviso puede traer incrementos (un comunicado de peak season que no se
-  // aplica solo): se muestran, sin editar.
-  const incs = soloInfo ? (d.incrementos || []) : [];
-  const filasInc = incs.length ? SUB_INC + `
-    <tr>
-      <td class="al-blanco"></td>
-      <td>${GUION}</td><td>${GUION}</td>
-      <td>${incs.map(i => `<div class="al-linea"><span class="al-v">+${escapar(i.monto)}</span><span class="al-hint">/kg</span></div>`).join('')}</td>
-      <td>${incs.map(i => `<div class="al-linea"><span class="al-v">${textoRangoInc(i)}</span>${i.nota ? `<i class="bi bi-info-circle al-hint" title="${escapar(i.nota)}"></i>` : ''}</div>`).join('')}</td>
-    </tr>` : '';
-
-  const nFilas = (b.tipo === 'fsc' ? 2 : 1) + (incs.length ? 2 : 0);
-  const destino = `<td rowspan="${nFilas}" class="al-destino">${celdaDestino(b)}</td>`;
-  const valores = `
-      <td class="al-col-kg">${escapar(d.kg || '')}</td>
-      <td><span class="al-v">${val(pasada)}</span></td>
-      <td>${GUION}</td>
-      <td>${actual}</td>
-      <td>${fechaNueva}${hint}${enlacesCorreo([h])}</td>`;
-  const filas = b.tipo === 'fsc'
-    ? `<tr class="al-sub">${destino}<td class="al-blanco"></td><td>FSC</td><td>Fecha</td><td>FSC</td><td>Fecha</td></tr><tr>${valores}</tr>`
-    : `<tr>${destino}${valores}</tr>`;
-  return `<tbody class="al-bloque" data-ids="${idsAttr}">${filas}${filasInc}</tbody>`;
-}
-
-function tablaAerolinea(g, todas) {
+// El cuadro de Actualizaciones muestra SOLO tarifas netas: un destino por
+// fila, lo que tenia guardado, lo que trae el correo, desde cuando rige y el
+// enlace al correo. El FSC y los incrementos no van aca.
+function tablaAerolinea(g) {
+  const bloques = g.bloques.filter(b => b.tipo === 'tarifa');
+  if (!bloques.length) return '';
   return `
   <table class="al-cuadro mb-3">
     <colgroup>
-      <col style="width:12%"><col style="width:7%"><col style="width:14%"><col style="width:15%">
-      <col style="width:19%"><col style="width:33%">
+      <col style="width:11%"><col style="width:20%"><col style="width:24%">
+      <col style="width:19%"><col style="width:26%">
     </colgroup>
     <thead>
-      <tr><th colspan="6" class="al-cuadro-titulo">${escapar(g.aerolinea)}</th></tr>
+      <tr><th colspan="5" class="al-cuadro-titulo">${escapar(g.aerolinea)}</th></tr>
       <tr class="al-cuadro-cols">
-        <th>Destino</th><th>KG</th><th>Pasada</th><th>Fecha</th><th>Actual</th><th>Fecha</th>
+        <th>Destino</th><th>Tarifa pasada</th><th>Tarifa actual</th>
+        <th>Fecha de actualización</th><th>Correo</th>
       </tr>
     </thead>
-    ${g.bloques.map(b => b.tipo === 'tarifa' ? bloqueTarifa(b, todas) : bloqueSimple(b)).join('')}
+    ${bloques.map(bloqueTarifa).join('')}
   </table>`;
 }
 
@@ -1056,18 +965,16 @@ function tablaResumen(grupos) {
 function pintarHallazgos() {
   const filas = hallazgosEnPantalla;
   const marcados = new Set(idsSeleccionados());
-  const sinCargos = filas.filter(h => h.tipo !== 'cargo');
+  // Solo tarifas netas: el FSC y los incrementos viven en la pestaña FSC.
+  const tarifas = filas.filter(h => h.tipo === 'tarifa');
   document.getElementById('cuerpo-hallazgos').innerHTML =
-    tablaResumen(agruparPorAerolinea(filas))
-    + agruparPorAerolinea(sinCargos).map(g => tablaAerolinea(g, filas)).join('')
-    + tablaCargos(filas.filter(h => h.tipo === 'cargo'));
+    agruparPorAerolinea(tarifas).map(tablaAerolinea).join('');
   document.querySelectorAll('#cuerpo-hallazgos .chk-hallazgo').forEach(c => {
     if (marcados.has(parseInt(c.dataset.id, 10))) c.checked = true;
     c.addEventListener('change', actualizarBotonAplicar);
   });
   document.querySelectorAll('#cuerpo-hallazgos .inp-valor').forEach(i => i.addEventListener('change', guardarValor));
   document.querySelectorAll('#cuerpo-hallazgos .inp-vigencia').forEach(i => i.addEventListener('change', guardarVigencia));
-  document.querySelectorAll('#cuerpo-hallazgos .inp-inc').forEach(i => i.addEventListener('change', guardarIncrementos));
   actualizarBotonAplicar();
 }
 
@@ -1173,49 +1080,6 @@ function guardarValor(ev) {
 
 function guardarVigencia(ev) {
   guardarEdicion({ ids: JSON.parse(ev.currentTarget.dataset.ids), vigencia_desde: ev.currentTarget.value });
-}
-
-// Los incrementos de un bloque, leidos del cuadro: el monto de cada linea
-// con las fechas de la linea de al lado.
-function incrementosDe(bloque) {
-  const fechasDe = k => bloque.querySelector(`.al-inc-fechas .al-linea[data-linea="${k}"]`);
-  return [...bloque.querySelectorAll('.al-inc-montos .al-linea')].map(m => {
-    const f = fechasDe(m.dataset.linea);
-    return {
-      monto: m.querySelector('[data-campo="monto"]').value,
-      desde: f ? f.querySelector('[data-campo="desde"]').value : '',
-      hasta: f ? f.querySelector('[data-campo="hasta"]').value : '',
-      nota: m.dataset.nota || '',
-    };
-  }).filter(i => i.monto || i.desde || i.hasta);
-}
-
-function guardarIncrementos(ev) {
-  const bloque = ev.currentTarget.closest('.al-bloque');
-  const k = ev.currentTarget.closest('.al-linea').dataset.linea;
-  const monto = bloque.querySelector(`.al-inc-montos .al-linea[data-linea="${k}"] [data-campo="monto"]`);
-  // Sin monto no hay incremento que guardar: se espera a que lo escriba.
-  if (monto && !monto.value) return;
-  guardarEdicion({ ids: JSON.parse(bloque.dataset.ids), incrementos: incrementosDe(bloque) });
-}
-
-function agregarIncremento(enlace) {
-  const bloque = enlace.closest('.al-bloque');
-  const usados = [...bloque.querySelectorAll('.al-inc-montos .al-linea')].map(l => parseInt(l.dataset.linea, 10));
-  const k = usados.length ? Math.max(...usados) + 1 : 0;
-  enlace.insertAdjacentHTML('beforebegin', lineaIncMonto({}, k));
-  bloque.querySelector('.al-inc-fechas').insertAdjacentHTML('beforeend', lineaIncFechas({}, k));
-  bloque.querySelectorAll(`.al-linea[data-linea="${k}"] .inp-inc`).forEach(i => i.addEventListener('change', guardarIncrementos));
-  bloque.querySelector(`.al-inc-montos .al-linea[data-linea="${k}"] [data-campo="monto"]`).focus();
-}
-
-function quitarIncremento(enlace) {
-  const bloque = enlace.closest('.al-bloque');
-  const k = enlace.closest('.al-linea').dataset.linea;
-  const monto = bloque.querySelector(`.al-inc-montos .al-linea[data-linea="${k}"] [data-campo="monto"]`);
-  const tenia = !!(monto && monto.value);
-  bloque.querySelectorAll(`.al-linea[data-linea="${k}"]`).forEach(l => l.remove());
-  if (tenia) guardarEdicion({ ids: JSON.parse(bloque.dataset.ids), incrementos: incrementosDe(bloque) });
 }
 
 document.getElementById('btn-aplicar').addEventListener('click', async (ev) => {

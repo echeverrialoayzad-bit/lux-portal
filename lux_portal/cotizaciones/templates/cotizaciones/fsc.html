@@ -19,6 +19,20 @@
     .fsc-field-fsc { flex: 0 0 110px; }
     .fsc-rule-hint { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
     .fsc-add-rule-btn { margin: 12px 16px; }
+    /* Lo que propone un correo sobre una regla: va pegado debajo de ella,
+       en coral (el color de aviso de la marca) para que salte a la vista. */
+    .fsc-propuesta {
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        padding: 10px 16px; background: rgba(255, 86, 73, 0.07);
+        border-left: 4px solid #ff5649; border-bottom: 1px solid var(--border);
+        font-size: 0.85rem;
+    }
+    .fsc-propuesta .valor { font-weight: 700; font-size: 1.05rem; color: #ff5649; }
+    .fsc-propuesta .de { color: var(--text-muted); text-decoration: line-through; }
+    .fsc-propuesta .meta { color: var(--text-muted); font-size: 0.78rem; }
+    .fsc-propuesta .acciones { margin-left: auto; display: flex; gap: 8px; }
+    .fsc-nuevas { border-left: 4px solid #5F4DCE; }
+    .fsc-sin-nada { padding: 14px 16px; color: var(--text-muted); font-size: 0.85rem; }
 </style>
 {% endblock %}
 
@@ -75,6 +89,33 @@
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
+                {% set p = propuestas.get(r.id) %}
+                {% if p %}
+                <div class="fsc-propuesta" data-hallazgo="{{ p.id }}">
+                    <i class="bi bi-envelope-fill" style="color:#ff5649;"></i>
+                    <span>Un correo propone
+                        <span class="de">{{ p.fsc_actual }}</span> &rarr;
+                        <span class="valor">{{ p.fsc_nuevo }}</span></span>
+                    <span class="meta">
+                        {% if p.desde %}rige desde el {{ p.desde }}{% endif %}
+                        {% if p.hasta %} · hasta el {{ p.hasta }}{% endif %}
+                        {% if p.mail_asunto %} · {{ p.mail_asunto[:48] }}{% endif %}
+                        {% if p.mail_fecha %} · {{ p.mail_fecha }}{% endif %}
+                    </span>
+                    {% if p.alerta %}
+                    <span class="meta text-warning"><i class="bi bi-exclamation-triangle-fill"></i> {{ p.alerta }}</span>
+                    {% endif %}
+                    <span class="acciones">
+                        <button class="btn btn-success btn-sm" onclick="aplicarPropuesta(this)">
+                            <i class="bi bi-check-lg"></i> Aplicar
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="descartarPropuesta(this)"
+                                title="Quitar la propuesta sin cambiar el FSC">
+                            Descartar
+                        </button>
+                    </span>
+                </div>
+                {% endif %}
                 {% endfor %}
             </div>
             <button class="btn btn-outline-secondary btn-sm fsc-add-rule-btn" onclick="agregarRegla(this)">
@@ -92,11 +133,133 @@
     <p>Agrega una aerolinea para empezar</p>
 </div>
 {% endif %}
+
+{% if propuestas_sueltas %}
+<div class="card fsc-airline-card">
+    <div class="card-header">
+        <h5><i class="bi bi-envelope-plus me-2"></i>Propuestas sin regla todavia</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="fsc-sin-nada">
+            Estos correos traen un FSC para un grupo de destinos que no coincide con
+            ninguna regla de arriba. Al aplicarlos se crea la regla nueva.
+        </div>
+        {% for p in propuestas_sueltas %}
+        <div class="fsc-propuesta fsc-nuevas" data-hallazgo="{{ p.id }}">
+            <i class="bi bi-airplane"></i>
+            <strong>{{ p.aerolinea }}</strong>
+            <span>{{ p.nombre or 'sin nombre' }} &middot;
+                {{ p.destinos|join(', ') if p.destinos else 'todos los destinos' }}</span>
+            <span>FSC <span class="valor">{{ p.fsc_nuevo }}</span></span>
+            <span class="meta">
+                {% if p.desde %}desde el {{ p.desde }} · {% endif %}
+                {{ p.mail_asunto[:40] }} {% if p.mail_fecha %}· {{ p.mail_fecha }}{% endif %}
+            </span>
+            <span class="acciones">
+                <button class="btn btn-success btn-sm" onclick="aplicarPropuesta(this)">
+                    <i class="bi bi-check-lg"></i> Crear y aplicar
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="descartarPropuesta(this)">
+                    Descartar
+                </button>
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card fsc-airline-card" id="cardIncrementos">
+    <div class="card-header">
+        <h5><i class="bi bi-graph-up-arrow me-2"></i>Incrementos vigentes por temporada</h5>
+        <span class="badge bg-light text-dark">{{ incrementos|length }}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if incrementos %}
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Aerolinea</th><th>Destino</th><th>Incremento</th>
+                        <th>Fechas</th><th>Cotizacion</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in incrementos %}
+                    <tr>
+                        <td><strong>{{ i.aerolinea }}</strong></td>
+                        <td>{{ i.destino }}</td>
+                        <td>{{ '$' ~ i.monto if i.monto else '—' }}</td>
+                        <td>{{ i.fechas or '—' }}</td>
+                        <td>
+                            <a href="{{ url_for('cotizaciones.editar_cotizacion', id=i.cot_id) }}"
+                               class="text-decoration-none">#{{ i.cot_id }}</a>
+                            {% if i.customer %}<span class="fsc-rule-hint">{{ i.customer }}</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="fsc-sin-nada">
+            No hay incrementos por temporada cargados en ninguna cotizacion.
+            Los recargos de San Valentin, Dia de la Madre y demas aparecen aca
+            en cuanto se guarden en el campo Rate Increase de una cotizacion.
+        </div>
+        {% endif %}
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 const BASE = "{{ url_for('cotizaciones.dashboard') }}".replace(/\/$/, '');
+
+// ------------------------------------------------ propuestas de Agente Lux
+// Lo que un correo propone para una regla se aprueba y se aplica con los
+// mismos dos endpoints que usa la pantalla de Agente Lux: primero queda
+// aprobada, despues se escribe sobre la tabla maestra. No se duplica la
+// logica de aplicar, que es la que sabe crear la regla si no existe.
+async function aplicarPropuesta(btn) {
+    const fila = btn.closest('.fsc-propuesta');
+    const id = parseInt(fila.dataset.hallazgo, 10);
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Aplicando...';
+    try {
+        const aprobar = await fetch("{{ url_for('agente_lux.decidir') }}", {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ ids: [id], decision: 'aprobado' })
+        });
+        if (!aprobar.ok) throw new Error('no se pudo aprobar');
+        const r = await fetch("{{ url_for('agente_lux.aplicar') }}", {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ ids: [id] })
+        });
+        const data = await r.json();
+        if (!data.ok || !data.aplicados) {
+            const msg = (data.detalle && data.detalle.length && data.detalle[0].mensaje)
+                || data.mensaje || 'no se aplico';
+            throw new Error(msg);
+        }
+        location.reload();
+    } catch (e) {
+        alert('No se pudo aplicar: ' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> Aplicar';
+    }
+}
+
+async function descartarPropuesta(btn) {
+    if (!confirm('Se quita la propuesta sin cambiar el FSC. ¿Continuar?')) return;
+    const fila = btn.closest('.fsc-propuesta');
+    const id = parseInt(fila.dataset.hallazgo, 10);
+    await fetch("{{ url_for('agente_lux.decidir') }}", {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ids: [id], decision: 'resuelto' })
+    });
+    fila.remove();
+}
 
 function destinosFromInput(value) {
     return value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);

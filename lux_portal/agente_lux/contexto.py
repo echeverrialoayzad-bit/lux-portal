@@ -161,11 +161,7 @@ def _actual_tarifa(h, cots, reglas):
             if _normalizar_aerolinea(aero.get('aerolinea', '')) != objetivo:
                 continue
             salida['fecha'] = aero.get('fecha_actualizacion') or None
-            salida['incrementos'] = [
-                {'monto': ri.get('amount', ''), 'texto': ri.get('date', '')}
-                for ri in (aero.get('rate_increases') or [])
-                if ri.get('amount') or ri.get('date')
-            ]
+            salida['incrementos'] = _incrementos_de(aero)
             for kr in (aero.get('kg_rates') or []):
                 if _normalizar_kg(kr.get('kg')) == kg_objetivo:
                     salida['tarifa'] = kr.get('tarifa') or None
@@ -184,19 +180,108 @@ def _actual_tarifa(h, cots, reglas):
     return salida
 
 
-def _actual_fsc(h, reglas):
+def _incrementos_de(aero):
+    """Los Rate Increase cargados en una aerolinea de la cotizacion."""
+    return [
+        {'monto': ri.get('amount', ''), 'texto': ri.get('date', '')}
+        for ri in (aero.get('rate_increases') or [])
+        if ri.get('amount') or ri.get('date')
+    ]
+
+
+def _datos_cotizacion(cot, aerolinea):
+    """Lo que una cotizacion tiene guardado para una aerolinea: cuando se
+    actualizo, su escala de kilos con la tarifa neta de cada tramo, el FSC
+    que quedo escrito ahi y sus incrementos. None si esa cotizacion no
+    cotiza esa aerolinea."""
+    objetivo = _normalizar_aerolinea(aerolinea)
+    for aero in (cot.aerolineas or []):
+        if _normalizar_aerolinea(aero.get('aerolinea', '')) != objetivo:
+            continue
+        kg_rates = [
+            {'kg': kr.get('kg', ''), 'tarifa': kr.get('tarifa', ''), 'fsc': kr.get('fsc', '')}
+            for kr in (aero.get('kg_rates') or [])
+        ]
+        # El FSC de la cotizacion es el del primer tramo que lo traiga: en la
+        # practica los tramos de un mismo destino comparten FSC.
+        fsc = next((kr['fsc'] for kr in kg_rates if not _sin_valor(kr['fsc'])), None)
+        return {
+            'cot_id': cot.id,
+            'customer': cot.customer or '',
+            'fecha': aero.get('fecha_actualizacion') or None,
+            'kg_rates': kg_rates,
+            'fsc': fsc,
+            'incrementos': _incrementos_de(aero),
+        }
+    return None
+
+
+def _indice_cotizaciones():
+    """{destino: [cotizaciones de ese destino, de la mas reciente a la mas
+    vieja]}. Se arma de una sola vez: son decenas, no vale la pena una
+    consulta por destino."""
+    from datetime import datetime
+    cots = Cotizacion.query.filter(Cotizacion.estado != 'eliminado').all()
+    cots.sort(
+        key=lambda c: c.fecha_modificacion or c.fecha_creacion or datetime.min,
+        reverse=True,
+    )
+    indice = {}
+    for cot in cots:
+        destino = (cot.destino or '').strip().upper()
+        if destino:
+            indice.setdefault(destino, []).append(cot)
+    return indice
+
+
+def _ultima_cotizacion(destino, aerolinea, indice):
+    """La cotizacion mas reciente de ese destino que cotice esa aerolinea."""
+    for cot in indice.get((destino or '').strip().upper(), []):
+        datos = _datos_cotizacion(cot, aerolinea)
+        if datos:
+            return datos
+    return None
+
+
+def _historial_fsc(aerolinea, destinos, indice):
+    """Una entrada por destino de la regla, con lo que tenia la ultima
+    cotizacion de ese destino. Es lo que deja ver, destino por destino,
+    desde cuando rige lo que hay y con que tarifa neta convive el FSC.
+
+    Una regla catch-all (sin destinos) no enumera nada por si sola: se
+    listan los destinos que realmente se cotizan con esa aerolinea."""
+    lista = [str(d).strip().upper() for d in (destinos or []) if str(d).strip()]
+    if not lista:
+        lista = sorted(
+            destino for destino, cots in indice.items()
+            if any(_datos_cotizacion(c, aerolinea) for c in cots)
+        )
+    salida = []
+    for destino in lista:
+        entrada = {'destino': destino}
+        datos = _ultima_cotizacion(destino, aerolinea, indice)
+        if datos:
+            entrada.update(datos)
+        salida.append(entrada)
+    return salida
+
+
+def _actual_fsc(h, reglas, indice):
     detalle = h.get('detalle') or {}
     regla_id = detalle.get('regla_id')
-    destinos = sorted(str(d).strip().upper() for d in (detalle.get('destinos') or []))
+    destinos_detalle = detalle.get('destinos') or []
+    destinos = sorted(str(d).strip().upper() for d in destinos_detalle)
     objetivo = _normalizar_aerolinea(h.get('aerolinea') or detalle.get('aerolinea') or '')
+    aerolinea = h.get('aerolinea') or detalle.get('aerolinea') or ''
+    historial = _historial_fsc(aerolinea, destinos_detalle, indice)
     for regla in reglas:
         if regla_id and regla.id == regla_id:
-            return {'fsc': regla.fsc}
+            return {'fsc': regla.fsc, 'destinos': historial}
     for regla in reglas:
         if (_normalizar_aerolinea(regla.aerolinea) == objetivo
                 and sorted(d.strip().upper() for d in (regla.destinos or [])) == destinos):
-            return {'fsc': regla.fsc}
-    return {'fsc': None}
+            return {'fsc': regla.fsc, 'destinos': historial}
+    return {'fsc': None, 'destinos': historial}
 
 
 def _actual_cargo(h, cargos):
@@ -232,6 +317,9 @@ def completar_actual(hallazgos):
             if cot_ids else {})
     reglas = AirlineFscRule.query.order_by(AirlineFscRule.aerolinea, AirlineFscRule.order).all()
     cargos = AirlineCargoRule.query.all()
+    # Solo si hay alguna propuesta de FSC: es la unica que necesita mirar
+    # todas las cotizaciones para armar el historial destino por destino.
+    indice = _indice_cotizaciones() if any(h.get('tipo') == 'fsc' for h in pendientes) else {}
 
     for h in hallazgos:
         detalle = h.get('detalle') or {}
@@ -242,7 +330,7 @@ def completar_actual(hallazgos):
         if tipo == 'tarifa':
             h['actual'] = _actual_tarifa(h, cots, reglas)
         elif tipo == 'fsc':
-            h['actual'] = _actual_fsc(h, reglas)
+            h['actual'] = _actual_fsc(h, reglas, indice)
         elif tipo == 'cargo':
             h['actual'] = _actual_cargo(h, cargos)
         else:

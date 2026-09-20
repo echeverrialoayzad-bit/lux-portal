@@ -472,10 +472,99 @@ def _get_or_create_fsc_group(aerolinea):
     return grupo
 
 
+def _propuestas_fsc():
+    """Los cambios de FSC que Agente Lux saco de los correos y siguen sin
+    aplicar, listos para mostrarse sobre la regla que les toca.
+
+    Devuelve (por_regla, sueltas): un dict {regla_id: propuesta} para las que
+    calzan con una regla existente, y una lista con las que no calzan con
+    ninguna (reglas nuevas que habria que crear)."""
+    from lux_portal.agente_lux.models import AgenteHallazgo
+    from lux_portal.agente_lux.vigencia import fecha_iso
+
+    def _dia_mes_ano(valor):
+        """'2026-09-01' -> '01/09/2026', como las escribe Daniela. Un texto
+        que no es una fecha se devuelve tal cual (el correo puede decir
+        'primera semana de octubre')."""
+        iso = fecha_iso(valor)
+        m = re.match(r'^(\d{4})-(\d{2})-(\d{2})$', str(iso or ''))
+        return f'{m.group(3)}/{m.group(2)}/{m.group(1)}' if m else (iso or '')
+
+    pendientes = (AgenteHallazgo.query
+                  .filter(AgenteHallazgo.tipo == 'fsc',
+                          AgenteHallazgo.estado.in_(('pendiente', 'aprobado')))
+                  .order_by(AgenteHallazgo.aerolinea)
+                  .all())
+
+    reglas = AirlineFscRule.query.all()
+    por_destinos = {}
+    for r in reglas:
+        clave = (r.aerolinea.strip().upper(),
+                 tuple(sorted(d.strip().upper() for d in (r.destinos or []))))
+        por_destinos.setdefault(clave, r)
+
+    por_regla, sueltas = {}, []
+    for h in pendientes:
+        d = h.detalle or {}
+        mail = h.mail
+        prop = {
+            'id': h.id,
+            'aerolinea': h.aerolinea or d.get('aerolinea') or '',
+            'nombre': d.get('nombre') or '',
+            'destinos': d.get('destinos') or [],
+            'fsc_actual': d.get('fsc_actual'),
+            'fsc_nuevo': h.valor_nuevo,
+            'desde': _dia_mes_ano(d.get('vigencia_desde')),
+            'hasta': _dia_mes_ano(d.get('vigencia_hasta')),
+            'mail_id': h.mail_id,
+            'mail_asunto': (mail.asunto if mail else '') or '(sin asunto)',
+            'mail_fecha': mail.fecha.strftime('%d/%m/%Y') if (mail and mail.fecha) else '',
+            'alerta': h.alerta or '',
+        }
+        regla = AirlineFscRule.query.get(d['regla_id']) if d.get('regla_id') else None
+        if regla is None:
+            clave = ((prop['aerolinea'] or '').strip().upper(),
+                     tuple(sorted(str(x).strip().upper() for x in prop['destinos'])))
+            regla = por_destinos.get(clave)
+        if regla is not None:
+            prop['fsc_actual'] = regla.fsc
+            por_regla[regla.id] = prop
+        else:
+            sueltas.append(prop)
+    return por_regla, sueltas
+
+
+def _incrementos_vigentes():
+    """Los Rate Increase cargados hoy en las cotizaciones, uno por linea.
+
+    Viven dentro del JSON de cada cotizacion, asi que no hay forma de verlos
+    todos juntos desde el portal: esta lista es esa vista."""
+    salida = []
+    cots = Cotizacion.query.filter(Cotizacion.estado != 'eliminado').all()
+    for cot in cots:
+        for aero in (cot.aerolineas or []):
+            for ri in (aero.get('rate_increases') or []):
+                monto, fechas = ri.get('amount'), ri.get('date')
+                if not monto and not fechas:
+                    continue
+                salida.append({
+                    'aerolinea': aero.get('aerolinea', ''),
+                    'destino': cot.destino or '',
+                    'monto': monto or '',
+                    'fechas': fechas or '',
+                    'cot_id': cot.id,
+                    'customer': cot.customer or '',
+                })
+    salida.sort(key=lambda x: (x['aerolinea'].upper(), x['destino'].upper()))
+    return salida
+
+
 @cotizaciones_bp.route('/fsc')
 @login_required
 def fsc_dashboard():
-    """Tabla maestra editable de FSC por aerolinea/destino."""
+    """Tabla maestra editable de FSC por aerolinea/destino, con lo que
+    proponen los correos (Agente Lux) sobre cada regla y los incrementos por
+    temporada que hay cargados hoy."""
     grupos = AirlineFscGroup.query.order_by(AirlineFscGroup.aerolinea).all()
     reglas = AirlineFscRule.query.order_by(AirlineFscRule.aerolinea, AirlineFscRule.order, AirlineFscRule.id).all()
     aerolineas = defaultdict(list)
@@ -485,10 +574,20 @@ def fsc_dashboard():
         grupos_por_nombre[g.aerolinea] = g.id
     for r in reglas:
         aerolineas[r.aerolinea].append(r.to_dict())
+
+    try:
+        propuestas, propuestas_sueltas = _propuestas_fsc()
+    except Exception:
+        # La pestana de FSC tiene que abrir aunque Agente Lux falle.
+        propuestas, propuestas_sueltas = {}, []
+
     return render_template(
         'cotizaciones/fsc.html',
         aerolineas=dict(sorted(aerolineas.items())),
         grupo_ids=grupos_por_nombre,
+        propuestas=propuestas,
+        propuestas_sueltas=propuestas_sueltas,
+        incrementos=_incrementos_vigentes(),
     )
 
 
