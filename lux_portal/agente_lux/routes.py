@@ -13,7 +13,7 @@ Dos pestanas, las dos gobernadas por el rango de fechas de la pantalla
 import base64
 from datetime import date, datetime, timedelta
 
-from flask import render_template, request, jsonify, Response
+from flask import render_template, request, jsonify, Response, current_app
 
 from lux_portal.agente_lux import agente_lux_bp
 from lux_portal.agente_lux import contexto, reglas, vigencia
@@ -64,11 +64,27 @@ def _cuenta():
 @agente_lux_bp.route('/')
 @login_required
 def index():
+    """La pantalla de Agente Lux. Ademas de lo suyo, trae las pestanas de FSC
+    y Cargos: son las tablas maestras que se tocan justo despues de revisar
+    los correos, y Daniela las queria en el mismo sitio. Los paneles son los
+    mismos templates que usan /cotizaciones/fsc y /cotizaciones/cargos."""
+    from lux_portal.cotizaciones.routes import contexto_fsc, contexto_cargos
+
     cuenta = _cuenta()
+    extra = {}
+    try:
+        extra.update(contexto_fsc())
+        extra.update(contexto_cargos())
+    except Exception:
+        # Agente Lux tiene que abrir aunque una tabla maestra falle; sin el
+        # contexto, esas pestanas salen vacias en vez de tumbar la pantalla.
+        current_app.logger.exception('No se pudieron cargar las pestanas de FSC/Cargos')
+
     return render_template(
         'agente_lux/index.html',
         cuenta=cuenta.to_dict() if cuenta else None,
         resumen=contexto.resumen_corto(),
+        **extra,
     )
 
 

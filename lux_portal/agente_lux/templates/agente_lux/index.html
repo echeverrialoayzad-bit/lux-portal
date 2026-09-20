@@ -159,6 +159,22 @@
         Prioritarios <span id="badge-prioritarios" class="badge bg-secondary ms-1">0</span>
       </button>
     </li>
+    <!-- Las tablas maestras que se tocan justo despues de revisar los
+         correos. Son los mismos paneles de /cotizaciones/fsc y
+         /cotizaciones/cargos, que siguen existiendo por su cuenta. -->
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-fsc" type="button">
+        FSC
+        {% if propuestas_sueltas is defined %}
+        <span class="badge bg-secondary ms-1">{{ (propuestas|length) + (propuestas_sueltas|length) }}</span>
+        {% endif %}
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-cargos" type="button">
+        Cargos
+      </button>
+    </li>
   </ul>
 
   <div class="tab-content">
@@ -251,6 +267,26 @@
         <div class="card-header bg-white small text-muted" id="resumen-prioritarios">—</div>
         <div id="lista-prioritarios"></div>
       </div>
+    </div>
+
+    <!-- ============ TAB 5: tabla maestra de FSC ============ -->
+    <div class="tab-pane fade" id="tab-fsc">
+      {% if aerolineas is defined %}
+      {% include 'cotizaciones/_fsc_panel.html' %}
+      {% else %}
+      <div class="al-vacio">No se pudo cargar la tabla de FSC.
+        <a href="/cotizaciones/fsc">Abrirla en su propia página</a>.</div>
+      {% endif %}
+    </div>
+
+    <!-- ============ TAB 6: tabla maestra de cargos adicionales ============ -->
+    <div class="tab-pane fade" id="tab-cargos">
+      {% if cargo_aerolineas is defined %}
+      {% include 'cotizaciones/_cargos_panel.html' %}
+      {% else %}
+      <div class="al-vacio">No se pudo cargar la tabla de cargos.
+        <a href="/cotizaciones/cargos">Abrirla en su propia página</a>.</div>
+      {% endif %}
     </div>
 
   </div>

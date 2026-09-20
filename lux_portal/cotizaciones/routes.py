@@ -641,12 +641,10 @@ def eliminar_incremento():
     return jsonify({'success': True, 'quitado': quitado})
 
 
-@cotizaciones_bp.route('/fsc')
-@login_required
-def fsc_dashboard():
-    """Tabla maestra editable de FSC por aerolinea/destino, con lo que
-    proponen los correos (Agente Lux) sobre cada regla y los incrementos por
-    temporada que hay cargados hoy."""
+def contexto_fsc():
+    """Lo que necesita el panel de FSC: la tabla maestra, lo que proponen los
+    correos sobre cada regla y los incrementos por temporada cargados hoy.
+    Se usa en /cotizaciones/fsc y en la pestana FSC de Agente Lux."""
     grupos = AirlineFscGroup.query.order_by(AirlineFscGroup.aerolinea).all()
     reglas = AirlineFscRule.query.order_by(AirlineFscRule.aerolinea, AirlineFscRule.order, AirlineFscRule.id).all()
     aerolineas = defaultdict(list)
@@ -666,14 +664,20 @@ def fsc_dashboard():
         current_app.logger.exception('No se pudieron leer las propuestas de FSC')
         propuestas, propuestas_sueltas = {}, []
 
-    return render_template(
-        'cotizaciones/fsc.html',
-        aerolineas=dict(sorted(aerolineas.items())),
-        grupo_ids=grupos_por_nombre,
-        propuestas=propuestas,
-        propuestas_sueltas=propuestas_sueltas,
-        incrementos=_incrementos_vigentes(),
-    )
+    return {
+        'aerolineas': dict(sorted(aerolineas.items())),
+        'grupo_ids': grupos_por_nombre,
+        'propuestas': propuestas,
+        'propuestas_sueltas': propuestas_sueltas,
+        'incrementos': _incrementos_vigentes(),
+    }
+
+
+@cotizaciones_bp.route('/fsc')
+@login_required
+def fsc_dashboard():
+    """Tabla maestra editable de FSC por aerolinea/destino."""
+    return render_template('cotizaciones/fsc.html', **contexto_fsc())
 
 
 @cotizaciones_bp.route('/fsc/exportar')
@@ -864,10 +868,10 @@ def _get_or_create_cargo_group(aerolinea):
     return grupo
 
 
-@cotizaciones_bp.route('/cargos')
-@login_required
-def cargos_dashboard():
-    """Tabla maestra editable de cargos adicionales fijos por aerolinea."""
+def contexto_cargos():
+    """Lo que necesita el panel de cargos. Se nombra con prefijo `cargo_`
+    porque el panel tambien se muestra dentro de Agente Lux, junto al de FSC,
+    y los dos hablan de "aerolineas"."""
     grupos = AirlineCargoGroup.query.order_by(AirlineCargoGroup.aerolinea).all()
     reglas = AirlineCargoRule.query.order_by(AirlineCargoRule.aerolinea, AirlineCargoRule.order, AirlineCargoRule.id).all()
     aerolineas = {}
@@ -877,9 +881,17 @@ def cargos_dashboard():
         grupos_por_nombre[g.aerolinea] = g
     for r in reglas:
         aerolineas.setdefault(r.aerolinea, []).append(r.to_dict())
-    aerolineas = dict(sorted(aerolineas.items()))
-    grupos_dict = {nombre: g.to_dict() for nombre, g in grupos_por_nombre.items()}
-    return render_template('cotizaciones/cargos.html', aerolineas=aerolineas, grupos=grupos_dict)
+    return {
+        'cargo_aerolineas': dict(sorted(aerolineas.items())),
+        'cargo_grupos': {nombre: g.to_dict() for nombre, g in grupos_por_nombre.items()},
+    }
+
+
+@cotizaciones_bp.route('/cargos')
+@login_required
+def cargos_dashboard():
+    """Tabla maestra editable de cargos adicionales fijos por aerolinea."""
+    return render_template('cotizaciones/cargos.html', **contexto_cargos())
 
 
 @cotizaciones_bp.route('/api/cargo-rule', methods=['POST'])

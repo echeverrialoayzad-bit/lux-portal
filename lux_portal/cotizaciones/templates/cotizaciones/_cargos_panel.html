@@ -1,0 +1,236 @@
+{# Panel de Cargos Adicionales.
+
+   Vive aparte para poder mostrarse en dos sitios: su propia pagina
+   (/cotizaciones/cargos) y una pestana dentro de Agente Lux. Por eso todo
+   lo suyo va con prefijo "cg": los ids de los botones y las funciones que
+   usan los onclick. El panel de FSC tenia los mismos nombres (BASE,
+   agregarRegla, eliminarAerolinea, btnActualizar...) y al juntarlos en una
+   sola pagina se pisaban. El <script> va dentro de una funcion anonima para
+   que nada se escape al ambito global salvo lo que se expone a proposito. #}
+<style>
+    .cargo-airline-card { margin-bottom: 20px; }
+    .cargo-rule-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+    }
+    .cargo-rule-row:last-child { border-bottom: none; }
+    .cargo-rule-row .form-control { padding: 8px 12px; font-size: 0.85rem; }
+    .cargo-field-concepto { flex: 1; }
+    .cargo-field-monto { flex: 0 0 130px; }
+    .cargo-add-rule-btn { margin: 12px 16px; }
+    .cargo-notas-wrap { padding: 14px 16px; border-top: 1px solid var(--border); }
+    .cargo-notas-wrap label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; display: block; }
+    .cargo-notas-wrap textarea { min-height: 60px; font-size: 0.85rem; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2><i class="bi bi-receipt text-primary"></i> Cargos Adicionales por Aerolinea</h2>
+        <p class="text-secondary mb-0">Cargos fijos como Due Carrier, CC, CG HAWB C/U, etc. No dependen del destino. Aerolineas que no aparecen aqui no tienen cargos adicionales conocidos.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" id="cgBtnAgregarAerolinea">
+            <i class="bi bi-plus-lg"></i> Agregar Aerolinea
+        </button>
+        <button class="btn btn-success" id="cgBtnActualizar">
+            <i class="bi bi-arrow-repeat"></i> Actualizar Cotizaciones
+        </button>
+    </div>
+</div>
+
+<div class="d-flex gap-2 mb-4" id="cgAddAirlineForm" style="display:none;">
+    <input type="text" id="cgNewAirlineName" class="form-control" placeholder="Nombre de la aerolinea (ej. AIR FRANCE)" style="max-width: 320px;">
+    <button class="btn btn-primary" id="cgBtnConfirmAddAirline"><i class="bi bi-check-lg"></i> Crear</button>
+    <button class="btn btn-outline-secondary" id="cgBtnCancelAddAirline">Cancelar</button>
+</div>
+
+<div id="cgResultadoActualizar"></div>
+
+<div id="cgAerolineasContainer">
+    {% for aerolinea, reglas in cargo_aerolineas.items() %}
+    <div class="card cargo-airline-card" data-aerolinea="{{ aerolinea }}" data-group-id="{{ cargo_grupos[aerolinea].id }}">
+        <div class="card-header">
+            <h5><i class="bi bi-airplane me-2"></i>{{ aerolinea }}</h5>
+            <button class="btn btn-outline-light btn-sm" onclick="cgEliminarAerolinea(this)" title="Eliminar esta aerolinea de la tabla de cargos">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="cargo-rules-container">
+                {% for r in reglas %}
+                <div class="cargo-rule-row" data-id="{{ r.id }}">
+                    <div class="cargo-field-concepto">
+                        <input type="text" class="form-control concepto-input" value="{{ r.concepto }}" placeholder="Ej. Due Carrier">
+                    </div>
+                    <div class="cargo-field-monto">
+                        <input type="text" class="form-control monto-input" value="{{ r.monto }}" placeholder="0.00">
+                    </div>
+                    <button class="btn btn-outline-danger btn-sm" onclick="cgEliminarRegla(this)">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            <button class="btn btn-outline-secondary btn-sm cargo-add-rule-btn" onclick="cgAgregarRegla(this)">
+                <i class="bi bi-plus"></i> Agregar Cargo
+            </button>
+            <div class="cargo-notas-wrap">
+                <label><i class="bi bi-sticky me-1"></i>Nota general de la aerolinea (se agrega a la nota de cada cotizacion al Actualizar)</label>
+                <textarea class="form-control notas-input" placeholder="Ej. Trabajan bajo BSA, posiciones de 1500kg...">{{ cargo_grupos[aerolinea].notas }}</textarea>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not cargo_aerolineas %}
+<div class="empty-state">
+    <i class="bi bi-receipt"></i>
+    <h5>No hay cargos adicionales todavia</h5>
+    <p>Agrega una aerolinea para empezar</p>
+</div>
+{% endif %}
+
+<script>
+(function () {
+const BASE = "{{ url_for('cotizaciones.dashboard') }}".replace(/\/$/, '');
+
+function guardarRegla(row) {
+    const id = row.dataset.id;
+    const payload = {
+        concepto: row.querySelector('.concepto-input').value.trim() || 'Nuevo cargo',
+        monto: row.querySelector('.monto-input').value.trim() || '0.00',
+    };
+    fetch(`${BASE}/api/cargo-rule/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    }).then(r => r.json()).then(data => {
+        if (!data.success) alert('Error al guardar: ' + (data.error || ''));
+    });
+}
+
+function wireRow(row) {
+    row.querySelectorAll('input').forEach(input => {
+        input.addEventListener('blur', () => guardarRegla(row));
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
+    });
+}
+
+document.querySelectorAll('.cargo-rule-row').forEach(wireRow);
+
+// Los onclick del HTML necesitan una funcion global: se exponen con prefijo
+// para no chocar con las del panel de FSC.
+window.cgAgregarRegla = function (btn) {
+    const card = btn.closest('.cargo-airline-card');
+    const aerolinea = card.dataset.aerolinea;
+    fetch(`${BASE}/api/cargo-rule`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({aerolinea: aerolinea, concepto: 'Nuevo cargo', monto: '0.00'})
+    }).then(r => r.json()).then(data => {
+        if (!data.success) { alert('Error: ' + (data.error || '')); return; }
+        const container = card.querySelector('.cargo-rules-container');
+        const div = document.createElement('div');
+        div.className = 'cargo-rule-row';
+        div.dataset.id = data.regla.id;
+        div.innerHTML = `
+            <div class="cargo-field-concepto"><input type="text" class="form-control concepto-input" value="${data.regla.concepto}" placeholder="Ej. Due Carrier"></div>
+            <div class="cargo-field-monto"><input type="text" class="form-control monto-input" value="${data.regla.monto}" placeholder="0.00"></div>
+            <button class="btn btn-outline-danger btn-sm" onclick="cgEliminarRegla(this)"><i class="bi bi-x-lg"></i></button>
+        `;
+        wireRow(div);
+        container.appendChild(div);
+        div.querySelector('.concepto-input').focus();
+    });
+};
+
+window.cgEliminarRegla = function (btn) {
+    const row = btn.closest('.cargo-rule-row');
+    if (!confirm('¿Eliminar este cargo?')) return;
+    fetch(`${BASE}/api/cargo-rule/${row.dataset.id}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+        if (data.success) row.remove();
+        else alert('Error: ' + (data.error || ''));
+    });
+};
+
+window.cgEliminarAerolinea = function (btn) {
+    const card = btn.closest('.cargo-airline-card');
+    const nombre = card.dataset.aerolinea;
+    if (!confirm(`¿Eliminar "${nombre}" por completo de la tabla de cargos?`)) return;
+    fetch(`${BASE}/api/cargo-aerolinea/${card.dataset.groupId}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+        if (data.success) card.remove();
+        else alert('Error: ' + (data.error || ''));
+    });
+};
+
+function guardarNotas(card) {
+    const groupId = card.dataset.groupId;
+    const notas = card.querySelector('.notas-input').value;
+    fetch(`${BASE}/api/cargo-aerolinea/${groupId}/notas`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({notas: notas})
+    }).then(r => r.json()).then(data => {
+        if (!data.success) alert('Error al guardar nota: ' + (data.error || ''));
+    });
+}
+
+document.querySelectorAll('.cargo-airline-card').forEach(card => {
+    card.querySelector('.notas-input').addEventListener('blur', () => guardarNotas(card));
+});
+
+const addAirlineForm = document.getElementById('cgAddAirlineForm');
+const newAirlineInput = document.getElementById('cgNewAirlineName');
+
+document.getElementById('cgBtnAgregarAerolinea').onclick = () => {
+    addAirlineForm.style.display = 'flex';
+    newAirlineInput.focus();
+};
+
+document.getElementById('cgBtnCancelAddAirline').onclick = () => {
+    addAirlineForm.style.display = 'none';
+    newAirlineInput.value = '';
+};
+
+function confirmarAgregarAerolinea() {
+    const nombre = newAirlineInput.value.trim();
+    if (!nombre) return;
+    fetch(`${BASE}/api/cargo-rule`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({aerolinea: nombre, concepto: 'Nuevo cargo', monto: '0.00'})
+    }).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+        else alert('Error: ' + (data.error || ''));
+    });
+}
+
+document.getElementById('cgBtnConfirmAddAirline').onclick = confirmarAgregarAerolinea;
+newAirlineInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmarAgregarAerolinea(); });
+
+document.getElementById('cgBtnActualizar').onclick = () => {
+    if (!confirm('Esto va a reemplazar los cargos adicionales en TODAS las cotizaciones de aerolineas que esten en esta tabla. ¿Continuar?')) return;
+    const btn = document.getElementById('cgBtnActualizar');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Actualizando...';
+    fetch(`${BASE}/api/cargo-aplicar`, {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            const div = document.getElementById('cgResultadoActualizar');
+            if (data.success) {
+                div.innerHTML = `<div class="alert alert-success">Listo: ${data.cotizaciones_actualizadas} cotizaciones actualizadas (${data.entradas_actualizadas} entradas de aerolinea recalculadas).</div>`;
+            } else {
+                div.innerHTML = `<div class="alert alert-danger">Error: ${data.error || ''}</div>`;
+            }
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Actualizar Cotizaciones';
+        });
+};
+})();
+</script>
