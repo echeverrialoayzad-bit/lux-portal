@@ -1456,6 +1456,13 @@ function pintarPlan(d) {
       <td class="small">${escapar(p.asunto)}
         <div><a href="#" class="al-hint text-decoration-none" onclick="verFormato(${i}); return false;">
           <i class="bi bi-eye"></i> ver el correo</a></div></td>
+      <td class="text-end">
+        <button class="btn btn-sm ${p.listo ? 'btn-outline-primary' : 'btn-outline-secondary'} btn-enviar-plan"
+                ${p.listo ? '' : 'disabled title="Sin destinatario"'}
+                onclick="enviarDesdePlan(${i})">
+          <i class="bi bi-send me-1"></i>Enviar
+        </button>
+      </td>
     </tr>`;
   }).join('');
 
@@ -1478,15 +1485,16 @@ function pintarPlan(d) {
       <table class="table table-sm mb-0 align-middle">
         <thead><tr>
           <th style="width:34px;"></th><th>Aerolínea</th><th>Destinos que le tocan</th>
-          <th>A quién se escribe</th><th>Formato</th>
+          <th>A quién se escribe</th><th>Formato</th><th class="text-end">Una por una</th>
         </tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
     ${huerfanos}
     <div class="px-3 py-2 al-hint">
-      Al aprobar, cada aerolínea queda con sus destinos marcados en su tarjeta de abajo,
-      lista para enviar por Outlook. No se manda nada todavía.
+      Dos caminos: <strong>Aprobar y dejar listo</strong> marca los destinos en todas las
+      tarjetas de abajo y tú decides cuándo enviar cada una; o <strong>Enviar</strong>
+      en la fila, que manda esa aerolínea sola, ahora, con esos destinos.
     </div>
   </div>`;
 }
@@ -1504,6 +1512,38 @@ function verFormato(i) {
     <div class="al-cuerpo border-top pt-2">${escapar(p.cuerpo)}</div>
     <div class="al-hint mt-2">Sale por tu Outlook, con tu firma.</div>`;
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-mail')).show();
+}
+
+// El otro camino: mandar UNA aerolinea desde la fila, sin aprobar el lote ni
+// bajar a su tarjeta. Primero le deja marcados sus destinos del plan (para
+// que el correo lleve esos y no lo que tuviera marcado de antes) y despues
+// usa el mismo envio de siempre.
+async function enviarDesdePlan(i) {
+  const p = planActual[i];
+  if (!p || !p.listo) { banner('Esa aerolínea no tiene destinatario.', 'warning'); return; }
+  const fila = document.querySelector(`#caja-plan tbody tr[data-i="${i}"]`);
+  const btn = fila && fila.querySelector('.btn-enviar-plan');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'; }
+
+  const r = await fetch(PLAN_APLICAR_URL, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ lineas: [{ id: p.id, destinos: p.destinos }] })
+  });
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    banner(escapar(d.error || 'No se pudieron marcar los destinos.'), 'danger');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send me-1"></i>Enviar'; }
+    return;
+  }
+  // enviarMail pregunta, manda y refresca las tarjetas.
+  await enviarMail(p.id, p.aerolinea);
+  if (btn) {
+    btn.className = 'btn btn-sm btn-success btn-enviar-plan';
+    btn.innerHTML = '<i class="bi bi-check2"></i> en cola';
+    btn.disabled = true;
+  }
+  const chk = fila && fila.querySelector('.chk-plan');
+  if (chk) chk.checked = false;   // ya salio: que no se reenvie al aprobar el lote
 }
 
 async function aprobarPlan() {
