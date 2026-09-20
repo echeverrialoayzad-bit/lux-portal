@@ -634,6 +634,9 @@ def mails():
             'aerolinea': r.aerolinea,
             'destinos': r.destinos,
             'seleccionados': r.seleccionados,
+            # Lo que esta aerolinea nego por correo, con su cita: la tabla de
+            # destinos lo muestra tachado para no volver a pedirlo.
+            'no_sirve': r.no_sirve,
             'asunto': r.asunto or ASUNTO_POR_DEFECTO,
             'cuerpo': _cuerpo_solicitud(r),
             'destinatarios': r.destinatarios or '',

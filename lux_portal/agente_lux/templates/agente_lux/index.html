@@ -62,6 +62,13 @@
   .al-tramo { display:inline-block; min-width:46px; text-align:right; font-size:.78rem;
               font-weight:700; color:#5F4DCE; }
   .al-oculto { font-size:.82rem; color:#6f6b85; padding:.5rem .2rem; }
+  /* La rejilla de destinos de la pestana Mails. */
+  .al-chip-destino { font-family:inherit; font-weight:700; letter-spacing:.03em;
+                     padding:.2rem .5rem; font-size:.82rem; }
+  /* Una aerolinea que dijo por correo que no llega a ese destino. */
+  .al-negado { display:flex; align-items:center; gap:.5rem; font-size:.85rem;
+               color:#8d8aa0; padding:.15rem 0; }
+  .al-negado s { color:#6f6b85; }
   .al-tag { font-size:.62rem; }
   .al-iconos { font-size:1rem; }
   .al-hecho { font-size:.78rem; }
@@ -230,6 +237,23 @@
         <button class="btn btn-outline-secondary btn-sm" onclick="descubrirContactos()">
           <i class="bi bi-search me-1"></i>Detectar contactos de mis correos
         </button>
+      </div>
+
+      <!-- Todos los destinos, en orden alfabetico. Al tocar uno se abre
+           debajo quien llega ahi. Es el camino inverso al de las tarjetas:
+           una cotizacion empieza por el destino que pide el cliente, no por
+           la aerolinea. -->
+      <div class="card al-card shadow-sm mb-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div><i class="bi bi-geo-alt me-1"></i><strong>Destinos</strong>
+            <span class="text-muted small ms-1" id="resumen-destinos">—</span></div>
+          <a href="#" class="al-hecho text-decoration-none" id="link-limpiar-destino"
+             hidden onclick="elegirDestino(null); return false;">quitar selección</a>
+        </div>
+        <div class="card-body py-2">
+          <div id="rejilla-destinos" class="d-flex flex-wrap gap-1"></div>
+        </div>
+        <div id="detalle-destino"></div>
       </div>
       <div class="card al-card shadow-sm mb-3">
         <div class="card-body py-2 d-flex align-items-center flex-wrap gap-3">
@@ -1290,12 +1314,111 @@ function tarjetaMail(m) {
   </div>`;
 }
 
+// --------------------------------------------------- destinos -> aerolineas
+// La vuelta al revés de las tarjetas: una cotización empieza por el destino
+// que pide el cliente. `mailsEnPantalla` guarda lo último que devolvió la API
+// para no tener que volver a pedirlo al tocar un destino.
+let mailsEnPantalla = [];
+let destinoElegido = null;
+
+// Todos los IATA que aparecen en alguna aerolínea, sean servidos o negados.
+function todosLosDestinos() {
+  const set = new Set();
+  mailsEnPantalla.forEach(m => {
+    (m.destinos || []).forEach(d => set.add(d));
+    Object.keys(m.no_sirve || {}).forEach(d => set.add(d));
+  });
+  return [...set].sort();
+}
+
+// Quién llega a un destino y quién dijo que no.
+function aerolineasDe(destino) {
+  const llegan = [], niegan = [];
+  mailsEnPantalla.forEach(m => {
+    if ((m.destinos || []).includes(destino)) llegan.push(m);
+    else if ((m.no_sirve || {})[destino]) niegan.push(m);
+  });
+  return { llegan, niegan };
+}
+
+function pintarDestinos() {
+  const destinos = todosLosDestinos();
+  document.getElementById('resumen-destinos').textContent =
+    `${destinos.length} destinos · toca uno para ver qué aerolíneas llegan`;
+  document.getElementById('rejilla-destinos').innerHTML = destinos.map(d => {
+    const { llegan } = aerolineasDe(d);
+    const activo = d === destinoElegido;
+    return `<button class="btn btn-sm ${activo ? 'btn-primary' : 'btn-outline-secondary'} al-chip-destino"
+              onclick="elegirDestino('${escapar(d)}')">
+        ${escapar(d)}
+        <span class="badge ${activo ? 'bg-white text-primary' : 'bg-light text-muted'} ms-1">${llegan.length}</span>
+      </button>`;
+  }).join('') || '<span class="text-muted small">sin destinos</span>';
+  document.getElementById('link-limpiar-destino').hidden = !destinoElegido;
+  pintarDetalleDestino();
+}
+
+function elegirDestino(destino) {
+  destinoElegido = (destino === destinoElegido) ? null : destino;
+  pintarDestinos();
+}
+
+function pintarDetalleDestino() {
+  const caja = document.getElementById('detalle-destino');
+  if (!destinoElegido) { caja.innerHTML = ''; return; }
+  const { llegan, niegan } = aerolineasDe(destinoElegido);
+
+  const filas = llegan.map(m => {
+    const pedido = (m.seleccionados || []).includes(destinoElegido);
+    const contacto = m.destinatarios
+      ? escapar(m.destinatarios)
+      : '<span class="text-danger">sin contacto</span>';
+    return `<tr>
+      <td><strong>${escapar(m.aerolinea)}</strong></td>
+      <td class="small">${contacto}</td>
+      <td class="small text-muted">${m.ultima_respuesta ? fechaCorta(m.ultima_respuesta) : '—'}</td>
+      <td>
+        <button class="btn btn-sm ${pedido ? 'btn-success' : 'btn-outline-primary'}"
+                onclick="alternarDestino(${m.id}, '${escapar(destinoElegido)}')">
+          ${pedido ? '<i class="bi bi-check2"></i> marcado' : 'marcar para pedir'}
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const negados = niegan.map(m => {
+    const n = m.no_sirve[destinoElegido] || {};
+    return `<div class="al-negado" title="${escapar(n.evidencia || '')}">
+      <s>${escapar(m.aerolinea)}</s>
+      <span class="al-hint">lo negó por correo${n.fecha ? ' · ' + escapar(n.fecha) : ''}</span>
+      ${n.mail_id ? `<a href="#" class="al-hint text-decoration-none"
+         onclick="verMail(${n.mail_id}); return false;">ver correo</a>` : ''}
+    </div>`;
+  }).join('');
+
+  caja.innerHTML = `
+    <div class="border-top pt-2">
+      <div class="px-3 pb-1"><strong>${escapar(destinoElegido)}</strong>
+        <span class="text-muted small">· ${llegan.length} aerolínea(s) llegan${niegan.length ? ` · ${niegan.length} dijeron que no` : ''}</span></div>
+      ${llegan.length ? `
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead><tr><th>Aerolínea</th><th>A quién escribir</th><th>Última respuesta</th><th></th></tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+      </div>` : '<div class="px-3 pb-2 text-muted small">Ninguna aerolínea de la lista llega a este destino.</div>'}
+      ${negados ? `<div class="px-3 py-2">${negados}</div>` : ''}
+    </div>`;
+}
+
 async function cargarMails() {
   const r = await fetch(MAILS_URL);
   const d = await r.json();
   const lista = d.mails || [];
+  mailsEnPantalla = lista;
   modoEnvio = d.modo || modoEnvio;
   pintarModoEnvio();
+  pintarDestinos();
   document.getElementById('badge-mails').textContent = lista.length;
   document.getElementById('lista-mails').innerHTML = lista.length
     ? lista.map(tarjetaMail).join('')

@@ -167,6 +167,8 @@ def _migrate_db(app):
         ('cotizacion_mail_requests', 'destinatarios', 'TEXT'),
         ('cotizacion_mail_requests', 'cc', 'TEXT'),
         ('cotizacion_mail_requests', 'seleccionados_json', "TEXT DEFAULT '[]'"),
+        # Destinos que la aerolinea dijo por correo que NO sirve, con la cita
+        ('cotizacion_mail_requests', 'no_sirve_json', "TEXT DEFAULT '{}'"),
         # Agente Lux: NETAS ACTUALES.xlsx en el OneDrive de Ignacio
         ('agente_cuenta', 'netas_solicitado', 'TIMESTAMP'),
         ('agente_cuenta', 'netas_actualizado', 'TIMESTAMP'),

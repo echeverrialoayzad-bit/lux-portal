@@ -205,6 +205,11 @@ class AirlineMailRequest(db.Model):
     # Lux. `destinos` es la lista completa que conoce la aerolinea; al correo
     # van solo estos. Arranca vacio: ella marca lo que quiere pedir.
     seleccionados_json = db.Column(db.Text, default='[]')
+    # Destinos a los que esta aerolinea dijo por correo que NO llega, con la
+    # frase que lo prueba: {"BUD": {"evidencia": "...", "mail_id": 85, ...}}.
+    # Se guardan para no volver a pedir lo que ya negaron, y para poder
+    # mostrarlo tachado en la tabla de destinos.
+    no_sirve_json = db.Column(db.Text, default='{}')
 
     @property
     def destinos(self):
@@ -226,6 +231,18 @@ class AirlineMailRequest(db.Model):
     @seleccionados.setter
     def seleccionados(self, value):
         self.seleccionados_json = json.dumps(value or [], ensure_ascii=False)
+
+    @property
+    def no_sirve(self):
+        try:
+            datos = json.loads(self.no_sirve_json) if self.no_sirve_json else {}
+        except (ValueError, TypeError):
+            datos = {}
+        return datos if isinstance(datos, dict) else {}
+
+    @no_sirve.setter
+    def no_sirve(self, value):
+        self.no_sirve_json = json.dumps(value or {}, ensure_ascii=False)
 
     def to_dict(self):
         return {
