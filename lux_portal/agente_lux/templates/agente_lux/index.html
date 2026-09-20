@@ -247,14 +247,24 @@
         <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div><i class="bi bi-geo-alt me-1"></i><strong>Destinos</strong>
             <span class="text-muted small ms-1" id="resumen-destinos">—</span></div>
-          <a href="#" class="al-hecho text-decoration-none" id="link-limpiar-destino"
-             hidden onclick="elegirDestino(null); return false;">quitar selección</a>
+          <div class="d-flex align-items-center gap-2">
+            <a href="#" class="al-hecho text-decoration-none" id="link-limpiar-destino"
+               hidden onclick="limpiarDestinos(); return false;">quitar selección</a>
+            <button class="btn btn-primary btn-sm" id="btn-armar-plan" hidden
+                    onclick="armarPlan()">
+              <i class="bi bi-envelope-paper me-1"></i>¿A quién le pido?
+            </button>
+          </div>
         </div>
         <div class="card-body py-2">
           <div id="rejilla-destinos" class="d-flex flex-wrap gap-1"></div>
         </div>
         <div id="detalle-destino"></div>
       </div>
+
+      <!-- El plan: una fila por aerolinea, con los destinos que le tocan, a
+           quien se escribe y el texto que saldria. Se aprueba aqui. -->
+      <div id="caja-plan"></div>
       <div class="card al-card shadow-sm mb-3">
         <div class="card-body py-2 d-flex align-items-center flex-wrap gap-3">
           <div class="btn-group btn-group-sm" role="group" aria-label="Cómo salen las solicitudes">
@@ -1319,7 +1329,8 @@ function tarjetaMail(m) {
 // que pide el cliente. `mailsEnPantalla` guarda lo último que devolvió la API
 // para no tener que volver a pedirlo al tocar un destino.
 let mailsEnPantalla = [];
-let destinoElegido = null;
+// Varios destinos a la vez: el cliente casi nunca pide uno solo.
+let destinosElegidos = new Set();
 
 // Todos los IATA que aparecen en alguna aerolínea, sean servidos o negados.
 function todosLosDestinos() {
@@ -1343,72 +1354,175 @@ function aerolineasDe(destino) {
 
 function pintarDestinos() {
   const destinos = todosLosDestinos();
-  document.getElementById('resumen-destinos').textContent =
-    `${destinos.length} destinos · toca uno para ver qué aerolíneas llegan`;
+  const n = destinosElegidos.size;
+  document.getElementById('resumen-destinos').textContent = n
+    ? `${n} seleccionado(s) de ${destinos.length} · toca más o pide el plan`
+    : `${destinos.length} destinos · toca los que te pidieron`;
   document.getElementById('rejilla-destinos').innerHTML = destinos.map(d => {
     const { llegan } = aerolineasDe(d);
-    const activo = d === destinoElegido;
+    const activo = destinosElegidos.has(d);
     return `<button class="btn btn-sm ${activo ? 'btn-primary' : 'btn-outline-secondary'} al-chip-destino"
               onclick="elegirDestino('${escapar(d)}')">
         ${escapar(d)}
         <span class="badge ${activo ? 'bg-white text-primary' : 'bg-light text-muted'} ms-1">${llegan.length}</span>
       </button>`;
   }).join('') || '<span class="text-muted small">sin destinos</span>';
-  document.getElementById('link-limpiar-destino').hidden = !destinoElegido;
+  document.getElementById('link-limpiar-destino').hidden = !n;
+  document.getElementById('btn-armar-plan').hidden = !n;
   pintarDetalleDestino();
 }
 
 function elegirDestino(destino) {
-  destinoElegido = (destino === destinoElegido) ? null : destino;
+  if (destinosElegidos.has(destino)) destinosElegidos.delete(destino);
+  else destinosElegidos.add(destino);
+  document.getElementById('caja-plan').innerHTML = '';
   pintarDestinos();
 }
 
+function limpiarDestinos() {
+  destinosElegidos.clear();
+  document.getElementById('caja-plan').innerHTML = '';
+  pintarDestinos();
+}
+
+// Resumen rápido de lo elegido, sin pedirle nada al servidor todavía.
 function pintarDetalleDestino() {
   const caja = document.getElementById('detalle-destino');
-  if (!destinoElegido) { caja.innerHTML = ''; return; }
-  const { llegan, niegan } = aerolineasDe(destinoElegido);
-
-  const filas = llegan.map(m => {
-    const pedido = (m.seleccionados || []).includes(destinoElegido);
-    const contacto = m.destinatarios
-      ? escapar(m.destinatarios)
-      : '<span class="text-danger">sin contacto</span>';
+  if (!destinosElegidos.size) { caja.innerHTML = ''; return; }
+  const filas = [...destinosElegidos].sort().map(d => {
+    const { llegan, niegan } = aerolineasDe(d);
     return `<tr>
-      <td><strong>${escapar(m.aerolinea)}</strong></td>
-      <td class="small">${contacto}</td>
-      <td class="small text-muted">${m.ultima_respuesta ? fechaCorta(m.ultima_respuesta) : '—'}</td>
-      <td>
-        <button class="btn btn-sm ${pedido ? 'btn-success' : 'btn-outline-primary'}"
-                onclick="alternarDestino(${m.id}, '${escapar(destinoElegido)}')">
-          ${pedido ? '<i class="bi bi-check2"></i> marcado' : 'marcar para pedir'}
-        </button>
-      </td>
+      <td><strong>${escapar(d)}</strong></td>
+      <td class="small">${llegan.length
+        ? llegan.map(m => escapar(m.aerolinea)).join(', ')
+        : '<span class="text-danger">ninguna aerolínea llega</span>'}</td>
+      <td class="small">${niegan.map(m => {
+        const nn = m.no_sirve[d] || {};
+        return `<span class="al-negado d-inline-flex" title="${escapar(nn.evidencia || '')}"><s>${escapar(m.aerolinea)}</s></span>`;
+      }).join(' ') || '<span class="text-muted">—</span>'}</td>
+    </tr>`;
+  }).join('');
+  caja.innerHTML = `
+    <div class="border-top">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead><tr><th style="width:90px;">Destino</th><th>Llegan</th><th style="width:30%;">Lo negaron</th></tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ------------------------------------------------------------------- plan
+// Le pide al servidor a quien escribirle por esos destinos. El cuerpo lo
+// genera el backend con la misma funcion que usa al enviar, asi que lo que
+// se aprueba aqui es exactamente lo que va a salir.
+const PLAN_URL = '{{ url_for("agente_lux.plan_solicitudes") }}';
+const PLAN_APLICAR_URL = '{{ url_for("agente_lux.aplicar_plan") }}';
+let planActual = [];
+
+async function armarPlan() {
+  const caja = document.getElementById('caja-plan');
+  caja.innerHTML = '<div class="al-vacio"><span class="spinner-border spinner-border-sm me-2"></span>Buscando a quién pedirle…</div>';
+  const r = await fetch(PLAN_URL, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ destinos: [...destinosElegidos] })
+  });
+  const d = await r.json();
+  if (!r.ok) { caja.innerHTML = `<div class="al-vacio text-danger">${escapar(d.error || 'No se pudo armar el plan.')}</div>`; return; }
+  planActual = d.plan || [];
+  pintarPlan(d);
+}
+
+function pintarPlan(d) {
+  const caja = document.getElementById('caja-plan');
+  if (!planActual.length) {
+    caja.innerHTML = '<div class="al-vacio">Ninguna aerolínea de la lista llega a los destinos elegidos.</div>';
+    return;
+  }
+  const filas = planActual.map((p, i) => {
+    const negados = Object.keys(p.negados || {});
+    return `<tr data-i="${i}">
+      <td><input class="form-check-input chk-plan" type="checkbox" ${p.listo ? 'checked' : ''}
+                 ${p.listo ? '' : 'disabled title="Sin destinatario: ponle un correo en su tarjeta"'}></td>
+      <td><strong>${escapar(p.aerolinea)}</strong>
+        ${p.ultima_respuesta ? `<div class="al-hint">respondió ${fechaCorta(p.ultima_respuesta)}</div>` : ''}</td>
+      <td>${p.destinos.map(x => `<span class="badge bg-primary me-1">${escapar(x)}</span>`).join('')}
+        ${negados.length ? `<div class="al-hint">no llega a ${negados.map(escapar).join(', ')}</div>` : ''}</td>
+      <td class="small">${p.destinatarios
+        ? escapar(p.destinatarios)
+        : '<span class="text-danger">sin contacto</span>'}
+        <div class="al-hint">cc: ${escapar(p.cc)}</div></td>
+      <td class="small">${escapar(p.asunto)}
+        <div><a href="#" class="al-hint text-decoration-none" onclick="verFormato(${i}); return false;">
+          <i class="bi bi-eye"></i> ver el correo</a></div></td>
     </tr>`;
   }).join('');
 
-  const negados = niegan.map(m => {
-    const n = m.no_sirve[destinoElegido] || {};
-    return `<div class="al-negado" title="${escapar(n.evidencia || '')}">
-      <s>${escapar(m.aerolinea)}</s>
-      <span class="al-hint">lo negó por correo${n.fecha ? ' · ' + escapar(n.fecha) : ''}</span>
-      ${n.mail_id ? `<a href="#" class="al-hint text-decoration-none"
-         onclick="verMail(${n.mail_id}); return false;">ver correo</a>` : ''}
-    </div>`;
-  }).join('');
+  const huerfanos = (d.sin_aerolinea || []).length
+    ? `<div class="px-3 py-2 small text-danger">
+         <i class="bi bi-exclamation-triangle-fill me-1"></i>
+         Nadie llega a: ${d.sin_aerolinea.map(escapar).join(', ')}</div>`
+    : '';
 
   caja.innerHTML = `
-    <div class="border-top pt-2">
-      <div class="px-3 pb-1"><strong>${escapar(destinoElegido)}</strong>
-        <span class="text-muted small">· ${llegan.length} aerolínea(s) llegan${niegan.length ? ` · ${niegan.length} dijeron que no` : ''}</span></div>
-      ${llegan.length ? `
-      <div class="table-responsive">
-        <table class="table table-sm mb-0 align-middle">
-          <thead><tr><th>Aerolínea</th><th>A quién escribir</th><th>Última respuesta</th><th></th></tr></thead>
-          <tbody>${filas}</tbody>
-        </table>
-      </div>` : '<div class="px-3 pb-2 text-muted small">Ninguna aerolínea de la lista llega a este destino.</div>'}
-      ${negados ? `<div class="px-3 py-2">${negados}</div>` : ''}
-    </div>`;
+  <div class="card al-card shadow-sm mb-3">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div><i class="bi bi-list-check me-1"></i><strong>Revisa y aprueba</strong>
+        <span class="text-muted small ms-1">${planActual.length} aerolínea(s) para ${[...destinosElegidos].length} destino(s)</span></div>
+      <button class="btn btn-success btn-sm" onclick="aprobarPlan()">
+        <i class="bi bi-check2-all me-1"></i>Aprobar y dejar listo
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead><tr>
+          <th style="width:34px;"></th><th>Aerolínea</th><th>Destinos que le tocan</th>
+          <th>A quién se escribe</th><th>Formato</th>
+        </tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+    ${huerfanos}
+    <div class="px-3 py-2 al-hint">
+      Al aprobar, cada aerolínea queda con sus destinos marcados en su tarjeta de abajo,
+      lista para enviar por Outlook. No se manda nada todavía.
+    </div>
+  </div>`;
+}
+
+// El texto exacto que saldria, en la misma ventana que muestra los correos.
+function verFormato(i) {
+  const p = planActual[i];
+  document.getElementById('modal-mail-titulo').textContent = `${p.aerolinea} · ${p.asunto}`;
+  document.getElementById('modal-mail-cuerpo').innerHTML = `
+    <div class="small text-muted mb-2">
+      <div><strong>Para:</strong> ${p.destinatarios ? escapar(p.destinatarios) : '<span class="text-danger">sin destinatario</span>'}</div>
+      <div><strong>CC:</strong> ${escapar(p.cc)}</div>
+      ${p.cuerpo_editado ? '<div class="text-primary">texto editado a mano; solo se cambia la lista de destinos</div>' : ''}
+    </div>
+    <div class="al-cuerpo border-top pt-2">${escapar(p.cuerpo)}</div>
+    <div class="al-hint mt-2">Sale por tu Outlook, con tu firma.</div>`;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-mail')).show();
+}
+
+async function aprobarPlan() {
+  const lineas = [];
+  document.querySelectorAll('#caja-plan tbody tr').forEach(tr => {
+    const chk = tr.querySelector('.chk-plan');
+    if (!chk || !chk.checked) return;
+    const p = planActual[parseInt(tr.dataset.i, 10)];
+    lineas.push({ id: p.id, destinos: p.destinos });
+  });
+  if (!lineas.length) { banner('No marcaste ninguna aerolínea.', 'warning'); return; }
+  const r = await fetch(PLAN_APLICAR_URL, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ lineas })
+  });
+  const d = await r.json();
+  if (!r.ok) { banner(escapar(d.error || 'No se pudo aprobar.'), 'danger'); return; }
+  banner(`Listo: ${d.aerolineas} aerolínea(s) con sus destinos marcados. Revisa abajo y envía.`, 'success');
+  cargarMails();
 }
 
 async function cargarMails() {

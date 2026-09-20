@@ -649,6 +649,85 @@ def mails():
                     'modo': (cuenta.envio_modo if cuenta and cuenta.envio_modo else 'enviar')})
 
 
+@agente_lux_bp.route('/api/mails/plan', methods=['POST'])
+@login_required
+def plan_solicitudes():
+    """Dado un puñado de DESTINOS, arma a quien hay que escribirle.
+
+    Es el camino inverso al de las tarjetas: una cotizacion empieza cuando el
+    cliente pide destinos, no cuando uno elige aerolinea. Por cada aerolinea
+    que sirva al menos uno de esos destinos devuelve cuales cubre, cuales
+    nego por correo, a quien se escribe y el texto exacto que saldria. El
+    cuerpo lo genera la MISMA funcion que se usa al enviar, para que lo que
+    se aprueba sea lo que se manda."""
+    from lux_portal.cotizaciones.models import AirlineMailRequest
+    from lux_portal.cotizaciones.routes import _generar_cuerpo_mail
+    from lux_portal.agente_lux.texto import sincronizar_destinos
+
+    pedidos = [str(d).strip().upper() for d in ((request.json or {}).get('destinos') or [])]
+    pedidos = [d for d in pedidos if d]
+    if not pedidos:
+        return jsonify({'error': 'No se recibio ningun destino.'}), 400
+
+    respuestas = _ultimas_respuestas()
+    plan, cubiertos = [], set()
+    for r in AirlineMailRequest.query.order_by(AirlineMailRequest.aerolinea).all():
+        suyos = [d for d in pedidos if d in r.destinos]
+        if not suyos:
+            continue
+        cubiertos.update(suyos)
+        negados = {d: r.no_sirve[d] for d in pedidos if d in r.no_sirve}
+        # El cuerpo, con estos destinos y no con los que estuvieran marcados.
+        cuerpo = (sincronizar_destinos(r.cuerpo, suyos)
+                  if (r.cuerpo_editado and r.cuerpo)
+                  else _generar_cuerpo_mail(r.aerolinea, suyos))
+        resp = respuestas.get(r.aerolinea)
+        plan.append({
+            'id': r.id,
+            'aerolinea': r.aerolinea,
+            'destinos': suyos,
+            'negados': negados,
+            'destinatarios': r.destinatarios or '',
+            'cc': _con_cc_fijo(r.cc),
+            'asunto': r.asunto or ASUNTO_POR_DEFECTO,
+            'cuerpo': cuerpo,
+            'cuerpo_editado': bool(r.cuerpo_editado),
+            'ultima_respuesta': resp.strftime('%Y-%m-%d %H:%M') if resp else None,
+            'listo': bool(r.destinatarios),
+        })
+
+    return jsonify({
+        'plan': plan,
+        'pedidos': pedidos,
+        # Destinos que nadie sirve: hay que decirlo, no callarlo.
+        'sin_aerolinea': sorted(set(pedidos) - cubiertos),
+    })
+
+
+@agente_lux_bp.route('/api/mails/plan/aplicar', methods=['POST'])
+@login_required
+def aplicar_plan():
+    """Deja marcados en cada aerolinea los destinos que le tocan del plan,
+    que es lo que leen las tarjetas y el boton de enviar."""
+    from lux_portal.cotizaciones.models import AirlineMailRequest
+
+    lineas = (request.json or {}).get('lineas') or []
+    if not lineas:
+        return jsonify({'error': 'No se recibio ninguna aerolinea.'}), 400
+
+    tocadas = 0
+    for linea in lineas:
+        reg = AirlineMailRequest.query.get(linea.get('id'))
+        if reg is None:
+            continue
+        destinos = [str(d).strip().upper() for d in (linea.get('destinos') or [])]
+        # Solo destinos que esa aerolinea realmente tiene en su lista.
+        reg.seleccionados = [d for d in destinos if d in reg.destinos]
+        tocadas += 1
+    db.session.commit()
+    return jsonify({'ok': True, 'aerolineas': tocadas})
+
+
 @agente_lux_bp.route('/api/mails/modo', methods=['POST'])
 @login_required
 def modo_envio():
