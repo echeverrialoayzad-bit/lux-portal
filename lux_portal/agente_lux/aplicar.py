@@ -119,6 +119,29 @@ def _aplicar_tarifa(hallazgo):
 # FSC en la tabla maestra
 # ---------------------------------------------------------------------------
 
+def _nombre_canonico(nombre):
+    """El nombre con el que el portal ya conoce a esa aerolinea.
+
+    `normalizar_aerolinea` recorta los sufijos (AIRLINES, PAX, CARGO...) para
+    poder comparar, y sirve para eso; pero si se GUARDA el nombre recortado
+    nacen aerolineas nuevas a medias: aplicar el FSC de "COPA AIRLINES" creaba
+    una regla llamada "COPA", separada de la COPA AIRLINES que ya estaba en
+    cargos, dias de salida y once cotizaciones. Asi que para escribir se busca
+    como la llama el resto del portal, y solo si no aparece se usa el nombre
+    del correo tal cual."""
+    from lux_portal.cotizaciones.routes import _aerolineas_canonicas
+    normalizar_aerolinea, _ = _normalizadores()
+
+    original = (nombre or '').strip()
+    if not original:
+        return ''
+    objetivo = normalizar_aerolinea(original)
+    for conocida in _aerolineas_canonicas():
+        if normalizar_aerolinea(conocida) == objetivo:
+            return conocida
+    return original.upper()
+
+
 def _aplicar_fsc(hallazgo):
     """Actualiza o crea una regla de FSC.
 
@@ -128,7 +151,7 @@ def _aplicar_fsc(hallazgo):
     normalizar_aerolinea, _ = _normalizadores()
 
     detalle = hallazgo.detalle
-    aerolinea = normalizar_aerolinea(hallazgo.aerolinea or detalle.get('aerolinea', ''))
+    aerolinea = _nombre_canonico(hallazgo.aerolinea or detalle.get('aerolinea', ''))
     if not aerolinea:
         return False, 'El hallazgo de FSC no trae aerolinea.'
 
@@ -190,7 +213,8 @@ def _aplicar_cargo(hallazgo):
     normalizar_aerolinea, _ = _normalizadores()
 
     detalle = hallazgo.detalle
-    aerolinea = normalizar_aerolinea(hallazgo.aerolinea or detalle.get('aerolinea', ''))
+    # El nombre con que ya se la conoce, no el recortado: ver _nombre_canonico.
+    aerolinea = _nombre_canonico(hallazgo.aerolinea or detalle.get('aerolinea', ''))
     concepto = (detalle.get('concepto') or '').strip()
     if not aerolinea or not concepto:
         return False, 'El hallazgo de cargo no trae aerolinea o concepto.'
