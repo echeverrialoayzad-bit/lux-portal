@@ -211,9 +211,10 @@ class AirlineMailRequest(db.Model):
     # mostrarlo tachado en la tabla de destinos.
     no_sirve_json = db.Column(db.Text, default='{}')
     # Contactos que solo valen para ciertos destinos: {"MIA": "a@x.com; b@x.com"}.
-    # Una aerolinea puede tener un GSA distinto por ruta (Atlas va por Prime
-    # Air en general, pero MIA lo lleva Fenix Ecuador), asi que un unico
-    # destinatario por aerolinea no alcanza. Se SUMAN a los de siempre.
+    # Una aerolinea puede atenderse por una oficina distinta segun la ruta:
+    # Atlas va por Prime Air, pero lo de USA lo lleva Fenix Ecuador, que es la
+    # misma Atlas. En ese caso el correo REEMPLAZA al general, no se suma: se
+    # le escribe a la oficina que maneja esa ruta y a nadie mas.
     destinatarios_destino_json = db.Column(db.Text, default='{}')
 
     @property
@@ -264,16 +265,24 @@ class AirlineMailRequest(db.Model):
     def correos_para(self, destinos):
         """A quien se le escribe si se piden estos destinos.
 
-        Los de siempre, mas los contactos propios de cada destino pedido. Se
-        suman en vez de reemplazar: dejar fuera a quien deberia enterarse
-        cuesta una cotizacion perdida; que le llegue de mas, no cuesta nada.
-        Sin repetidos y respetando el orden."""
-        partes = [self.destinatarios or '']
+        Un destino con contacto propio manda: esa ruta la atiende otra
+        oficina de la misma aerolinea (Atlas va por Prime Air, pero lo de USA
+        lo lleva Fenix), asi que el correo va a esa oficina y no al general.
+        Los destinos sin contacto propio usan el de siempre. Si se piden los
+        dos tipos a la vez, van ambos: cada uno tiene que ver lo suyo."""
         por_destino = self.destinatarios_destino
+        propios, hay_general = [], False
         for d in (destinos or []):
             propio = por_destino.get(str(d).strip().upper())
             if propio:
-                partes.append(propio)
+                propios.append(propio)
+            else:
+                hay_general = True
+        # Sin destinos, o todos sin contacto propio: el de siempre.
+        partes = propios if propios else [self.destinatarios or '']
+        if propios and (hay_general or not destinos):
+            partes.append(self.destinatarios or '')
+
         vistas = []
         for parte in partes:
             for correo in str(parte).replace(',', ';').split(';'):
