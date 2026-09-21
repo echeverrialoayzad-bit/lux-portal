@@ -455,6 +455,47 @@ def _hay_solicitud(app):
                 cuenta.refresh_desde, cuenta.refresh_hasta)
 
 
+# Cuantos dias hacia atras puede estirarse la relectura automatica. Sin tope,
+# una PC apagada un mes dispararia un ciclo enorme en el primer latido. Si el
+# hueco es mayor, se lee lo que cabe y se avisa: el resto se pide con el boton.
+DIAS_MAX_ATRAS = 10
+
+
+def _dia_desde(ultima_lectura, hoy):
+    """Desde que dia hay que leer, dada la ultima lectura que se alcanzo.
+
+    Logica pura y sin base de datos, para poder probarla. `ultima_lectura` es
+    una fecha (date) o None."""
+    if not ultima_lectura or ultima_lectura >= hoy:
+        return hoy
+    tope = hoy - timedelta(days=DIAS_MAX_ATRAS)
+    if ultima_lectura < tope:
+        log(f'La ultima lectura fue el {ultima_lectura}: son mas de '
+            f'{DIAS_MAX_ATRAS} dias. Se leen los ultimos {DIAS_MAX_ATRAS}; '
+            f'para lo anterior, usa el boton del portal con ese rango.')
+        return tope
+    return ultima_lectura
+
+
+def _desde_ultimo_scan(app, hoy):
+    """Desde que dia leer cuando nadie pidio un rango.
+
+    Se vuelve hasta el ultimo dia que se alcanzo a leer, no hasta hoy: asi una
+    respuesta que llego con la PC apagada entra igual en el siguiente ciclo.
+    En marcha normal (se leyo hace un rato) esto da justamente hoy, asi que el
+    ciclo sigue siendo corto."""
+    from lux_portal.agente_lux import ingesta_local
+    from lux_portal.agente_lux.models import a_ecuador
+
+    try:
+        with app.app_context():
+            ultimo = ingesta_local.cuenta_local().ultimo_scan
+    except Exception:
+        # Si no se puede leer la cuenta, se cae al comportamiento de siempre.
+        return hoy
+    return _dia_desde(a_ecuador(ultimo).date() if ultimo else None, hoy)
+
+
 def _hay_envios(app):
     from lux_portal.agente_lux.models import AgenteEnvio
 
@@ -944,11 +985,15 @@ def main():
         if trabajando.is_set():
             return
         trabajando.set()
-        # Sin rango pedido, el dia de hoy: es lo que Daniela quiere ver y lo
-        # que hace corto el ciclo. Lo de otras fechas espera a que ella elija
-        # ese rango con el boton del portal.
+        # Sin rango pedido, desde el ultimo dia que se alcanzo a leer hasta
+        # hoy. Mirar solo "hoy" dejaba ciego al agente cada vez que la PC
+        # estaba apagada: una respuesta que llegaba el sabado ya no entraba en
+        # el rango del lunes y no se analizaba nunca. Como las aerolineas
+        # contestan cuando pueden, el dia en que llega la respuesta no se
+        # puede dar por sentado.
         hoy = ahora_ecuador().date()
-        desde = desde or hoy
+        if desde is None:
+            desde = _desde_ultimo_scan(app, hoy)
         hasta = hasta or hoy
         en_hilo_com(lambda: _leer(app, args, motivo, desde, hasta))
 
