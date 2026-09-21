@@ -69,14 +69,16 @@
   .al-negado { display:flex; align-items:center; gap:.5rem; font-size:.85rem;
                color:#8d8aa0; padding:.15rem 0; }
   .al-negado s { color:#6f6b85; }
-  /* El correo desplegado debajo de su aerolinea en la tabla del plan. */
-  .al-previa > td { background:#f7f6fc; border-top:0 !important; padding:0 .5rem .6rem 0 !important; }
-  .al-sobre { border-left:3px solid #5F4DCE; padding:.5rem .8rem; background:#fff;
-              border-radius:0 6px 6px 0; }
-  .al-sobre-cab { display:flex; flex-wrap:wrap; gap:.2rem 1.4rem; font-size:.84rem;
-                  padding-bottom:.4rem; margin-bottom:.4rem;
-                  border-bottom:1px solid #e3dff5; }
-  .al-sobre-cab .al-hint { margin-right:.3rem; }
+  /* La tabla del plan: una fila por aerolinea con todo a la vista. Cada
+     columna con su ancho, y el texto del correo en la misma linea, tal
+     como se va a enviar. */
+  #caja-plan td { vertical-align:top; }
+  .al-col-aero  { width:11%; font-size:.92rem; }
+  .al-col-dest  { width:12%; font-weight:700; color:#2D1B8E; letter-spacing:.03em; }
+  .al-col-mail  { width:22%; font-size:.8rem; word-break:break-all; color:#4a4766; }
+  .al-col-texto { width:40%; font-size:.82rem; }
+  .al-col-texto .al-cuerpo { white-space:pre-line; color:#4a4766; margin-top:.2rem;
+                             padding-left:.6rem; border-left:2px solid #d9d3f2; }
   .al-tag { font-size:.62rem; }
   .al-iconos { font-size:1rem; }
   .al-hecho { font-size:.78rem; }
@@ -1451,24 +1453,18 @@ function pintarPlan(d) {
     caja.innerHTML = '<div class="al-vacio">Ninguna aerolínea de la lista llega a los destinos elegidos.</div>';
     return;
   }
-  const filas = planActual.map((p, i) => {
-    const negados = Object.keys(p.negados || {});
-    return `<tr data-i="${i}">
+  // Una sola fila por aerolinea, con todo a la vista: quien, que destinos,
+  // a que correos y el texto que sale. Sin desplegables ni avisos.
+  const filas = planActual.map((p, i) => `<tr data-i="${i}">
       <td><input class="form-check-input chk-plan" type="checkbox" ${p.listo ? 'checked' : ''}
                  ${p.listo ? '' : 'disabled title="Sin destinatario: ponle un correo en su tarjeta"'}></td>
-      <td><strong>${escapar(p.aerolinea)}</strong>
-        ${p.ultima_respuesta ? `<div class="al-hint">respondió ${fechaCorta(p.ultima_respuesta)}</div>` : ''}</td>
-      <td>${p.destinos.map(x => `<span class="badge bg-primary me-1">${escapar(x)}</span>`).join('')}
-        ${(p.otros_marcados || []).length
-          ? `<div class="al-hint">tenías marcado ${p.otros_marcados.map(escapar).join(', ')} · no va en este correo</div>`
-          : ''}</td>
-      <td class="small">${p.destinatarios
+      <td class="al-col-aero"><strong>${escapar(p.aerolinea)}</strong></td>
+      <td class="al-col-dest">${p.destinos.map(escapar).join(', ')}</td>
+      <td class="al-col-mail">${p.destinatarios
         ? escapar(p.destinatarios)
-        : '<span class="text-danger">sin contacto</span>'}
-        <div class="al-hint">cc: ${escapar(p.cc)}</div></td>
-      <td class="small">${escapar(p.asunto)}
-        <div><a href="#" class="al-hint text-decoration-none" onclick="verFormato(${i}); return false;">
-          <i class="bi bi-chevron-up" id="chevron-${i}"></i> ocultar el correo</a></div></td>
+        : '<span class="text-danger">sin contacto</span>'}<br>${escapar(p.cc)}</td>
+      <td class="al-col-texto">${escapar(p.asunto)}
+        <div class="al-cuerpo">${escapar(p.cuerpo)}</div></td>
       <td class="text-end">
         <button class="btn btn-sm ${p.listo ? 'btn-outline-primary' : 'btn-outline-secondary'} btn-enviar-plan"
                 ${p.listo ? '' : 'disabled title="Sin destinatario"'}
@@ -1476,29 +1472,7 @@ function pintarPlan(d) {
           <i class="bi bi-send me-1"></i>Enviar
         </button>
       </td>
-    </tr>
-    <!-- El correo completo, desplegable debajo de su aerolinea: se revisa
-         sin abrir ventanas ni perder de vista la lista. -->
-    <tr class="al-previa" id="previa-${i}">
-      <td></td>
-      <td colspan="5">
-        <div class="al-sobre">
-          <div class="al-sobre-cab">
-            <div><span class="al-hint">Para</span> ${p.destinatarios
-              ? escapar(p.destinatarios)
-              : '<span class="text-danger">sin destinatario</span>'}</div>
-            <div><span class="al-hint">CC</span> ${escapar(p.cc)}</div>
-            <div><span class="al-hint">Asunto</span> ${escapar(p.asunto)}</div>
-          </div>
-          <div class="al-cuerpo">${escapar(p.cuerpo)}</div>
-          <div class="al-hint mt-1">
-            Sale por tu Outlook, con tu firma.${p.cuerpo_editado
-              ? ' Este texto lo editaste tú: solo se le cambia la lista de destinos.' : ''}
-          </div>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
+    </tr>`).join('');
 
   const huerfanos = (d.sin_aerolinea || []).length
     ? `<div class="px-3 py-2 small text-danger">
@@ -1511,20 +1485,15 @@ function pintarPlan(d) {
     <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
       <div><i class="bi bi-list-check me-1"></i><strong>Revisa y aprueba</strong>
         <span class="text-muted small ms-1">${planActual.length} aerolínea(s) para ${[...destinosElegidos].length} destino(s)</span></div>
-      <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-outline-secondary btn-sm" id="btn-ver-todos" onclick="verTodosLosCorreos()">
-          <i class="bi bi-envelope me-1"></i>Ocultar los correos
-        </button>
-        <button class="btn btn-success btn-sm" onclick="aprobarPlan()">
-          <i class="bi bi-check2-all me-1"></i>Aprobar y dejar listo
-        </button>
-      </div>
+      <button class="btn btn-success btn-sm" onclick="aprobarPlan()">
+        <i class="bi bi-check2-all me-1"></i>Aprobar y dejar listo
+      </button>
     </div>
     <div class="table-responsive">
       <table class="table table-sm mb-0 align-middle">
         <thead><tr>
-          <th style="width:34px;"></th><th>Aerolínea</th><th>Destinos que le tocan</th>
-          <th>A quién se escribe</th><th>Formato</th><th class="text-end">Una por una</th>
+          <th style="width:34px;"></th><th>Aerolínea</th><th>Destinos</th>
+          <th>Correos</th><th>Formato del correo</th><th class="text-end">Enviar</th>
         </tr></thead>
         <tbody>${filas}</tbody>
       </table>
@@ -1539,32 +1508,6 @@ function pintarPlan(d) {
   </div>`;
 }
 
-// Despliega (o cierra) el correo de esa aerolínea, justo debajo de su fila.
-function verFormato(i) {
-  const fila = document.getElementById(`previa-${i}`);
-  const flecha = document.getElementById(`chevron-${i}`);
-  if (!fila) return;
-  fila.hidden = !fila.hidden;
-  if (flecha) {
-    flecha.className = fila.hidden ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
-    flecha.parentElement.lastChild.textContent = fila.hidden ? ' ver el correo' : ' ocultar el correo';
-  }
-}
-
-// Todos de golpe, para repasarlos de corrido antes de aprobar.
-function verTodosLosCorreos() {
-  const previas = document.querySelectorAll('#caja-plan .al-previa');
-  const abrir = [...previas].some(f => f.hidden);
-  previas.forEach((f, i) => {
-    f.hidden = !abrir;
-    const flecha = document.getElementById(`chevron-${i}`);
-    if (flecha) flecha.className = abrir ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
-  });
-  const btn = document.getElementById('btn-ver-todos');
-  if (btn) btn.innerHTML = abrir
-    ? '<i class="bi bi-envelope me-1"></i>Ocultar los correos'
-    : '<i class="bi bi-envelope-open me-1"></i>Ver todos los correos';
-}
 
 // El otro camino: mandar UNA aerolinea desde la fila, sin aprobar el lote ni
 // bajar a su tarjeta. Primero le deja marcados sus destinos del plan (para
