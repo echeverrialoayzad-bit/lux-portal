@@ -271,11 +271,15 @@ def descargar_cotizacion(id):
             flash('No se puede imprimir: ' + ' | '.join(errores) + '. Corrige la cotizacion e intenta de nuevo.', 'error')
             return redirect(url_for('cotizaciones.editar_cotizacion', id=id))
 
-        # Preparar datos para el generador
+        # Preparar datos para el generador.
+        # El "Valid from" que se imprime es el DIA DE LA IMPRESION, no el de
+        # la ultima vez que se guardo la cotizacion: el cliente recibe un
+        # documento fechado hoy, y si se reimprime la semana que viene lleva
+        # la fecha de ese dia. No se toca el valid_from guardado.
         datos = {
             'contacto_nombre': cotizacion.contacto_nombre,
             'contacto_email': cotizacion.contacto_email,
-            'valid_from': cotizacion.valid_from,
+            'valid_from': datetime.now().strftime('%m/%d/%Y'),
             'mercancia': cotizacion.mercancia,
             'customer': cotizacion.customer,
             'attn': cotizacion.attn,
