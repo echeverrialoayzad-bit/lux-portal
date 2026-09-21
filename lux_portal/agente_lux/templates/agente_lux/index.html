@@ -255,7 +255,7 @@
            la aerolinea. -->
       <div class="card al-card shadow-sm mb-3">
         <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <div><i class="bi bi-geo-alt me-1"></i><strong>Destinos</strong>
+          <div><i class="bi bi-geo-alt me-1"></i><strong>Mails por destino</strong>
             <span class="text-muted small ms-1" id="resumen-destinos">—</span></div>
           <a href="#" class="al-hecho text-decoration-none" id="link-limpiar-destino"
              hidden onclick="limpiarDestinos(); return false;">quitar selección</a>
@@ -279,6 +279,17 @@
           </div>
           <div class="small text-muted" id="modo-envio-ayuda">—</div>
         </div>
+      </div>
+      <!-- El camino de siempre: entrar a la aerolinea y marcar sus destinos.
+           Se le pone titulo para distinguirlo del de arriba, que arranca por
+           el destino y arma los correos solo. -->
+      <div class="d-flex align-items-baseline gap-2 mb-2 mt-3">
+        <h6 class="mb-0 fw-bold" style="color:#2D1B8E;">
+          <i class="bi bi-hand-index me-1"></i>Mails manual
+        </h6>
+        <span class="small text-muted">
+          aerolínea por aerolínea · toca un destino para marcarlo en verde, la × lo borra de la lista
+        </span>
       </div>
       <div id="lista-mails"></div>
       <div class="card al-card shadow-sm mt-3">
