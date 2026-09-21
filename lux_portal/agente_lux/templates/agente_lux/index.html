@@ -255,14 +255,8 @@
         <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div><i class="bi bi-geo-alt me-1"></i><strong>Destinos</strong>
             <span class="text-muted small ms-1" id="resumen-destinos">—</span></div>
-          <div class="d-flex align-items-center gap-2">
-            <a href="#" class="al-hecho text-decoration-none" id="link-limpiar-destino"
-               hidden onclick="limpiarDestinos(); return false;">quitar selección</a>
-            <button class="btn btn-primary btn-sm" id="btn-armar-plan" hidden
-                    onclick="armarPlan()">
-              <i class="bi bi-envelope-paper me-1"></i>¿A quién le pido?
-            </button>
-          </div>
+          <a href="#" class="al-hecho text-decoration-none" id="link-limpiar-destino"
+             hidden onclick="limpiarDestinos(); return false;">quitar selección</a>
         </div>
         <div class="card-body py-2">
           <div id="rejilla-destinos" class="d-flex flex-wrap gap-1"></div>
@@ -1376,15 +1370,26 @@ function pintarDestinos() {
       </button>`;
   }).join('') || '<span class="text-muted small">sin destinos</span>';
   document.getElementById('link-limpiar-destino').hidden = !n;
-  document.getElementById('btn-armar-plan').hidden = !n;
   pintarDetalleDestino();
+}
+
+// Al tocar un destino los correos salen solos: es lo que hay que revisar.
+// Se espera medio segundo por si se marcan varios seguidos, para no pedirle
+// el plan al servidor una vez por clic.
+let esperaPlan = null;
+function replantear() {
+  clearTimeout(esperaPlan);
+  if (!destinosElegidos.size) { document.getElementById('caja-plan').innerHTML = ''; return; }
+  document.getElementById('caja-plan').innerHTML =
+    '<div class="al-vacio"><span class="spinner-border spinner-border-sm me-2"></span>Armando los correos…</div>';
+  esperaPlan = setTimeout(armarPlan, 500);
 }
 
 function elegirDestino(destino) {
   if (destinosElegidos.has(destino)) destinosElegidos.delete(destino);
   else destinosElegidos.add(destino);
-  document.getElementById('caja-plan').innerHTML = '';
   pintarDestinos();
+  replantear();
 }
 
 function limpiarDestinos() {
@@ -1463,7 +1468,7 @@ function pintarPlan(d) {
         <div class="al-hint">cc: ${escapar(p.cc)}</div></td>
       <td class="small">${escapar(p.asunto)}
         <div><a href="#" class="al-hint text-decoration-none" onclick="verFormato(${i}); return false;">
-          <i class="bi bi-chevron-down" id="chevron-${i}"></i> ver el correo</a></div></td>
+          <i class="bi bi-chevron-up" id="chevron-${i}"></i> ocultar el correo</a></div></td>
       <td class="text-end">
         <button class="btn btn-sm ${p.listo ? 'btn-outline-primary' : 'btn-outline-secondary'} btn-enviar-plan"
                 ${p.listo ? '' : 'disabled title="Sin destinatario"'}
@@ -1474,7 +1479,7 @@ function pintarPlan(d) {
     </tr>
     <!-- El correo completo, desplegable debajo de su aerolinea: se revisa
          sin abrir ventanas ni perder de vista la lista. -->
-    <tr class="al-previa" id="previa-${i}" hidden>
+    <tr class="al-previa" id="previa-${i}">
       <td></td>
       <td colspan="5">
         <div class="al-sobre">
@@ -1508,7 +1513,7 @@ function pintarPlan(d) {
         <span class="text-muted small ms-1">${planActual.length} aerolínea(s) para ${[...destinosElegidos].length} destino(s)</span></div>
       <div class="d-flex align-items-center gap-2">
         <button class="btn btn-outline-secondary btn-sm" id="btn-ver-todos" onclick="verTodosLosCorreos()">
-          <i class="bi bi-envelope-open me-1"></i>Ver todos los correos
+          <i class="bi bi-envelope me-1"></i>Ocultar los correos
         </button>
         <button class="btn btn-success btn-sm" onclick="aprobarPlan()">
           <i class="bi bi-check2-all me-1"></i>Aprobar y dejar listo
@@ -1540,7 +1545,10 @@ function verFormato(i) {
   const flecha = document.getElementById(`chevron-${i}`);
   if (!fila) return;
   fila.hidden = !fila.hidden;
-  if (flecha) flecha.className = fila.hidden ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+  if (flecha) {
+    flecha.className = fila.hidden ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+    flecha.parentElement.lastChild.textContent = fila.hidden ? ' ver el correo' : ' ocultar el correo';
+  }
 }
 
 // Todos de golpe, para repasarlos de corrido antes de aprobar.
