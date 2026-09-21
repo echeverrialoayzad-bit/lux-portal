@@ -1115,8 +1115,18 @@ def _aplicar_dias_a_entry(entry, nuevos_dias):
 @login_required
 def dias_salida_dashboard():
     """Tabla maestra editable de dias de salida fijos por aerolinea desde UIO."""
+    return render_template('cotizaciones/dias_salida.html', **contexto_dias())
+
+
+def contexto_dias():
+    """Lo que necesita el panel de dias de salida. Con prefijo `dias_` porque
+    el panel tambien se muestra dentro de Agente Lux, junto a los de FSC y
+    cargos, y los tres hablan de "aerolineas"."""
     registros = AirlineDepartureDays.query.order_by(AirlineDepartureDays.aerolinea).all()
-    return render_template('cotizaciones/dias_salida.html', registros=[r.to_dict() for r in registros], dias_orden=DIAS_ORDEN)
+    return {
+        'dias_registros': [r.to_dict() for r in registros],
+        'dias_orden': DIAS_ORDEN,
+    }
 
 
 @cotizaciones_bp.route('/api/dias-rule', methods=['POST'])

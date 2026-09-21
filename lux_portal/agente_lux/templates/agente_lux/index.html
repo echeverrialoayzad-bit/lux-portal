@@ -192,6 +192,11 @@
         Cargos
       </button>
     </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-dias" type="button">
+        Días Salida
+      </button>
+    </li>
   </ul>
 
   <div class="tab-content">
@@ -335,6 +340,16 @@
       {% else %}
       <div class="al-vacio">No se pudo cargar la tabla de cargos.
         <a href="/cotizaciones/cargos">Abrirla en su propia página</a>.</div>
+      {% endif %}
+    </div>
+
+    <!-- ============ TAB 7: dias de salida ============ -->
+    <div class="tab-pane fade" id="tab-dias">
+      {% if dias_registros is defined %}
+      {% include 'cotizaciones/_dias_salida_panel.html' %}
+      {% else %}
+      <div class="al-vacio">No se pudo cargar la tabla de días de salida.
+        <a href="/cotizaciones/dias-salida">Abrirla en su propia página</a>.</div>
       {% endif %}
     </div>
 

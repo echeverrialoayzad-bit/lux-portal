@@ -64,17 +64,20 @@ def _cuenta():
 @agente_lux_bp.route('/')
 @login_required
 def index():
-    """La pantalla de Agente Lux. Ademas de lo suyo, trae las pestanas de FSC
-    y Cargos: son las tablas maestras que se tocan justo despues de revisar
-    los correos, y Daniela las queria en el mismo sitio. Los paneles son los
-    mismos templates que usan /cotizaciones/fsc y /cotizaciones/cargos."""
-    from lux_portal.cotizaciones.routes import contexto_fsc, contexto_cargos
+    """La pantalla de Agente Lux. Ademas de lo suyo, trae las pestanas de FSC,
+    Cargos y Dias de Salida: son las tres tablas maestras que puede tocar una
+    respuesta de la aerolinea (una misma respuesta cambia tarifa, FSC, cargos
+    y dias a la vez), asi que estan en el mismo sitio. Los paneles son los
+    mismos templates que usan sus paginas sueltas."""
+    from lux_portal.cotizaciones.routes import (
+        contexto_fsc, contexto_cargos, contexto_dias)
 
     cuenta = _cuenta()
     extra = {}
     try:
         extra.update(contexto_fsc())
         extra.update(contexto_cargos())
+        extra.update(contexto_dias())
     except Exception:
         # Agente Lux tiene que abrir aunque una tabla maestra falle; sin el
         # contexto, esas pestanas salen vacias en vez de tumbar la pantalla.

@@ -1,0 +1,166 @@
+{# Panel de Dias de Salida.
+
+   Vive aparte para mostrarse en dos sitios: su propia pagina
+   (/cotizaciones/dias-salida) y una pestana dentro de Agente Lux, donde
+   hace falta porque una respuesta de la aerolinea puede cambiar tarifa,
+   FSC, cargos Y dias de salida a la vez.
+
+   Todo lo suyo lleva prefijo "ds": los ids de los botones y las funciones
+   que usan los onclick. Los tres paneles (FSC, cargos, dias) tenian los
+   mismos nombres (BASE, eliminarAerolinea, btnActualizar...) y juntarlos en
+   una pagina los rompia. El de FSC se quedo sin prefijo; cargos usa "cg" y
+   este "ds". El <script> va dentro de una funcion anonima para que nada se
+   escape al ambito global salvo lo que se expone a proposito. #}
+<style>
+    .dias-airline-card { margin-bottom: 16px; }
+    .dias-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 20px;
+        flex-wrap: wrap;
+    }
+    .dias-row .departure-days { flex: 1; }
+    .dias-airline-name { font-weight: 700; flex: 0 0 160px; color: var(--text-primary); }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2><i class="bi bi-calendar-week text-primary"></i> Dias de Salida por Aerolinea</h2>
+        <p class="text-secondary mb-0">Dias de salida fijos desde UIO por aerolinea (no varian por destino aqui). Aerolineas que no aparecen no tienen un default configurado.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" id="dsBtnAgregarAerolinea">
+            <i class="bi bi-plus-lg"></i> Agregar Aerolinea
+        </button>
+        <button class="btn btn-success" id="dsBtnActualizar">
+            <i class="bi bi-arrow-repeat"></i> Actualizar Cotizaciones
+        </button>
+    </div>
+</div>
+
+<div class="d-flex gap-2 mb-4" id="dsAddAirlineForm" style="display:none;">
+    <input type="text" id="dsNewAirlineName" class="form-control" placeholder="Nombre de la aerolinea (ej. AIR FRANCE)" style="max-width: 320px;">
+    <button class="btn btn-primary" id="dsBtnConfirmAddAirline"><i class="bi bi-check-lg"></i> Crear</button>
+    <button class="btn btn-outline-secondary" id="dsBtnCancelAddAirline">Cancelar</button>
+</div>
+
+<div id="dsResultadoActualizar"></div>
+
+<div id="dsAerolineasContainer">
+    {% for reg in dias_registros %}
+    <div class="card dias-airline-card" data-id="{{ reg.id }}" data-aerolinea="{{ reg.aerolinea }}">
+        <div class="dias-row">
+            <div class="dias-airline-name"><i class="bi bi-airplane me-2"></i>{{ reg.aerolinea }}</div>
+            <div class="departure-days">
+                {% for dia in dias_orden %}
+                <div class="form-check">
+                    <input class="form-check-input dia-check" type="checkbox" value="{{ dia }}" id="ds-dia-{{ reg.id }}-{{ dia }}" {% if dia in reg.dias %}checked{% endif %}>
+                    <label class="form-check-label" for="ds-dia-{{ reg.id }}-{{ dia }}">{{ dia }}</label>
+                </div>
+                {% endfor %}
+            </div>
+            <button class="btn btn-outline-danger btn-sm" onclick="dsEliminarAerolinea(this)" title="Eliminar esta aerolinea">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not dias_registros %}
+<div class="empty-state">
+    <i class="bi bi-calendar-week"></i>
+    <h5>No hay dias de salida configurados todavia</h5>
+    <p>Agrega una aerolinea para empezar</p>
+</div>
+{% endif %}
+
+<script>
+(function () {
+const BASE = "{{ url_for('cotizaciones.dashboard') }}".replace(/\/$/, '');
+const DIAS_ORDEN = {{ dias_orden|tojson }};
+
+function diasChecked(card) {
+    return DIAS_ORDEN.filter(d => card.querySelector(`.dia-check[value="${d}"]`).checked);
+}
+
+function guardarDias(card) {
+    fetch(`${BASE}/api/dias-rule/${card.dataset.id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({dias: diasChecked(card)})
+    }).then(r => r.json()).then(data => {
+        if (!data.success) alert('Error al guardar: ' + (data.error || ''));
+    });
+}
+
+document.querySelectorAll('#dsAerolineasContainer .dias-airline-card').forEach(card => {
+    card.querySelectorAll('.dia-check').forEach(cb => {
+        cb.addEventListener('change', () => guardarDias(card));
+    });
+});
+
+// El onclick del HTML necesita una funcion global: se expone con prefijo
+// para no chocar con las de los paneles de FSC y cargos.
+window.dsEliminarAerolinea = function (btn) {
+    const card = btn.closest('.dias-airline-card');
+    const nombre = card.dataset.aerolinea;
+    if (!confirm(`¿Eliminar "${nombre}" de la tabla de dias de salida?`)) return;
+    fetch(`${BASE}/api/dias-rule/${card.dataset.id}`, {method: 'DELETE'}).then(r => r.json()).then(data => {
+        if (data.success) card.remove();
+        else alert('Error: ' + (data.error || ''));
+    });
+};
+
+const addAirlineForm = document.getElementById('dsAddAirlineForm');
+const newAirlineInput = document.getElementById('dsNewAirlineName');
+
+document.getElementById('dsBtnAgregarAerolinea').onclick = () => {
+    addAirlineForm.style.display = 'flex';
+    newAirlineInput.focus();
+};
+
+document.getElementById('dsBtnCancelAddAirline').onclick = () => {
+    addAirlineForm.style.display = 'none';
+    newAirlineInput.value = '';
+};
+
+function confirmarAgregarAerolinea() {
+    const nombre = newAirlineInput.value.trim();
+    if (!nombre) return;
+    fetch(`${BASE}/api/dias-rule`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({aerolinea: nombre, dias: []})
+    }).then(r => r.json()).then(data => {
+        if (data.success) location.reload();
+        else alert('Error: ' + (data.error || ''));
+    });
+}
+
+document.getElementById('dsBtnConfirmAddAirline').onclick = confirmarAgregarAerolinea;
+newAirlineInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmarAgregarAerolinea(); });
+
+document.getElementById('dsBtnActualizar').onclick = () => {
+    if (!confirm('Esto va a recalcular Salida, Llegada y Horario Fincas Entrega en TODAS las cotizaciones de aerolineas que esten en esta tabla (se preservan las horas ya puestas). ¿Continuar?')) return;
+    const btn = document.getElementById('dsBtnActualizar');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Actualizando...';
+    fetch(`${BASE}/api/dias-aplicar`, {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            const div = document.getElementById('dsResultadoActualizar');
+            if (data.success) {
+                div.innerHTML = `<div class="alert alert-success">Listo: ${data.cotizaciones_actualizadas} cotizaciones actualizadas (${data.entradas_actualizadas} entradas de aerolinea recalculadas).</div>`;
+            } else {
+                div.innerHTML = `<div class="alert alert-danger">Error: ${data.error || ''}</div>`;
+            }
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Actualizar Cotizaciones';
+        });
+};
+})();
+</script>
