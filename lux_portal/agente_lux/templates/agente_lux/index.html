@@ -1358,8 +1358,8 @@ function pintarDestinos() {
   const destinos = todosLosDestinos();
   const n = destinosElegidos.size;
   document.getElementById('resumen-destinos').textContent = n
-    ? `${n} seleccionado(s) de ${destinos.length} · toca más o pide el plan`
-    : `${destinos.length} destinos · toca los que te pidieron`;
+    ? `${n} seleccionado(s) de ${destinos.length} · los correos salen abajo`
+    : `${destinos.length} destinos · toca los que te pidieron y te muestro los correos`;
   document.getElementById('rejilla-destinos').innerHTML = destinos.map(d => {
     const { llegan } = aerolineasDe(d);
     const activo = destinosElegidos.has(d);
