@@ -1458,10 +1458,10 @@ function pintarPlan(d) {
                  ${p.listo ? '' : 'disabled title="Sin destinatario: ponle un correo en su tarjeta"'}></td>
       <td><strong>${escapar(p.aerolinea)}</strong>
         ${p.ultima_respuesta ? `<div class="al-hint">respondió ${fechaCorta(p.ultima_respuesta)}</div>` : ''}</td>
-      <td>${(p.nuevos || p.destinos).map(x => `<span class="badge bg-primary me-1">${escapar(x)}</span>`).join('')}
-        ${(p.ya_marcados || []).map(x => `<span class="badge bg-secondary me-1"
-             title="Ya estaba marcado en su tarjeta; se respeta y va en el mismo correo">${escapar(x)}</span>`).join('')}
-        ${(p.ya_marcados || []).length ? '<div class="al-hint">en gris: lo que ya tenías marcado</div>' : ''}</td>
+      <td>${p.destinos.map(x => `<span class="badge bg-primary me-1">${escapar(x)}</span>`).join('')}
+        ${(p.otros_marcados || []).length
+          ? `<div class="al-hint">tenías marcado ${p.otros_marcados.map(escapar).join(', ')} · no va en este correo</div>`
+          : ''}</td>
       <td class="small">${p.destinatarios
         ? escapar(p.destinatarios)
         : '<span class="text-danger">sin contacto</span>'}
@@ -1531,10 +1531,10 @@ function pintarPlan(d) {
     </div>
     ${huerfanos}
     <div class="px-3 py-2 al-hint">
+      Cada correo lleva <strong>solo los destinos que elegiste arriba</strong>.
       Dos caminos: <strong>Aprobar y dejar listo</strong> marca los destinos en todas las
       tarjetas de abajo y tú decides cuándo enviar cada una; o <strong>Enviar</strong>
-      en la fila, que manda esa aerolínea sola, ahora, con esos destinos.
-      Lo que ya tuvieras marcado a mano no se borra: se suma y va en el mismo correo.
+      en la fila, que manda esa aerolínea sola, ahora.
     </div>
   </div>`;
 }
