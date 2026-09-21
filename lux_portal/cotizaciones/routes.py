@@ -38,12 +38,31 @@ def continentes_dashboard():
             conteo[cont] += 1
         else:
             sin_clasificar += 1
+
+    # Lista minima para el buscador de esta pantalla: encontrar una cotizacion
+    # por destino sin tener que entrar primero a un continente.
+    buscables = sorted(
+        (
+            {
+                'id': cot.id,
+                'ruta': cot.ruta,
+                'destino': (cot.destino or '').upper(),
+                'customer': cot.customer or '',
+                'mercancia': cot.mercancia or '',
+                'continente': continente_de(cot.destino) or 'Sin clasificar',
+            }
+            for cot in cotizaciones
+        ),
+        key=lambda c: (c['destino'], -c['id']),
+    )
+
     return render_template(
         'cotizaciones/continentes.html',
         continentes=CONTINENTES,
         conteo=conteo,
         total=len(cotizaciones),
         sin_clasificar=sin_clasificar,
+        buscables=buscables,
     )
 
 
@@ -55,6 +74,9 @@ def dashboard():
     query = Cotizacion.query.order_by(Cotizacion.fecha_creacion.desc())
     if continente in CONTINENTES:
         cotizaciones = [c for c in query.all() if continente_de(c.destino) == continente]
+        # Dentro de un continente se ordena por destino de la A a la Z; si hay
+        # varias del mismo destino, primero la mas reciente.
+        cotizaciones.sort(key=lambda c: ((c.destino or '').upper(), -(c.id or 0)))
     else:
         continente = ''
         cotizaciones = query.all()

@@ -16,6 +16,17 @@
     .continente-count { color: var(--text-secondary); font-size: 0.85rem; }
     .ver-todas-link { display: inline-flex; align-items: center; gap: 8px; margin-top: 28px; color: var(--text-secondary); text-decoration: none; }
     .ver-todas-link:hover { color: var(--fw-purple); }
+    .buscador-continentes { max-width: 460px; margin: 22px auto 0; }
+    .resultados-busqueda { max-width: 620px; margin: 18px auto 0; text-align: left; }
+    .resultado-item {
+        display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+        background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+        margin-bottom: 8px; text-decoration: none; transition: all var(--t);
+    }
+    .resultado-item:hover { border-color: var(--border-accent); box-shadow: var(--glow-purple); }
+    .resultado-ruta { font-weight: 700; color: var(--fw-purple-light); min-width: 96px; }
+    .resultado-info { color: var(--text-secondary); font-size: 0.86rem; flex: 1; }
+    .resultado-cont { color: var(--text-secondary); font-size: 0.74rem; text-transform: uppercase; letter-spacing: .04em; }
 </style>
 {% endblock %}
 
@@ -23,9 +34,21 @@
 <div class="text-center mb-2">
     <h2><i class="bi bi-globe-americas text-primary"></i> Cotizaciones por Continente</h2>
     <p class="text-secondary">Elige un continente para ver las cotizaciones de esos destinos ({{ total }} en total{% if sin_clasificar %}, {{ sin_clasificar }} sin clasificar{% endif %})</p>
+
+    <div class="input-group buscador-continentes">
+        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input type="text" id="buscarDestinoCont" class="form-control" autocomplete="off"
+               placeholder="Buscar cotizacion por destino (ej: GUA)" oninput="buscarCotizacion()">
+        <button type="button" class="btn btn-outline-secondary" id="btnLimpiarCont"
+                onclick="limpiarBusquedaCont()" style="display:none;" title="Limpiar">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
 </div>
 
-<div class="continente-grid">
+<div class="resultados-busqueda" id="resultadosBusqueda" style="display:none;"></div>
+
+<div class="continente-grid" id="gridContinentes">
     {% set iconos = {'AFRICA': 'bi-tree', 'AMERICA': 'bi-globe-americas', 'ASIA': 'bi-globe-asia-australia', 'EUROPA': 'bi-bank', 'OCEANIA': 'bi-water'} %}
     {% set nombres = {'AFRICA': 'Africa', 'AMERICA': 'America', 'ASIA': 'Asia', 'EUROPA': 'Europa', 'OCEANIA': 'Oceania'} %}
     {% for c in continentes %}
@@ -37,9 +60,65 @@
     {% endfor %}
 </div>
 
-<div class="text-center">
+<div class="text-center" id="verTodas">
     <a href="{{ url_for('cotizaciones.dashboard') }}" class="ver-todas-link">
         <i class="bi bi-list-ul"></i> Ver todas las cotizaciones
     </a>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Busca en todas las cotizaciones sin tener que entrar primero a un continente.
+// Mientras hay texto se esconden las tarjetas y se muestran los resultados.
+const COTIZACIONES = {{ buscables | tojson }};
+// Se pide la URL con un id centinela y se reemplaza por el real
+const URL_EDITAR = "{{ url_for('cotizaciones.editar_cotizacion', id=987654321) }}";
+
+function buscarCotizacion() {
+    const input = document.getElementById('buscarDestinoCont');
+    const q = (input.value || '').trim().toUpperCase();
+    const grid = document.getElementById('gridContinentes');
+    const cajaResultados = document.getElementById('resultadosBusqueda');
+    const verTodas = document.getElementById('verTodas');
+
+    document.getElementById('btnLimpiarCont').style.display = q ? '' : 'none';
+
+    if (!q) {
+        grid.style.display = '';
+        verTodas.style.display = '';
+        cajaResultados.style.display = 'none';
+        return;
+    }
+
+    const encontradas = COTIZACIONES.filter(c =>
+        (c.destino + ' ' + c.ruta + ' ' + c.customer + ' ' + c.mercancia).toUpperCase().includes(q)
+    );
+
+    grid.style.display = 'none';
+    verTodas.style.display = 'none';
+    cajaResultados.style.display = '';
+
+    if (!encontradas.length) {
+        cajaResultados.innerHTML =
+            '<p class="text-secondary text-center">Ninguna cotizacion coincide con "' + q + '".</p>';
+        return;
+    }
+
+    cajaResultados.innerHTML = encontradas.map(c =>
+        '<a class="resultado-item" href="' + URL_EDITAR.replace('987654321', c.id) + '">' +
+            '<span class="resultado-ruta">' + c.ruta + '</span>' +
+            '<span class="resultado-info">' + (c.customer || 'Sin cliente') + ' &middot; ' + c.mercancia + '</span>' +
+            '<span class="resultado-cont">' + c.continente + '</span>' +
+        '</a>'
+    ).join('');
+}
+
+function limpiarBusquedaCont() {
+    const input = document.getElementById('buscarDestinoCont');
+    input.value = '';
+    buscarCotizacion();
+    input.focus();
+}
+</script>
 {% endblock %}

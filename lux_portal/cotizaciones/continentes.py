@@ -11,20 +11,32 @@ IATA_CONTINENTE = {
     'ASU': 'AMERICA', 'EZE': 'AMERICA', 'GRU': 'AMERICA', 'LAX': 'AMERICA',
     'LIM': 'AMERICA', 'MIA': 'AMERICA', 'ORD': 'AMERICA', 'PTY': 'AMERICA',
     'SAL': 'AMERICA', 'SCL': 'AMERICA', 'SJU': 'AMERICA', 'VCP': 'AMERICA',
-    'YYZ': 'AMERICA', 'YUL': 'AMERICA',
+    'YYZ': 'AMERICA', 'YUL': 'AMERICA', 'MVD': 'AMERICA', 'SDQ': 'AMERICA',
+    'GUA': 'AMERICA', 'SJO': 'AMERICA', 'PUJ': 'AMERICA', 'SAP': 'AMERICA',
+    'MGA': 'AMERICA', 'AUA': 'AMERICA', 'CUR': 'AMERICA', 'CLO': 'AMERICA',
+    'MDE': 'AMERICA', 'BOG': 'AMERICA', 'LPB': 'AMERICA', 'VVI': 'AMERICA',
+    'MEX': 'AMERICA', 'GDL': 'AMERICA', 'JFK': 'AMERICA', 'BOS': 'AMERICA',
+    'DFW': 'AMERICA', 'IAH': 'AMERICA', 'TPA': 'AMERICA', 'CWB': 'AMERICA',
+    'GIG': 'AMERICA', 'SFO': 'AMERICA', 'AEP': 'AMERICA',
     # Europa
     'AMS': 'EUROPA', 'BEG': 'EUROPA', 'DUB': 'EUROPA', 'FRA': 'EUROPA',
     'LHR': 'EUROPA', 'MAD': 'EUROPA', 'OTP': 'EUROPA', 'VKO': 'EUROPA',
+    'BCN': 'EUROPA', 'BER': 'EUROPA', 'BUD': 'EUROPA', 'FCO': 'EUROPA',
+    'LCA': 'EUROPA', 'LIS': 'EUROPA', 'MXP': 'EUROPA', 'SOF': 'EUROPA',
+    'VLC': 'EUROPA', 'WAW': 'EUROPA', 'LED': 'EUROPA', 'DME': 'EUROPA',
+    'SVO': 'EUROPA',
     # Asia (incluye Oriente Medio)
     'ALA': 'ASIA', 'DOH': 'ASIA', 'DXB': 'ASIA', 'EVN': 'ASIA',
     'FUK': 'ASIA', 'GYD': 'ASIA', 'ICN': 'ASIA', 'KIX': 'ASIA',
     'KWI': 'ASIA', 'NRT': 'ASIA', 'RUH': 'ASIA', 'TAS': 'ASIA',
     'TBS': 'ASIA', 'TPE': 'ASIA', 'DMM': 'ASIA', 'SIN': 'ASIA',
-    'KUL': 'ASIA', 'HKG': 'ASIA', 'HKP': 'ASIA',
+    'KUL': 'ASIA', 'HKG': 'ASIA', 'HKP': 'ASIA', 'BAH': 'ASIA',
+    'BKK': 'ASIA', 'CGK': 'ASIA', 'JED': 'ASIA', 'PEK': 'ASIA',
+    'PVG': 'ASIA', 'TSA': 'ASIA',
     # Africa
     'NBO': 'AFRICA', 'TUN': 'AFRICA',
     # Oceania
-    'SYD': 'OCEANIA',
+    'SYD': 'OCEANIA', 'MEL': 'OCEANIA', 'BNE': 'OCEANIA', 'AKL': 'OCEANIA',
 }
 
 
