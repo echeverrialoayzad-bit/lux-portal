@@ -640,6 +640,8 @@ def mails():
             # Lo que esta aerolinea nego por correo, con su cita: la tabla de
             # destinos lo muestra tachado para no volver a pedirlo.
             'no_sirve': r.no_sirve,
+            # Contactos propios de ciertos destinos (GSA distinto por ruta).
+            'destinatarios_destino': r.destinatarios_destino,
             'asunto': r.asunto or ASUNTO_POR_DEFECTO,
             'cuerpo': _cuerpo_solicitud(r),
             'destinatarios': r.destinatarios or '',
@@ -696,7 +698,8 @@ def plan_solicitudes():
             'destinos': suyos,
             'otros_marcados': otros_marcados,
             'negados': negados,
-            'destinatarios': r.destinatarios or '',
+            # Los de siempre mas los propios de estos destinos.
+            'destinatarios': r.correos_para(suyos),
             'cc': _con_cc_fijo(r.cc),
             'asunto': r.asunto or ASUNTO_POR_DEFECTO,
             'cuerpo': cuerpo,
@@ -861,7 +864,9 @@ def enviar_mail(id):
 
     envio = AgenteEnvio(
         aerolinea=registro.aerolinea,
-        para=registro.destinatarios,
+        # Los contactos de siempre mas los propios de los destinos pedidos:
+        # hay rutas con su propio GSA (Atlas a MIA va por Fenix Ecuador).
+        para=registro.correos_para(registro.seleccionados),
         cc=_con_cc_fijo(registro.cc),
         asunto=(registro.asunto or ASUNTO_POR_DEFECTO)[:300],
         cuerpo=_cuerpo_solicitud(registro),

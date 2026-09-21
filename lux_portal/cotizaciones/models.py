@@ -210,6 +210,11 @@ class AirlineMailRequest(db.Model):
     # Se guardan para no volver a pedir lo que ya negaron, y para poder
     # mostrarlo tachado en la tabla de destinos.
     no_sirve_json = db.Column(db.Text, default='{}')
+    # Contactos que solo valen para ciertos destinos: {"MIA": "a@x.com; b@x.com"}.
+    # Una aerolinea puede tener un GSA distinto por ruta (Atlas va por Prime
+    # Air en general, pero MIA lo lleva Fenix Ecuador), asi que un unico
+    # destinatario por aerolinea no alcanza. Se SUMAN a los de siempre.
+    destinatarios_destino_json = db.Column(db.Text, default='{}')
 
     @property
     def destinos(self):
@@ -243,6 +248,39 @@ class AirlineMailRequest(db.Model):
     @no_sirve.setter
     def no_sirve(self, value):
         self.no_sirve_json = json.dumps(value or {}, ensure_ascii=False)
+
+    @property
+    def destinatarios_destino(self):
+        try:
+            datos = json.loads(self.destinatarios_destino_json or '{}')
+        except (ValueError, TypeError):
+            datos = {}
+        return datos if isinstance(datos, dict) else {}
+
+    @destinatarios_destino.setter
+    def destinatarios_destino(self, value):
+        self.destinatarios_destino_json = json.dumps(value or {}, ensure_ascii=False)
+
+    def correos_para(self, destinos):
+        """A quien se le escribe si se piden estos destinos.
+
+        Los de siempre, mas los contactos propios de cada destino pedido. Se
+        suman en vez de reemplazar: dejar fuera a quien deberia enterarse
+        cuesta una cotizacion perdida; que le llegue de mas, no cuesta nada.
+        Sin repetidos y respetando el orden."""
+        partes = [self.destinatarios or '']
+        por_destino = self.destinatarios_destino
+        for d in (destinos or []):
+            propio = por_destino.get(str(d).strip().upper())
+            if propio:
+                partes.append(propio)
+        vistas = []
+        for parte in partes:
+            for correo in str(parte).replace(',', ';').split(';'):
+                correo = correo.strip()
+                if correo and correo.lower() not in [v.lower() for v in vistas]:
+                    vistas.append(correo)
+        return '; '.join(vistas)
 
     def to_dict(self):
         return {
