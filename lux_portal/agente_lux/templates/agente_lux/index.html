@@ -1386,27 +1386,25 @@ function limpiarDestinos() {
 }
 
 // Resumen rápido de lo elegido, sin pedirle nada al servidor todavía.
+// Solo se muestra quién SÍ llega: las que no llegan el sistema las sabe y
+// las usa para no asignarles el destino, pero no hacen falta en pantalla.
 function pintarDetalleDestino() {
   const caja = document.getElementById('detalle-destino');
   if (!destinosElegidos.size) { caja.innerHTML = ''; return; }
   const filas = [...destinosElegidos].sort().map(d => {
-    const { llegan, niegan } = aerolineasDe(d);
+    const { llegan } = aerolineasDe(d);
     return `<tr>
       <td><strong>${escapar(d)}</strong></td>
       <td class="small">${llegan.length
         ? llegan.map(m => escapar(m.aerolinea)).join(', ')
         : '<span class="text-danger">ninguna aerolínea llega</span>'}</td>
-      <td class="small">${niegan.map(m => {
-        const nn = m.no_sirve[d] || {};
-        return `<span class="al-negado d-inline-flex" title="${escapar(nn.evidencia || '')}"><s>${escapar(m.aerolinea)}</s></span>`;
-      }).join(' ') || '<span class="text-muted">—</span>'}</td>
     </tr>`;
   }).join('');
   caja.innerHTML = `
     <div class="border-top">
       <div class="table-responsive">
         <table class="table table-sm mb-0 align-middle">
-          <thead><tr><th style="width:90px;">Destino</th><th>Llegan</th><th style="width:30%;">Lo negaron</th></tr></thead>
+          <thead><tr><th style="width:90px;">Destino</th><th>Aerolíneas que llegan</th></tr></thead>
           <tbody>${filas}</tbody>
         </table>
       </div>
@@ -1450,8 +1448,7 @@ function pintarPlan(d) {
       <td>${(p.nuevos || p.destinos).map(x => `<span class="badge bg-primary me-1">${escapar(x)}</span>`).join('')}
         ${(p.ya_marcados || []).map(x => `<span class="badge bg-secondary me-1"
              title="Ya estaba marcado en su tarjeta; se respeta y va en el mismo correo">${escapar(x)}</span>`).join('')}
-        ${(p.ya_marcados || []).length ? '<div class="al-hint">en gris: lo que ya tenías marcado</div>' : ''}
-        ${negados.length ? `<div class="al-hint">no llega a ${negados.map(escapar).join(', ')}</div>` : ''}</td>
+        ${(p.ya_marcados || []).length ? '<div class="al-hint">en gris: lo que ya tenías marcado</div>' : ''}</td>
       <td class="small">${p.destinatarios
         ? escapar(p.destinatarios)
         : '<span class="text-danger">sin contacto</span>'}
