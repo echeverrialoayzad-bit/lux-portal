@@ -494,9 +494,18 @@ async function cargarEstado() {
       btn.disabled = false;
       btn.title = '';
     } else {
-      elVigia.innerHTML = '<span class="al-punto al-punto-off me-1"></span>Tu PC no está escuchando · el vigía no está corriendo';
+      // Apagada: se dice desde cuándo y que al prenderla se pone al día
+      // sola, que es la duda que salta al ver el punto en rojo.
+      const h = d.cuenta.vigia_horas;
+      const desde = h == null ? ''
+        : h < 1 ? ' desde hace unos minutos'
+        : h < 24 ? ` desde hace ${Math.round(h)} h`
+        : ` desde hace ${Math.round(h / 24)} día(s)`;
+      elVigia.innerHTML = '<span class="al-punto al-punto-off me-1"></span>'
+        + `Tu PC no está escuchando${desde}`
+        + '<div class="al-hint">al prenderla se pone al día sola con los correos de mientras</div>';
       btn.disabled = true;
-      btn.title = 'Para encender este botón, corre python agente_lux_watcher.py en tu PC';
+      btn.title = 'Para encender este botón, prende tu PC: el vigía arranca solo con Windows';
     }
   } else {
     elCuenta.innerHTML = '<i class="bi bi-envelope-slash text-danger me-1"></i>Sin correo leído';

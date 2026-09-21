@@ -116,6 +116,11 @@ class AgenteCuenta(db.Model):
             'refresh_desde': self.refresh_desde.isoformat() if self.refresh_desde else None,
             'refresh_hasta': self.refresh_hasta.isoformat() if self.refresh_hasta else None,
             'vigia_activo': self.vigia_activo(),
+            # Desde cuando no escucha la PC: sirve para decirle a Daniela
+            # cuanto lleva apagada y que al prenderla se pone al dia sola.
+            'vigia_visto': _fmt(a_ecuador(self.vigia_visto)),
+            'vigia_horas': (round((datetime.utcnow() - self.vigia_visto).total_seconds() / 3600, 1)
+                            if self.vigia_visto else None),
             'netas_pendiente': bool(self.netas_solicitado),
             'netas_actualizado': _fmt(a_ecuador(self.netas_actualizado)),
             'netas_mensaje': self.netas_mensaje,
