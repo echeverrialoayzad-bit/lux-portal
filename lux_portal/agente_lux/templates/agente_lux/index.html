@@ -62,6 +62,25 @@
   .al-tramo { display:inline-block; min-width:46px; text-align:right; font-size:.78rem;
               font-weight:700; color:#5F4DCE; }
   .al-oculto { font-size:.82rem; color:#6f6b85; padding:.5rem .2rem; }
+  /* Segunda banda de Actualizaciones: el seguimiento de las solicitudes.
+     Misma caja que el cuadro de tarifas, pero sin casillas: aca no se
+     aprueba nada, solo se ve quien contesto, quien confirmo lo que ya
+     estaba y quien no contesto. El titulo de cada tabla es el DESTINO,
+     porque asi es como se pide (el cliente pregunta por MIA, no por una
+     aerolinea). */
+  .al-seguimiento td { text-align:left; vertical-align:top; }
+  .al-seguimiento .al-aero { font-weight:700; color:#2D1B8E; }
+  .al-estado { display:inline-block; font-size:.78rem; font-weight:700;
+               border-radius:.75rem; padding:.1rem .55rem; letter-spacing:.02em;
+               white-space:nowrap; }
+  .al-est-con_tarifa    { background:#ffe6a8; color:#6b4a00; }
+  .al-est-confirmo      { background:#dff3e2; color:#1f6b33; }
+  .al-est-te_pide_algo  { background:#ffe2df; color:#a32a20; }
+  .al-est-sin_tarifa    { background:#ede9e5; color:#4a4766; }
+  .al-est-sin_respuesta { background:#f5f4f8; color:#8d8aa0; border:1px solid #d9d3f2; }
+  .al-pide { color:#ff5649; }
+  .al-seg-detalle { font-size:.85rem; color:#4a4766; }
+  .al-seg-quien { font-size:.78rem; color:#6f6b85; }
   /* La rejilla de destinos de la pestana Mails. */
   .al-chip-destino { font-family:inherit; font-weight:700; letter-spacing:.03em;
                      padding:.2rem .5rem; font-size:.82rem; }
@@ -229,8 +248,24 @@
         <div id="cuerpo-hallazgos" class="p-2" style="overflow-x:auto;"></div>
         <div id="hallazgos-vacio" class="al-vacio">
           <i class="bi bi-inbox fs-3 d-block mb-2"></i>
-          No hay cambios pendientes.<br>
-          <span class="small">Cuando llegue una respuesta de tarifas o un aviso de FSC, aparece aquí y se queda hasta que lo apliques o lo marques hecho.</span>
+          No hay tarifas nuevas que aprobar.<br>
+          <span class="small">Abajo está lo que contestó cada aerolínea a tus solicitudes.</span>
+        </div>
+      </div>
+
+      <!-- Lo que contesto cada aerolinea a las solicitudes de tarifa. Es el
+           otro lado del cuadro de arriba: ahi salen los cambios por aprobar,
+           aca sale todo lo demas (confirmo lo mismo, contesto sin tarifa,
+           pide un dato, no contesto). No se aprueba nada desde aqui. -->
+      <div class="card al-card shadow-sm mt-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="small text-muted" id="resumen-seguimiento">Respuestas a tus solicitudes.</div>
+        </div>
+        <div id="cuerpo-seguimiento" class="p-2" style="overflow-x:auto;"></div>
+        <div id="seguimiento-vacio" class="al-vacio d-none">
+          <i class="bi bi-send fs-3 d-block mb-2"></i>
+          Todavía no saliste a pedir tarifas desde aquí.<br>
+          <span class="small">Cuando mandes una solicitud desde la pestaña Mails, acá vas a ver quién contestó y quién no.</span>
         </div>
       </div>
 
@@ -1078,6 +1113,10 @@ function pintarHallazgos() {
   const tarifas = filas.filter(h => h.tipo === 'tarifa');
   document.getElementById('cuerpo-hallazgos').innerHTML =
     agruparPorAerolinea(tarifas).map(tablaAerolinea).join('');
+  // El cartel de "no hay nada" va contra las tarifas PINTADAS, no contra el
+  // total: con pendientes de FSC/Info y ninguna tarifa, el cuadro quedaba en
+  // blanco (ni tabla ni mensaje) y parecia roto.
+  document.getElementById('hallazgos-vacio').style.display = tarifas.length ? 'none' : 'block';
   document.querySelectorAll('#cuerpo-hallazgos .chk-hallazgo').forEach(c => {
     if (marcados.has(parseInt(c.dataset.id, 10))) c.checked = true;
     c.addEventListener('change', actualizarBotonAplicar);
@@ -1097,8 +1136,10 @@ async function cargarHallazgos() {
   const filas = d.hallazgos || [];
   hallazgosEnPantalla = filas;
 
+  // El badge cuenta TODO lo pendiente (tarifa, FSC, cargo, info): es el
+  // contador de la pestana, no el del cuadro. El cartel de vacio lo decide
+  // pintarHallazgos(), que sabe cuantas tarifas quedaron a la vista.
   document.getElementById('badge-hallazgos').textContent = filas.length;
-  document.getElementById('hallazgos-vacio').style.display = filas.length ? 'none' : 'block';
   pintarHallazgos();
 
   const porTipo = {};
@@ -1109,6 +1150,91 @@ async function cargarHallazgos() {
     : 'Nada pendiente') + ' · desde el 14 sep 2026' + hechas;
 
   avisarViejas(filas);
+  // Al final y a proposito: /api/hallazgos deja en 'resuelto' lo que ya
+  // cuadraba, y el seguimiento necesita leer ese estado ya guardado. Si
+  // corriera antes, una aerolinea que confirmo la misma tarifa saldria como
+  // "trajo tarifa nueva" abajo y sin tarjeta arriba.
+  cargarSeguimiento();
+}
+
+// -------------------------------------------------- seguimiento de solicitudes
+// Lo que contesto cada aerolinea. Una tabla por destino pedido y una fila por
+// aerolinea: es el camino en que Daniela piensa el trabajo ("pedi MIA a
+// cinco"), no el del cuadro de arriba, que agrupa por aerolinea.
+const SEGUIMIENTO = {
+  con_tarifa:    ['Trajo tarifa nueva', 'está arriba, para aprobar'],
+  confirmo:      ['Confirmó sin cambio', 'la misma que ya tenías'],
+  te_pide_algo:  ['Te pide algo',        'hay que contestarle'],
+  sin_tarifa:    ['Contestó sin tarifa', ''],
+  sin_respuesta: ['No ha contestado',    '']
+};
+
+function filaSeguimiento(l) {
+  const [titulo] = SEGUIMIENTO[l.estado] || [l.estado, ''];
+  const chip = `<span class="al-estado al-est-${l.estado}">${escapar(titulo)}</span>`;
+  // La bandera de "pide algo" va aparte del chip a proposito: el analisis
+  // marca requiere_accion con manga ancha, asi que si mandara sobre el estado
+  // casi todo terminaria en "te pide algo" y la distincion se muere.
+  const pide = (l.pide_algo && l.estado !== 'te_pide_algo')
+    ? ' <i class="bi bi-exclamation-circle-fill al-pide" title="Pide algo"></i>' : '';
+  const r = l.respuesta;
+  // Debajo de la etiqueta va el resumen del correo, que es lo unico que dice
+  // QUE contestaron: "te pide algo" no sirve de nada si no se ve que piden.
+  const detalle = (l.detalle || []).map(escapar).join('<br>')
+    + ((r && r.resumen) ? `<div class="al-seg-quien mt-1">${escapar(r.resumen)}</div>` : '');
+  const cuando = r
+    ? `${escapar(r.fecha || '')}<div class="al-seg-quien">${
+        r.dias === 0 ? 'hoy' : r.dias === 1 ? 'ayer' : `hace ${r.dias} días`}</div>`
+    : GUION;
+  const correo = r
+    ? `<a href="#" onclick="verMail(${r.mail_id});return false;">
+         <i class="bi bi-envelope me-1"></i>${escapar(r.asunto || 'Ver correo')}</a>
+       <div class="al-seg-quien">${escapar(r.remitente || '')}</div>`
+    : `<span class="al-seg-quien">se envió a ${escapar((l.para || '').split(';')[0] || '')}</span>`;
+  return `<tr>
+    <td class="al-aero">${escapar(l.aerolinea)}</td>
+    <td>${chip}${pide}</td>
+    <td class="al-seg-detalle">${detalle}</td>
+    <td class="al-seg-quien">${cuando}</td>
+    <td>${correo}</td>
+  </tr>`;
+}
+
+function tablaSeguimiento(g) {
+  return `<table class="al-cuadro al-seguimiento mb-3">
+    <colgroup><col style="width:14%"><col style="width:16%"><col style="width:30%">
+              <col style="width:14%"><col style="width:26%"></colgroup>
+    <thead>
+      <tr><th colspan="5" class="al-cuadro-titulo">${escapar(g.destino)} · pedido el ${escapar(g.pedido_en)}</th></tr>
+      <tr class="al-cuadro-cols">
+        <th>Aerolínea</th><th>Qué pasó</th><th>Qué contestó</th><th>Cuándo</th><th>Correo</th>
+      </tr>
+    </thead>
+    <tbody>${(g.lineas || []).map(filaSeguimiento).join('')}</tbody>
+  </table>`;
+}
+
+async function cargarSeguimiento() {
+  let d;
+  try {
+    const r = await fetch('{{ url_for("agente_lux.seguimiento") }}');
+    if (!r.ok) return;            // si falla, el cuadro de arriba sigue igual
+    d = await r.json();
+  } catch (e) { return; }
+  const grupos = d.grupos || [];
+  document.getElementById('cuerpo-seguimiento').innerHTML = grupos.map(tablaSeguimiento).join('');
+  document.getElementById('seguimiento-vacio').classList.toggle('d-none', grupos.length > 0);
+
+  const c = d.conteo || {};
+  const partes = [];
+  if (c.con_tarifa)    partes.push(`${c.con_tarifa} trajo tarifa`);
+  if (c.confirmo)      partes.push(`${c.confirmo} confirmó sin cambio`);
+  if (c.te_pide_algo)  partes.push(`${c.te_pide_algo} te pide algo`);
+  if (c.sin_tarifa)    partes.push(`${c.sin_tarifa} contestó sin tarifa`);
+  if (c.sin_respuesta) partes.push(`${c.sin_respuesta} sin contestar`);
+  document.getElementById('resumen-seguimiento').textContent =
+    (partes.length ? partes.join(' · ') : 'Sin solicitudes') +
+    ` · últimos ${d.dias || 30} días`;
 }
 
 // Las propuestas que salen de correos viejos (el atraso de agosto que se

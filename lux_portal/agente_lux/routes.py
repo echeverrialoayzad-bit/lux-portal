@@ -333,6 +333,26 @@ def _ya_cuadra(d):
     return hoy is not None and abs(hoy - nuevo) < 0.005
 
 
+@agente_lux_bp.route('/api/seguimiento')
+@login_required
+def seguimiento():
+    """Que contesto cada aerolinea a las solicitudes de tarifa.
+
+    El cuadro de arriba solo muestra lo que hay que aprobar; cuando la
+    aerolinea confirma la misma tarifa, contesta sin cifra o no contesta, ahi
+    no sale nada y parece que el agente no hizo nada. Esto es el otro lado:
+    una fila por aerolinea y destino pedido, con lo que paso.
+
+    Solo lee: a diferencia de /api/hallazgos, no cambia ningun estado."""
+    # Import local: seguimiento lee _aerolinea_de_carpeta de este modulo.
+    from lux_portal.agente_lux import seguimiento as seg
+    try:
+        return jsonify(seg.resumen_solicitudes())
+    except Exception:
+        current_app.logger.exception('No se pudo armar el seguimiento de solicitudes')
+        return jsonify({'error': 'No se pudo armar el seguimiento.'}), 500
+
+
 @agente_lux_bp.route('/api/hallazgos/decidir', methods=['POST'])
 @login_required
 def decidir():

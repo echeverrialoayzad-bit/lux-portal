@@ -79,6 +79,24 @@ def sincronizar_destinos(cuerpo, destinos):
     return (cuerpo or '').rstrip() + '\n\n' + '\n'.join(bullets)
 
 
+_RE_BULLET_DESTINO = re.compile(r'^\s*[•\-\*·]\s*([A-Z]{3})\b', re.M)
+
+
+def destinos_de_cuerpo(cuerpo):
+    """Los destinos que pedia un correo de solicitud, leidos de sus vinetas.
+
+    AgenteEnvio guarda el texto del correo pero no la lista de destinos, asi
+    que para saber que se pidio hay que releer las vinetas ("• MIA"). Es el
+    mismo formato que escribe sincronizar_destinos, de ida y de vuelta. Si
+    Daniela borro las vinetas al editar a mano, devuelve [] y el que llama
+    tiene que mostrarlo como "sin destino", nunca descartarlo en silencio."""
+    vistos = []
+    for m in _RE_BULLET_DESTINO.finditer((cuerpo or '').replace('\r\n', '\n')):
+        if m.group(1) not in vistos:
+            vistos.append(m.group(1))
+    return vistos
+
+
 def limpiar_para_ver(texto):
     """El cuerpo como para leerlo en pantalla: sin avisos del sistema, con
     los enlaces reales en vez de los de safelinks, y sin los <mailto:...>
