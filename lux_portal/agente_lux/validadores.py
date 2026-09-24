@@ -51,9 +51,11 @@ _TRANSOCEANICA = {
 }
 
 
-def aerolinea_por_remitente(remitente, cuerpo=''):
+def aerolinea_por_remitente(remitente, cuerpo='', carpeta='', asunto=''):
     """La aerolinea que corresponde al remitente, o None si no es un GSA
-    conocido (por ejemplo un reenvio interno de FreightWise)."""
+    conocido (por ejemplo un reenvio interno de FreightWise) o si el GSA
+    representa a varias y no se puede saber cual (entonces se respeta lo
+    que dijo el analisis)."""
     r = (remitente or '').lower()
     if not r or 'freight-wise.com' in r:
         return None
@@ -65,6 +67,15 @@ def aerolinea_por_remitente(remitente, cuerpo=''):
         if 'laratesec' in texto or 'mcc' in texto:
             return 'LAN'
         return 'LUFTHANSA'
+    if 'primeair' in r:
+        # Prime Air es GSA de Emirates y tambien de Atlas (salesatlasec,
+        # Carolina Aimara). Lo decide la carpeta, el remitente o el texto.
+        pista = ' '.join([r, (carpeta or '').lower(), (asunto or '').lower(), (cuerpo or '')[:1500].lower()])
+        if 'atlas' in pista:
+            return 'ATLAS'
+        if 'emirates' in pista or 'skycargo' in pista or ' ek ' in pista or 'dwc' in pista or 'dxb' in pista:
+            return 'EMIRATES'
+        return None
     for dominio, aero in _DOMINIOS:
         if dominio in r:
             return aero
@@ -180,33 +191,42 @@ def es_condicional(concepto, cita=''):
 # ---------------------------------------------------------------------------
 
 def _huella(correo):
-    cuerpo = re.sub(r'\s+', ' ', (correo.cuerpo or '')).strip().lower()[:400]
+    """Remitente + cuerpo completo normalizado: dos copias del mismo correo
+    (archivado en dos carpetas) son identicas letra por letra. No se usa
+    solo el arranque del cuerpo: los GSA repiten el mismo encabezado en
+    todas sus respuestas y dos tarifas distintas parecerian una."""
+    cuerpo = re.sub(r'\s+', ' ', (correo.cuerpo or '')).strip().lower()
     pdfs = tuple(sorted((a.nombre or '').lower() for a in (correo.adjuntos or [])
                         if (a.nombre or '').lower().endswith('.pdf')))
     return ((correo.remitente or '').lower(), cuerpo), pdfs
 
 
+def _asunto_base(asunto):
+    return re.sub(r'^\s*((re|rv|fw|fwd)\s*:\s*)+', '', (asunto or '').strip(), flags=re.I).strip().lower()
+
+
 def correos_repetidos(correos):
     """{mail_id repetido: mail_id original}. Original = el de id mas bajo.
-    Dos correos son el mismo si coinciden remitente y las primeras lineas
-    del cuerpo, o si traen la misma carta PDF adjunta (los reenvios
-    internos de un aviso de fuel)."""
+    Dos correos son el mismo si coinciden remitente y cuerpo completo, o si
+    son el mismo aviso (mismo asunto sin RE:/RV:) con la misma carta PDF
+    adjunta: los reenvios internos de un aviso de fuel."""
     por_cuerpo, por_pdf, salida = {}, {}, {}
     for mail_id in sorted(correos):
         c = correos[mail_id]
         (clave_cuerpo, pdfs) = _huella(c)
+        clave_pdf = (_asunto_base(c.asunto), pdfs) if pdfs else None
         original = None
         if clave_cuerpo[1] and clave_cuerpo in por_cuerpo:
             original = por_cuerpo[clave_cuerpo]
-        elif pdfs and pdfs in por_pdf:
-            original = por_pdf[pdfs]
+        elif clave_pdf and clave_pdf in por_pdf:
+            original = por_pdf[clave_pdf]
         if original is not None:
             salida[mail_id] = original
             continue
         if clave_cuerpo[1]:
             por_cuerpo.setdefault(clave_cuerpo, mail_id)
-        if pdfs:
-            por_pdf.setdefault(pdfs, mail_id)
+        if clave_pdf:
+            por_pdf.setdefault(clave_pdf, mail_id)
     return salida
 
 
@@ -328,7 +348,8 @@ def validar_lote(hallazgos, correos, snapshot):
 
         # 1. La aerolinea la manda el remitente.
         if correo is not None:
-            por_remitente = aerolinea_por_remitente(correo.remitente, cuerpo)
+            por_remitente = aerolinea_por_remitente(correo.remitente, cuerpo,
+                                                    getattr(correo, 'carpeta', ''), getattr(correo, 'asunto', ''))
             actual = _norm_aero(h.get('aerolinea') or detalle.get('aerolinea'))
             if por_remitente and actual != _norm_aero(por_remitente):
                 inf.log.append(f'{etiqueta}: el remitente es de {por_remitente}, no de {h.get("aerolinea") or "(sin aerolinea)"}; se corrige.')

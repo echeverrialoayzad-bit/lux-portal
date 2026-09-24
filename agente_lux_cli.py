@@ -449,11 +449,17 @@ def _motivo_no_aplicable(h, correos):
     # Vale la respuesta a una solicitud de cualquiera de FreightWise (Daniela,
     # Johana, Felipe, Monica): los correos guardados antes de este cambio
     # solo marcaban las de Daniela, por eso se vuelve a mirar el cuerpo.
+    # Y vale tambien el comunicado que una aerolinea o su GSA manda por su
+    # cuenta con tarifas nuevas (Daniela lo pidio el 2026-09-23: "los que me
+    # envian directo con las tarifas actualizadas"). Lo que no vale es un
+    # reenvio interno o un correo de alguien que no es aerolinea.
     from lux_portal.agente_lux import validadores
-    if not correo.respuesta_mia and not validadores.es_respuesta_freightwise(correo.cuerpo):
-        return (f'No se aplica: el correo "{asunto}" no es respuesta a una '
-                f'solicitud de tarifas de FreightWise. Si te interesa, pidele '
-                f'la tarifa a la aerolinea y se actualiza con su respuesta.')
+    es_respuesta = correo.respuesta_mia or validadores.es_respuesta_freightwise(correo.cuerpo)
+    es_aerolinea = validadores.aerolinea_por_remitente(
+        correo.remitente, correo.cuerpo, correo.carpeta, correo.asunto) is not None
+    if not es_respuesta and not es_aerolinea:
+        return (f'No se aplica: el correo "{asunto}" no viene de una aerolinea '
+                f'ni es respuesta a una solicitud de tarifas de FreightWise.')
     return None
 
 

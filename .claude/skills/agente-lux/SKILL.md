@@ -69,12 +69,16 @@ igual.
 
 - `respuesta_a_mi_solicitud: true` → puedes proponer `tipo: "tarifa"`, con
   `confianza: "alta"` si el número está explícito.
-- `respuesta_a_mi_solicitud: false` → **no propongas `tarifa`**, aunque el
-  correo traiga una tabla de tarifas. Un comunicado que la aerolínea manda por
-  su cuenta ("INCREMENTO TARIFA AMS", "Actualización tarifaria") no se aplica:
-  repórtalo como `tipo: "info"` con la cifra en la `descripcion`, y en el
-  correo pon `requiere_accion: true` con un tema tipo "Pedir tarifa
-  actualizada a LUFTHANSA para AMS". Así Daniela lo ve y hace su solicitud.
+- `respuesta_a_mi_solicitud: false` pero el correo lo manda la aerolínea o su
+  GSA por su cuenta con tarifas nuevas ("INCREMENTO TARIFA AMS", "Actualización
+  tarifaria", "tarifa aplicable a partir del 01OCT", "All in rate") → **también
+  es `tipo: "tarifa"`** (Daniela quiere ver los comunicados directos igual que
+  las respuestas). Di en la `descripcion` que es un comunicado y no una
+  respuesta, y pon `vigencia_desde` si trae fecha. Si el comunicado trae una
+  tarifa "all in", la neta es la parte BSA/base y el FSC va aparte como `fsc`.
+- `respuesta_a_mi_solicitud: false` y el correo es un reenvío interno de
+  FreightWise (RV:/FW: de Pahola, Ignacio, Daniela) → `info`: el original de
+  la aerolínea ya entró por su lado.
 
 `cargar` hace cumplir esto por su cuenta: un `tarifa` que venga de un correo
 que no es respuesta suya se guarda como `info` con una alerta, y nunca se
