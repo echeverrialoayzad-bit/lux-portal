@@ -461,20 +461,33 @@ def _hay_solicitud(app):
 DIAS_MAX_ATRAS = 10
 
 
+# Cuantos dias hacia atras se releen SIEMPRE, aunque la ultima lectura haya
+# sido hace un minuto. Outlook no baja el correo en orden: al prender la PC
+# en la manana, el vigia leia "desde la ultima lectura" antes de que Outlook
+# terminara de sincronizar la noche anterior, daba la lectura por hecha y
+# los correos de la tarde/noche del dia anterior quedaban fuera para
+# siempre. Asi se perdieron el 21 y 22 de septiembre de 2026 la correccion
+# del FSC de Emirates, su carta oficial y los dos avisos de tarifas de LATAM.
+# Releer tres dias cuesta poco: lo ya guardado se salta por su id antes de
+# bajar el cuerpo.
+DIAS_RELECTURA = 3
+
+
 def _dia_desde(ultima_lectura, hoy):
     """Desde que dia hay que leer, dada la ultima lectura que se alcanzo.
 
     Logica pura y sin base de datos, para poder probarla. `ultima_lectura` es
-    una fecha (date) o None."""
+    una fecha (date) o None. Nunca menos de DIAS_RELECTURA dias atras."""
+    colchon = hoy - timedelta(days=DIAS_RELECTURA)
     if not ultima_lectura or ultima_lectura >= hoy:
-        return hoy
+        return colchon
     tope = hoy - timedelta(days=DIAS_MAX_ATRAS)
     if ultima_lectura < tope:
         log(f'La ultima lectura fue el {ultima_lectura}: son mas de '
             f'{DIAS_MAX_ATRAS} dias. Se leen los ultimos {DIAS_MAX_ATRAS}; '
             f'para lo anterior, usa el boton del portal con ese rango.')
         return tope
-    return ultima_lectura
+    return min(ultima_lectura, colchon)
 
 
 def _desde_ultimo_scan(app, hoy):
