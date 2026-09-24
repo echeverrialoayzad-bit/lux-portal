@@ -78,7 +78,15 @@ igual.
   tarifa "all in", la neta es la parte BSA/base y el FSC va aparte como `fsc`.
 - `respuesta_a_mi_solicitud: false` y el correo es un reenvío interno de
   FreightWise (RV:/FW: de Pahola, Ignacio, Daniela) → `info`: el original de
-  la aerolínea ya entró por su lado.
+  la aerolínea ya entró por su lado. Si el original no está en la tanda (a
+  veces Outlook lo baja tarde), trata el reenvío como si fuera el original.
+- Un incremento general ("+0.10/kg sobre las tarifas vigentes con destino
+  Europa desde el 1 de octubre", "Cargo Rate Adjustment Notice") **se
+  desglosa**: un hallazgo `tarifa` por cada cotización de `estado_actual`
+  donde esté esa aerolínea en esos destinos, con `tarifa_nueva` = tarifa
+  vigente + incremento, `vigencia_desde` con la fecha y la `descripcion`
+  diciendo que es un comunicado. Un solo `info` con "+0.10" no le sirve a
+  Daniela: no se puede aprobar.
 
 `cargar` hace cumplir esto por su cuenta: un `tarifa` que venga de un correo
 que no es respuesta suya se guarda como `info` con una alerta, y nunca se

@@ -43,6 +43,8 @@ _DOMINIOS = [
     ('avianca.com', 'AVIANCA'),
     ('mawneyecuador.com', 'AIR EUROPA'),
     ('solent.com', 'SOLENT'),
+    # Fenix Ecuador es GSA de Atlas para MIA (Prime Air lo es para lo demas).
+    ('fenixecuador.com', 'ATLAS'),
 ]
 # Transoceanica representa a dos aerolineas: lo decide la persona.
 _TRANSOCEANICA = {

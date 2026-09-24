@@ -15,7 +15,8 @@ QATAR).
 | Dominio / persona | Aerolínea en el portal | Notas |
 |---|---|---|
 | `@ecsgroup.aero` (Eduardo Alvarez, Susana Castillo, "CSQR - WGS EC", "QATAR - WGS EC") | **QATAR** | GSA ECS Group. Aunque esté en la carpeta AERCARIBE. |
-| `@primeair.com.ec` (Lorena Molestina, Ismael Guayasamin, Ana Emilia Garces, José Luis Sancho) y `@primeair.aero` (Jose Luis Suarez, cartas de fuel) | **EMIRATES** | GSA Prime Air. |
+| `@primeair.com.ec` (Lorena Molestina, Ismael Guayasamin, Ana Emilia Garces, José Luis Sancho, Andrés Guerrero) y `@primeair.aero` (Jose Luis Suarez, cartas de fuel) | **EMIRATES** | GSA Prime Air. Ojo: Prime Air también es GSA de **ATLAS** (Carolina Aimara, `salesatlasec@`): lo decide la carpeta (ATLAS o EMIRATES), el remitente o el texto. |
+| `@fenixecuador.com` (Catalina Castillo, "GSA for ATLAS AIR UIO") | **ATLAS** | Fénix Ecuador lleva Atlas a MIA. Cotiza "all in + AWC": FSC 0 en esa ruta. |
 | `@kales.com` ("KASEC-CUSTOMERCARE.UIO", David Manzano, Colleen Aguilar) | **TURKISH** | GSA Kales. |
 | `@flyus.aero` (Lissette Pereira, "AC Cargo UIO") | **AIR CANADA** | GSA Flyus. |
 | `@transoceanica.com.ec` Karina Cazar, Joe Proaño | **LUFTHANSA** | Transoceánica representa a dos aerolíneas: mira la persona. |
